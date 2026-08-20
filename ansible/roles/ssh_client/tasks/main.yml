@@ -1,0 +1,46 @@
+- name: Ensure SSH directory exists
+  ansible.builtin.file:
+    path: "{{ workstation_home }}/.ssh"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0700"
+
+- name: Ensure SSH config include directory exists
+  ansible.builtin.file:
+    path: "{{ workstation_home }}/.ssh/config.d"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0700"
+
+- name: Check base SSH config
+  ansible.builtin.stat:
+    path: "{{ workstation_home }}/.ssh/config"
+  register: ssh_base_config
+
+- name: Remove managed host blocks from base SSH config
+  ansible.builtin.replace:
+    path: "{{ workstation_home }}/.ssh/config"
+    regexp: '(?m)^Host[ \t]+{{ item.host | regex_escape() }}(?:[ \t].*)?\n(?:[ \t]+.*\n|[ \t]*\n)*'
+    replace: ''
+  loop: "{{ ssh_hosts }}"
+  when: ssh_base_config.stat.exists
+
+- name: Ensure SSH config includes managed snippets first
+  ansible.builtin.lineinfile:
+    path: "{{ workstation_home }}/.ssh/config"
+    create: true
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0600"
+    line: "Include ~/.ssh/config.d/*.conf"
+    insertbefore: BOF
+
+- name: Render workstation SSH host config snippet
+  ansible.builtin.template:
+    src: ssh_config_block.j2
+    dest: "{{ workstation_home }}/.ssh/config.d/workstation.conf"
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0600"

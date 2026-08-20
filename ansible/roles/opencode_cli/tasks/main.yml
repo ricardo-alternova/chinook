@@ -1,0 +1,27 @@
+- name: Ensure OpenCode CLI install dependencies are present
+  ansible.builtin.package:
+    name:
+      - curl
+      - tar
+    state: present
+  become: true
+
+- name: Install or update OpenCode CLI with official installer
+  ansible.builtin.shell: curl -fsSL https://opencode.ai/install | bash -s -- --no-modify-path
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ workstation_user }}"
+  environment:
+    HOME: "{{ workstation_home }}"
+  register: opencode_cli_install_result
+  changed_when: "'already installed' not in opencode_cli_install_result.stdout"
+
+- name: Ensure OpenCode CLI is on zsh PATH
+  ansible.builtin.lineinfile:
+    path: "{{ workstation_home }}/.zshrc"
+    create: true
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0644"
+    line: 'export PATH="$HOME/.opencode/bin:$PATH"'

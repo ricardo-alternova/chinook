@@ -1,0 +1,99 @@
+- name: Read GNOME dark color scheme
+  ansible.builtin.command: gsettings get org.gnome.desktop.interface color-scheme
+  register: gnome_current_color_scheme
+  changed_when: false
+  check_mode: false
+
+- name: Set GNOME dark color scheme
+  ansible.builtin.command: "gsettings set org.gnome.desktop.interface color-scheme '{{ gnome_color_scheme }}'"
+  when: gnome_current_color_scheme.stdout != "'" + gnome_color_scheme + "'"
+
+- name: Read GNOME GTK theme
+  ansible.builtin.command: gsettings get org.gnome.desktop.interface gtk-theme
+  register: gnome_current_gtk_theme
+  changed_when: false
+  check_mode: false
+
+- name: Set GNOME GTK theme
+  ansible.builtin.command: "gsettings set org.gnome.desktop.interface gtk-theme '{{ gnome_gtk_theme }}'"
+  when: gnome_current_gtk_theme.stdout != "'" + gnome_gtk_theme + "'"
+
+- name: Read GNOME default screenshot UI binding
+  ansible.builtin.command: gsettings get org.gnome.shell.keybindings show-screenshot-ui
+  register: gnome_current_screenshot_ui
+  changed_when: false
+  check_mode: false
+
+- name: Disable GNOME default Print screenshot UI
+  ansible.builtin.command: gsettings set org.gnome.shell.keybindings show-screenshot-ui "[]"
+  when: gnome_current_screenshot_ui.stdout != "@as []" and gnome_current_screenshot_ui.stdout != "[]"
+
+- name: Read custom keybinding paths
+  ansible.builtin.command: gsettings get org.gnome.settings-daemon.plugins.media-keys custom-keybindings
+  register: gnome_current_custom_keybindings
+  changed_when: false
+  check_mode: false
+
+- name: Parse custom keybinding paths
+  ansible.builtin.set_fact:
+    gnome_custom_keybinding_paths: >-
+      {{ [] if gnome_current_custom_keybindings.stdout in ['@as []', '[]'] else (gnome_current_custom_keybindings.stdout | from_yaml) }}
+
+- name: Build desired custom keybinding paths
+  ansible.builtin.set_fact:
+    gnome_desired_custom_keybinding_paths: "{{ (gnome_custom_keybinding_paths + [flameshot_keybinding_path]) | unique | list }}"
+
+- name: Register Flameshot custom keybinding path
+  ansible.builtin.command:
+    argv:
+      - gsettings
+      - set
+      - org.gnome.settings-daemon.plugins.media-keys
+      - custom-keybindings
+      - "{{ gnome_desired_custom_keybinding_paths | to_json }}"
+  when: gnome_custom_keybinding_paths != gnome_desired_custom_keybinding_paths
+
+- name: Read Flameshot keybinding name
+  ansible.builtin.command: >
+    gsettings get org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:{{ flameshot_keybinding_path }}
+    name
+  register: flameshot_current_name
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Set Flameshot keybinding name
+  ansible.builtin.command: >
+    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:{{ flameshot_keybinding_path }}
+    name '{{ flameshot_keybinding_name }}'
+  when: flameshot_current_name.stdout != "'" + flameshot_keybinding_name + "'"
+
+- name: Read Flameshot keybinding command
+  ansible.builtin.command: >
+    gsettings get org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:{{ flameshot_keybinding_path }}
+    command
+  register: flameshot_current_command
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Set Flameshot keybinding command
+  ansible.builtin.command: >
+    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:{{ flameshot_keybinding_path }}
+    command '{{ flameshot_keybinding_command }}'
+  when: flameshot_current_command.stdout != "'" + flameshot_keybinding_command + "'"
+
+- name: Read Flameshot keybinding binding
+  ansible.builtin.command: >
+    gsettings get org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:{{ flameshot_keybinding_path }}
+    binding
+  register: flameshot_current_binding
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Bind configured shortcut to Flameshot
+  ansible.builtin.command: >
+    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:{{ flameshot_keybinding_path }}
+    binding '{{ flameshot_keybinding_binding }}'
+  when: flameshot_current_binding.stdout != "'" + flameshot_keybinding_binding + "'"

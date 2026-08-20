@@ -1,0 +1,17 @@
+{% for ssh_host in ssh_hosts %}
+Host {{ ssh_host.host }}
+    HostName {{ ssh_host.hostname }}
+    User {{ ssh_host.user }}
+    IdentityFile {{ ssh_host.identity_file }}
+{% if ssh_host.port is defined %}
+    Port {{ ssh_host.port }}
+{% endif %}
+{% if ssh_host.server_alive_interval is defined %}
+    ServerAliveInterval {{ ssh_host.server_alive_interval }}
+{% endif %}
+{% if ssh_host.server_alive_count_max is defined %}
+    ServerAliveCountMax {{ ssh_host.server_alive_count_max }}
+{% endif %}
+    IdentitiesOnly yes
+
+{% endfor %}

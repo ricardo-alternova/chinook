@@ -1,0 +1,14 @@
+- name: Ensure Snap applications are installed
+  ansible.builtin.shell: |
+    if snap list "{{ item }}" >/dev/null 2>&1; then
+      printf 'already installed\n'
+    else
+      snap install "{{ item }}"
+    fi
+  args:
+    executable: /bin/bash
+  become: true
+  loop: "{{ (snap_packages + snap_packages_extra) | unique | list }}"
+  register: snap_install_result
+  changed_when: "'already installed' not in snap_install_result.stdout"
+  when: (snap_packages + snap_packages_extra) | length > 0

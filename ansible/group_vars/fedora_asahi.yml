@@ -1,0 +1,99 @@
+install_packages: true
+install_flatpak_apps: true
+install_zed: true
+
+configure_timeshift: true
+configure_ssh: false
+configure_kde: true
+
+dnf_install_allowerasing: true
+dnf_packages:
+  - ansible
+  - chromium
+  - curl
+  - ffmpeg
+  - ffmpegthumbnailer
+  - flameshot
+  - git
+  - gstreamer1-libav
+  - gstreamer1-plugin-openh264
+  - gstreamer1-plugins-bad-free-extras
+  - gstreamer1-plugins-bad-free
+  - gstreamer1-plugins-bad-freeworld
+  - gstreamer1-plugins-good
+  - gstreamer1-plugins-good-extras
+  - gstreamer1-plugins-ugly
+  - jq
+  - kitty
+  - lame
+  - lame-libs
+  - libavcodec-freeworld
+  - mozilla-openh264
+  - openh264
+  - pipewire-codec-aptx
+  - starship
+  - zsh
+  - zsh-autosuggestions
+  - zsh-syntax-highlighting
+
+dnf_remove_packages:
+  - aisleriot
+  - bovo
+  - five-or-more
+  - four-in-a-row
+  - granatier
+  - gnome-chess
+  - gnome-klotski
+  - gnome-mahjongg
+  - gnome-maps
+  - gnome-mines
+  - gnome-nibbles
+  - gnome-robots
+  - gnome-sudoku
+  - gnome-taquin
+  - gnome-tetravex
+  - gnome-tour
+  - gnome-weather
+  - hitori
+  - iagno
+  - kajongg
+  - kapman
+  - katomic
+  - kblocks
+  - kmahjongg
+  - kmines
+  - knavalbattle
+  - knetwalk
+  - kolf
+  - kollision
+  - konquest
+  - kpat
+  - ksquares
+  - ksudoku
+  - kubrick
+  - kweather
+  - lightsoff
+  - libreoffice*
+  - lskat
+  - marble
+  - palapeli
+  - picmi
+  - plasma-welcome
+  - quadrapassel
+  - swell-foop
+  - tali
+
+rpmfusion_release_packages:
+  - "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-{{ ansible_distribution_major_version }}.noarch.rpm"
+  - "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-{{ ansible_distribution_major_version }}.noarch.rpm"
+
+flatpak_packages:
+  - org.onlyoffice.desktopeditors
+  - org.localsend.localsend_app
+
+kde_color_scheme: BreezeDark
+kde_look_and_feel_package: org.kde.breezedark.desktop
+kde_flameshot_name: Flameshot Screenshot
+kde_flameshot_command: flameshot gui
+kde_flameshot_shortcut: Meta+Shift+4
+kde_flameshot_desktop_file: "{{ workstation_home }}/.local/share/applications/flameshot-gui.desktop"

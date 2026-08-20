@@ -1,0 +1,61 @@
+install_packages: true
+install_snap_apps: true
+install_onedrive: true
+install_mangohud: true
+install_zed: true
+install_balena_etcher: false
+
+configure_timeshift: true
+configure_ssh: false
+configure_gnome: true
+configure_keychron: false
+configure_teams_pwa: false
+configure_desktop_shortcuts: false
+
+apt_google_chrome_enabled: true
+apt_packages:
+  - ansible
+  - gimp
+  - git
+  - heif-gdk-pixbuf
+  - heif-thumbnailer
+  - jq
+  - libheif-examples
+  - libheif-plugins-all
+  - onedrive
+  - flameshot
+  - ffmpeg
+  - kitty
+  - gstreamer1.0-libav
+  - gstreamer1.0-plugins-bad
+  - gstreamer1.0-plugins-good
+  - gstreamer1.0-plugins-ugly
+  - gstreamer1.0-vaapi
+  - mangohud
+  - google-chrome-stable
+  - starship
+  - steam-installer
+  - wl-clipboard
+  - wtype
+  - xournalpp
+  - zsh
+  - zsh-autosuggestions
+  - zsh-syntax-highlighting
+
+apt_foreign_architectures:
+  - i386
+
+snap_packages:
+  - discord
+  - onlyoffice-desktopeditors
+  - spotify
+  - localsend
+  - zapzap
+
+balena_etcher_version: "2.1.6"
+balena_etcher_archive_url: "https://github.com/balena-io/etcher/releases/download/v{{ balena_etcher_version }}/balenaEtcher-linux-x64-{{ balena_etcher_version }}.zip"
+balena_etcher_archive_checksum: sha256:31755fc7992058738297ab633bc60f75999f34db94680cd6ca4c9da222bd4f75
+balena_etcher_archive_path: "/tmp/balenaEtcher-linux-x64-{{ balena_etcher_version }}.zip"
+balena_etcher_install_dir: "/opt/balena-etcher-{{ balena_etcher_version }}"
+balena_etcher_bin_path: /usr/local/bin/balena-etcher
+balena_etcher_desktop_file: /usr/share/applications/balena-etcher.desktop

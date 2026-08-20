@@ -1,0 +1,69 @@
+- name: Configure Ubuntu workstation
+  hosts: localhost
+  gather_facts: true
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/ubuntu.yml
+
+  pre_tasks:
+    - name: Check local workstation overrides
+      ansible.builtin.stat:
+        path: "{{ playbook_dir }}/../group_vars/local.yml"
+      register: local_workstation_vars
+      tags: always
+
+    - name: Load local workstation overrides
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../group_vars/local.yml"
+      when: local_workstation_vars.stat.exists
+      tags: always
+
+  roles:
+    - role: packages
+      tags: packages
+      when: install_packages | bool
+    - role: snaps
+      tags: snaps
+      when: install_snap_apps | bool
+    - role: timeshift
+      tags: timeshift
+      when: configure_timeshift | bool
+    - role: ssh_client
+      tags: ssh_client
+      when: configure_ssh | bool
+    - role: onedrive
+      tags: onedrive
+      when: install_onedrive | bool
+    - role: gnome
+      tags: gnome
+      when: configure_gnome | bool
+    - role: mangohud
+      tags: mangohud
+      when: install_mangohud | bool
+    - role: opencode_cli
+      tags: opencode_cli
+      when: install_opencode_cli | bool
+    - role: opencode_desktop
+      tags: opencode_desktop
+      when: install_opencode_desktop | bool
+    - role: codex_cli
+      tags: codex_cli
+      when: install_codex_cli | bool
+    - role: t3_code
+      tags: t3_code
+      when: install_t3_code | bool
+    - role: keychron
+      tags: keychron
+      when: configure_keychron | bool
+    - role: zed
+      tags: zed
+      when: install_zed | bool
+    - role: balena_etcher
+      tags: balena_etcher
+      when: install_balena_etcher | bool
+    - role: teams_pwa
+      tags: teams_pwa
+      when: configure_teams_pwa | bool
+    - role: desktop_shortcuts
+      tags: desktop_shortcuts
+      when: configure_desktop_shortcuts | bool

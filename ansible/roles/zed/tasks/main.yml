@@ -1,0 +1,48 @@
+- name: Check Zed installation
+  ansible.builtin.stat:
+    path: "{{ zed_install_path }}"
+  register: zed_binary
+
+- name: Install Zed with official installer when missing
+  ansible.builtin.shell: curl -f https://zed.dev/install.sh | sh
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ workstation_user }}"
+  when: not zed_binary.stat.exists
+
+- name: Ensure Zed config directory exists
+  ansible.builtin.file:
+    path: "{{ workstation_home }}/.config/zed"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0755"
+
+- name: Check Zed settings file
+  ansible.builtin.stat:
+    path: "{{ zed_settings_path }}"
+  register: zed_settings
+
+- name: Create default Zed settings when missing
+  ansible.builtin.template:
+    src: settings.json.j2
+    dest: "{{ zed_settings_path }}"
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0644"
+  when: not zed_settings.stat.exists
+
+- name: Report existing Zed settings left unchanged
+  ansible.builtin.debug:
+    msg: "Existing Zed settings were left unchanged at {{ zed_settings_path }}."
+  when: zed_settings.stat.exists
+
+- name: Ensure local bin is in zsh PATH
+  ansible.builtin.lineinfile:
+    path: "{{ workstation_home }}/.zshrc"
+    create: true
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0644"
+    line: 'export PATH="$HOME/.local/bin:$PATH"'

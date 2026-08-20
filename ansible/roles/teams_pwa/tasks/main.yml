@@ -1,0 +1,81 @@
+- name: Ensure Chrome managed policy directory exists
+  ansible.builtin.file:
+    path: "{{ teams_pwa_policy_dir }}"
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Install Microsoft Teams PWA Chrome policy
+  ansible.builtin.copy:
+    dest: "{{ teams_pwa_policy_file }}"
+    mode: "0644"
+    content: |
+      {
+        "WebAppInstallForceList": [
+          {
+            "url": "{{ teams_pwa_url }}",
+            "default_launch_container": "window",
+            "create_desktop_shortcut": true
+          }
+        ]
+      }
+  become: true
+
+- name: Ensure user application directory exists
+  ansible.builtin.file:
+    path: "{{ workstation_home }}/.local/share/applications"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0755"
+
+- name: Install Microsoft Teams PWA launcher
+  ansible.builtin.copy:
+    dest: "{{ teams_pwa_desktop_file }}"
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0644"
+    content: |
+      [Desktop Entry]
+      Version=1.0
+      Terminal=false
+      Type=Application
+      Name={{ teams_pwa_name }}
+      MimeType=x-scheme-handler/web+msteams;x-scheme-handler/google-chrome;
+      Exec={{ teams_pwa_chrome_bin }} --profile-directory={{ teams_pwa_profile_directory }} --app-id={{ teams_pwa_app_id }} %U
+      Icon={{ teams_pwa_icon_name }}
+      StartupWMClass=crx_{{ teams_pwa_app_id }}
+  register: teams_pwa_launcher_result
+
+- name: Ensure desktop directory exists
+  ansible.builtin.file:
+    path: "{{ workstation_home }}/Desktop"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0755"
+
+- name: Install Microsoft Teams PWA desktop shortcut
+  ansible.builtin.copy:
+    dest: "{{ teams_pwa_desktop_shortcut_file }}"
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0755"
+    content: |
+      [Desktop Entry]
+      Version=1.0
+      Terminal=false
+      Type=Application
+      Name={{ teams_pwa_name }}
+      Exec={{ teams_pwa_chrome_bin }} --profile-directory={{ teams_pwa_profile_directory }} --app-id={{ teams_pwa_app_id }}
+      Icon={{ teams_pwa_icon_name }}
+      StartupWMClass=crx_{{ teams_pwa_app_id }}
+
+- name: Refresh user desktop application database
+  ansible.builtin.command:
+    argv:
+      - update-desktop-database
+      - "{{ workstation_home }}/.local/share/applications"
+  changed_when: false
+  failed_when: false
+  when: teams_pwa_launcher_result.changed

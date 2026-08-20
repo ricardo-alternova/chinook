@@ -1,0 +1,99 @@
+- name: Ensure unzip is installed
+  ansible.builtin.apt:
+    name: unzip
+    state: present
+  become: true
+
+- name: Ensure Balena Etcher directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - /opt
+    - /usr/local/bin
+    - /usr/share/applications
+  become: true
+
+- name: Download Balena Etcher release archive
+  ansible.builtin.get_url:
+    url: "{{ balena_etcher_archive_url }}"
+    dest: "{{ balena_etcher_archive_path }}"
+    checksum: "{{ balena_etcher_archive_checksum }}"
+    mode: "0644"
+  become: true
+
+- name: Ensure Balena Etcher install directory exists
+  ansible.builtin.file:
+    path: "{{ balena_etcher_install_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Extract Balena Etcher release archive
+  ansible.builtin.unarchive:
+    src: "{{ balena_etcher_archive_path }}"
+    dest: "{{ balena_etcher_install_dir }}"
+    remote_src: true
+    owner: root
+    group: root
+    creates: "{{ balena_etcher_install_dir }}/balenaEtcher-linux-x64/balena-etcher"
+  become: true
+
+- name: Ensure Balena Etcher install tree is readable
+  ansible.builtin.file:
+    path: "{{ balena_etcher_install_dir }}/balenaEtcher-linux-x64"
+    owner: root
+    group: root
+    mode: a+rX
+    recurse: true
+  become: true
+
+- name: Ensure Balena Etcher executable mode
+  ansible.builtin.file:
+    path: "{{ balena_etcher_install_dir }}/balenaEtcher-linux-x64/balena-etcher"
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Configure Balena Etcher Electron sandbox
+  ansible.builtin.file:
+    path: "{{ balena_etcher_install_dir }}/balenaEtcher-linux-x64/chrome-sandbox"
+    owner: root
+    group: root
+    mode: "4755"
+  become: true
+
+- name: Link Balena Etcher into system PATH
+  ansible.builtin.file:
+    src: "{{ balena_etcher_install_dir }}/balenaEtcher-linux-x64/balena-etcher"
+    dest: "{{ balena_etcher_bin_path }}"
+    state: link
+    owner: root
+    group: root
+    force: true
+  become: true
+
+- name: Create Balena Etcher desktop launcher
+  ansible.builtin.copy:
+    dest: "{{ balena_etcher_desktop_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Desktop Entry]
+      Name=balenaEtcher
+      Comment=Flash OS images to SD cards and USB drives
+      Exec={{ balena_etcher_bin_path }} %U
+      Terminal=false
+      Type=Application
+      Icon=drive-removable-media
+      Categories=Utility;
+      StartupNotify=true
+      StartupWMClass=balenaEtcher
+  become: true

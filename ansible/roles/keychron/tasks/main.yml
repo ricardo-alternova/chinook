@@ -1,0 +1,11 @@
+- name: Install Keychron K4 Pro udev rule
+  ansible.builtin.template:
+    src: 50-keychron-k4-pro.rules.j2
+    dest: /etc/udev/rules.d/50-keychron-k4-pro.rules
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify:
+    - Reload udev rules
+    - Trigger udev rules

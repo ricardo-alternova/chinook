@@ -1,0 +1,125 @@
+---
+- name: Install FUSE 2 library required to run AppImages
+  ansible.builtin.package:
+    name: "{{ 'libfuse2t64' if ansible_facts['pkg_mgr'] == 'apt' else 'fuse-libs' }}"
+    state: present
+  become: true
+
+- name: Fetch latest T3 Code release metadata
+  ansible.builtin.uri:
+    url: https://api.github.com/repos/pingdotgg/t3code/releases/latest
+    return_content: true
+  register: t3_code_release
+
+- name: Select T3 Code x86_64 AppImage asset URL
+  ansible.builtin.set_fact:
+    t3_code_appimage_url: >-
+      {{ (t3_code_release.json.assets | selectattr('name', 'search', 'x86_64.AppImage$')
+          | list | first).browser_download_url }}
+
+- name: Ensure T3 Code installation directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ t3_code_install_dir }}"
+    - /usr/local/bin
+    - /usr/share/applications
+  become: true
+
+- name: Download T3 Code AppImage
+  ansible.builtin.get_url:
+    url: "{{ t3_code_appimage_url }}"
+    dest: "{{ t3_code_appimage_path }}"
+    mode: "0755"
+  become: true
+
+- name: Remove previous T3 Code extraction directory
+  ansible.builtin.file:
+    path: "{{ t3_code_extract_dir }}"
+    state: absent
+  become: true
+
+- name: Ensure T3 Code extraction directory exists
+  ansible.builtin.file:
+    path: "{{ t3_code_extract_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Extract T3 Code AppImage to access bundled icons
+  ansible.builtin.command:
+    argv:
+      - "{{ t3_code_appimage_path }}"
+      - --appimage-extract
+  args:
+    chdir: "{{ t3_code_extract_dir }}"
+  become: true
+
+- name: Install T3 Code icons into the system theme
+  ansible.builtin.copy:
+    src: "{{ t3_code_extract_dir }}/squashfs-root/usr/share/icons/hicolor/{{ item }}/apps/t3code.png"
+    dest: "/usr/share/icons/hicolor/{{ item }}/apps/t3code.png"
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - 16x16
+    - 22x22
+    - 24x24
+    - 32x32
+    - 48x48
+    - 64x64
+    - 128x128
+    - 256x256
+    - 512x512
+  become: true
+
+- name: Remove T3 Code extraction directory
+  ansible.builtin.file:
+    path: "{{ t3_code_extract_dir }}"
+    state: absent
+  become: true
+
+- name: Link T3 Code AppImage into PATH
+  ansible.builtin.file:
+    src: "{{ t3_code_appimage_path }}"
+    dest: "{{ t3_code_bin_path }}"
+    state: link
+    force: true
+  become: true
+
+- name: Create T3 Code desktop launcher
+  ansible.builtin.copy:
+    dest: "{{ t3_code_desktop_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Desktop Entry]
+      Name=T3 Code
+      Comment=Control your AI coding agents
+      Exec={{ t3_code_bin_path }} %U
+      Terminal=false
+      Type=Application
+      Icon=t3code
+      Categories=Development;Utility;
+      StartupNotify=true
+      StartupWMClass=t3code
+  become: true
+
+- name: Refresh T3 Code desktop database
+  ansible.builtin.command: update-desktop-database /usr/share/applications
+  become: true
+  changed_when: false
+
+- name: Refresh T3 Code icon cache
+  ansible.builtin.command: gtk-update-icon-cache /usr/share/icons/hicolor
+  become: true
+  changed_when: false

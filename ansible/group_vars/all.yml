@@ -1,0 +1,107 @@
+workstation_user: "{{ ansible_user_id }}"
+workstation_home: "{{ ansible_env.HOME }}"
+dev_dir: "{{ workstation_home }}/Documents/Dev"
+
+install_packages: false
+install_snap_apps: false
+install_flatpak_apps: false
+install_onedrive: false
+install_mangohud: false
+install_opencode_cli: false
+install_opencode_desktop: false
+install_codex_cli: false
+install_zed: false
+install_balena_etcher: false
+install_t3_code: false
+
+configure_timeshift: false
+configure_ssh: false
+configure_gnome: false
+configure_kde: false
+configure_keychron: false
+configure_teams_pwa: false
+configure_desktop_shortcuts: false
+
+apt_packages: []
+apt_packages_extra: []
+apt_foreign_architectures: []
+apt_foreign_architectures_extra: []
+apt_google_chrome_enabled: false
+
+dnf_packages: []
+dnf_packages_extra: []
+dnf_remove_packages: []
+dnf_remove_packages_keep: []
+dnf_install_allowerasing: false
+rpmfusion_release_packages: []
+
+snap_packages: []
+snap_packages_extra: []
+flatpak_packages: []
+flatpak_packages_extra: []
+flatpak_remote_name: flathub
+flatpak_remote_url: https://flathub.org/repo/flathub.flatpakrepo
+
+desktop_shortcuts: []
+
+onedrive_sync_dir: "~/OneDrive"
+onedrive_sync_list: []
+
+timeshift_enabled: true
+timeshift_package_name: timeshift
+timeshift_backup_device_uuid: auto
+timeshift_daily_count: 7
+timeshift_create_initial_snapshot: true
+timeshift_exclude:
+  - /home/*/**
+  - /root/**
+
+ssh_hosts: []
+
+gnome_color_scheme: prefer-dark
+gnome_gtk_theme: Yaru-dark
+flameshot_keybinding_path: /org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/
+flameshot_keybinding_name: Flameshot
+flameshot_keybinding_command: flameshot gui
+flameshot_keybinding_binding: Print
+
+kde_color_scheme: BreezeDark
+kde_look_and_feel_package: org.kde.breezedark.desktop
+kde_flameshot_name: Flameshot Screenshot
+kde_flameshot_command: flameshot gui
+kde_flameshot_shortcut: Meta+Shift+4
+kde_flameshot_desktop_file: "{{ workstation_home }}/.local/share/applications/flameshot-gui.desktop"
+
+keychron_vendor_id: ""
+keychron_product_id: ""
+
+zed_install_path: "{{ workstation_home }}/.local/bin/zed"
+zed_settings_path: "{{ workstation_home }}/.config/zed/settings.json"
+
+mangohud_config_path: "{{ workstation_home }}/.config/MangoHud/MangoHud.conf"
+mangohud_font_size: 30
+
+opencode_cli_install_path: "{{ workstation_home }}/.opencode/bin/opencode"
+opencode_cli_install_dir: "{{ opencode_cli_install_path | dirname }}"
+
+codex_cli_bin_path: "{{ workstation_home }}/.local/bin/codex"
+
+opencode_desktop_package_name: opencode
+opencode_desktop_release_base_url: https://github.com/anomalyco/opencode/releases/latest/download
+
+t3_code_install_dir: /opt/t3-code
+t3_code_extract_dir: /tmp/t3-code-extract
+t3_code_appimage_path: "{{ t3_code_install_dir }}/T3-Code.AppImage"
+t3_code_bin_path: /usr/local/bin/t3-code
+t3_code_desktop_file: /usr/share/applications/t3-code.desktop
+
+teams_pwa_name: Microsoft Teams (PWA)
+teams_pwa_url: "https://teams.cloud.microsoft/?clientType=pwa"
+teams_pwa_app_id: ""
+teams_pwa_profile_directory: Default
+teams_pwa_chrome_bin: /opt/google/chrome/google-chrome
+teams_pwa_policy_dir: /etc/opt/chrome/policies/managed
+teams_pwa_policy_file: "{{ teams_pwa_policy_dir }}/teams-pwa.json"
+teams_pwa_icon_name: "chrome-{{ teams_pwa_app_id }}-{{ teams_pwa_profile_directory }}"
+teams_pwa_desktop_file: "{{ workstation_home }}/.local/share/applications/{{ teams_pwa_icon_name }}.desktop"
+teams_pwa_desktop_shortcut_file: "{{ workstation_home }}/Desktop/{{ teams_pwa_icon_name }}.desktop"
