@@ -1,0 +1,126 @@
+- name: Ensure user application directory exists
+  ansible.builtin.file:
+    path: "{{ workstation_home }}/.local/share/applications"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0755"
+
+- name: Install Flameshot KDE launcher
+  ansible.builtin.copy:
+    dest: "{{ kde_flameshot_desktop_file }}"
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0644"
+    content: |
+      [Desktop Entry]
+      Type=Application
+      Name={{ kde_flameshot_name }}
+      Exec={{ kde_flameshot_command }}
+      Icon=flameshot
+      Categories=Utility;
+      X-KDE-Shortcuts={{ kde_flameshot_shortcut }}
+  register: kde_flameshot_launcher
+
+- name: Configure KDE dark theme
+  ansible.builtin.shell: |
+    if command -v kwriteconfig6 >/dev/null 2>&1; then
+      writer=kwriteconfig6
+      reader=kreadconfig6
+    elif command -v kwriteconfig5 >/dev/null 2>&1; then
+      writer=kwriteconfig5
+      reader=kreadconfig5
+    else
+      printf 'KDE config tools are not installed\n'
+      exit 0
+    fi
+
+    changed=0
+    current_scheme="$($reader --file kdeglobals --group General --key ColorScheme 2>/dev/null || true)"
+    if [ "$current_scheme" != "{{ kde_color_scheme }}" ]; then
+      "$writer" --file kdeglobals --group General --key ColorScheme "{{ kde_color_scheme }}"
+      changed=1
+    fi
+
+    current_package="$($reader --file kdeglobals --group KDE --key LookAndFeelPackage 2>/dev/null || true)"
+    if [ "$current_package" != "{{ kde_look_and_feel_package }}" ]; then
+      "$writer" --file kdeglobals --group KDE --key LookAndFeelPackage "{{ kde_look_and_feel_package }}"
+      changed=1
+    fi
+
+    if [ "$changed" -eq 1 ]; then
+      printf 'changed\n'
+    else
+      printf 'unchanged\n'
+    fi
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ workstation_user }}"
+  environment:
+    HOME: "{{ workstation_home }}"
+  register: kde_theme_result
+  changed_when: "'changed' in kde_theme_result.stdout"
+
+- name: Configure Flameshot KDE global shortcut
+  ansible.builtin.shell: |
+    if command -v kwriteconfig6 >/dev/null 2>&1; then
+      writer=kwriteconfig6
+      reader=kreadconfig6
+    elif command -v kwriteconfig5 >/dev/null 2>&1; then
+      writer=kwriteconfig5
+      reader=kreadconfig5
+    else
+      printf 'KDE config tools are not installed\n'
+      exit 0
+    fi
+
+    desired='{{ kde_flameshot_shortcut }},{{ kde_flameshot_shortcut }},{{ kde_flameshot_name }}'
+    current="$($reader --file kglobalshortcutsrc --group flameshot-gui.desktop --key _launch 2>/dev/null || true)"
+    if [ "$current" != "$desired" ]; then
+      "$writer" --file kglobalshortcutsrc --group flameshot-gui.desktop --key _launch "$desired"
+      printf 'changed\n'
+    else
+      printf 'unchanged\n'
+    fi
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ workstation_user }}"
+  environment:
+    HOME: "{{ workstation_home }}"
+  register: kde_flameshot_shortcut_result
+  changed_when: "'changed' in kde_flameshot_shortcut_result.stdout"
+
+- name: Refresh KDE service cache
+  ansible.builtin.shell: |
+    if command -v kbuildsycoca6 >/dev/null 2>&1; then
+      kbuildsycoca6
+    elif command -v kbuildsycoca5 >/dev/null 2>&1; then
+      kbuildsycoca5
+    fi
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ workstation_user }}"
+  environment:
+    HOME: "{{ workstation_home }}"
+  changed_when: false
+  when: kde_flameshot_launcher.changed or kde_flameshot_shortcut_result.changed
+
+- name: Ask KDE global shortcut daemon to reload config
+  ansible.builtin.shell: |
+    if command -v qdbus6 >/dev/null 2>&1; then
+      qdbus6 org.kde.kglobalaccel /kglobalaccel org.kde.KGlobalAccel.reloadConfig
+    elif command -v qdbus >/dev/null 2>&1; then
+      qdbus org.kde.kglobalaccel /kglobalaccel org.kde.KGlobalAccel.reloadConfig
+    fi
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ workstation_user }}"
+  environment:
+    HOME: "{{ workstation_home }}"
+  changed_when: false
+  failed_when: false
+  when: kde_flameshot_shortcut_result.changed

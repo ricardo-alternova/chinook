@@ -1,0 +1,67 @@
+# Copy this file to ansible/group_vars/local.yml and edit it for your machine.
+# local.yml is ignored by git and is loaded after the selected distro profile.
+
+workstation_user: your-user
+workstation_home: /home/your-user
+
+# Feature toggles. Distro profiles provide opinionated defaults; local.yml can override them.
+install_packages: true
+install_snap_apps: false
+install_flatpak_apps: false
+install_onedrive: false
+install_mangohud: false
+install_opencode_cli: false
+install_opencode_desktop: false
+install_codex_cli: false
+install_zed: true
+install_balena_etcher: false
+install_t3_code: false
+
+configure_timeshift: true
+configure_ssh: false
+configure_gnome: false
+configure_kde: false
+configure_keychron: false
+configure_teams_pwa: false
+configure_desktop_shortcuts: false
+
+# Personal additions that do not replace the profile package lists.
+apt_packages_extra: []
+apt_foreign_architectures_extra: []
+dnf_packages_extra: []
+dnf_remove_packages_keep: []
+snap_packages_extra: []
+flatpak_packages_extra: []
+
+# Optional SSH config snippets.
+ssh_hosts:
+  - host: github.com
+    hostname: github.com
+    user: git
+    identity_file: ~/.ssh/id_ed25519_github
+
+# Optional OneDrive settings.
+onedrive_sync_dir: "~/OneDrive"
+onedrive_sync_list: []
+
+# Optional desktop symlinks.
+desktop_shortcuts: []
+
+# Optional Keychron or other keyboard udev settings.
+keychron_vendor_id: ""
+keychron_product_id: ""
+
+# Optional MangoHud settings.
+mangohud_font_size: 30
+
+# Optional Teams PWA settings. Values are Chrome profile/app specific.
+teams_pwa_name: Microsoft Teams (PWA)
+teams_pwa_url: "https://teams.cloud.microsoft/?clientType=pwa"
+teams_pwa_app_id: ""
+teams_pwa_profile_directory: Default
+teams_pwa_chrome_bin: /opt/google/chrome/google-chrome
+teams_pwa_policy_dir: /etc/opt/chrome/policies/managed
+teams_pwa_policy_file: "{{ teams_pwa_policy_dir }}/teams-pwa.json"
+teams_pwa_icon_name: "chrome-{{ teams_pwa_app_id }}-{{ teams_pwa_profile_directory }}"
+teams_pwa_desktop_file: "{{ workstation_home }}/.local/share/applications/{{ teams_pwa_icon_name }}.desktop"
+teams_pwa_desktop_shortcut_file: "{{ workstation_home }}/Desktop/{{ teams_pwa_icon_name }}.desktop"

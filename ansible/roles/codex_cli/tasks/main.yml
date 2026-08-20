@@ -1,0 +1,29 @@
+- name: Ensure Codex CLI install dependencies are present
+  ansible.builtin.package:
+    name:
+      - curl
+      - tar
+    state: present
+  become: true
+
+- name: Check installed Codex CLI version
+  ansible.builtin.command: "{{ codex_cli_bin_path }} --version"
+  register: codex_cli_before_version
+  changed_when: false
+  failed_when: false
+
+- name: Install or update Codex CLI with official installer
+  ansible.builtin.shell: curl -fsSL https://chatgpt.com/codex/install.sh | sh
+  args:
+    executable: /bin/sh
+  become: true
+  become_user: "{{ workstation_user }}"
+  environment:
+    HOME: "{{ workstation_home }}"
+    CODEX_NON_INTERACTIVE: "true"
+  changed_when: false
+
+- name: Verify Codex CLI version
+  ansible.builtin.command: "{{ codex_cli_bin_path }} --version"
+  register: codex_cli_after_version
+  changed_when: codex_cli_before_version.stdout != codex_cli_after_version.stdout

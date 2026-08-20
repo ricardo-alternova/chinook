@@ -1,0 +1,3 @@
+ansible/group_vars/local.yml
+__pycache__/
+tools/__pycache__/

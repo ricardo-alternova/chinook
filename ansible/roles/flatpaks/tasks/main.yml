@@ -1,0 +1,28 @@
+- name: Ensure Flatpak is installed
+  ansible.builtin.package:
+    name: flatpak
+    state: present
+  become: true
+  when: (flatpak_packages + flatpak_packages_extra) | length > 0
+
+- name: Add Flathub remote
+  ansible.builtin.command: >
+    flatpak remote-add --if-not-exists {{ flatpak_remote_name }} {{ flatpak_remote_url }}
+  become: true
+  changed_when: false
+  when: (flatpak_packages + flatpak_packages_extra) | length > 0
+
+- name: Install Flatpak applications
+  ansible.builtin.shell: |
+    if flatpak info --system "{{ item }}" >/dev/null 2>&1; then
+      printf 'already installed\n'
+    else
+      flatpak install --system -y "{{ flatpak_remote_name }}" "{{ item }}"
+    fi
+  args:
+    executable: /bin/bash
+  become: true
+  loop: "{{ (flatpak_packages + flatpak_packages_extra) | unique | list }}"
+  register: flatpak_install_result
+  changed_when: "'already installed' not in flatpak_install_result.stdout"
+  when: (flatpak_packages + flatpak_packages_extra) | length > 0

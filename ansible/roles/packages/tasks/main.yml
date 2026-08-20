@@ -1,0 +1,86 @@
+- name: Ensure APT key directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+  become: true
+  when:
+    - ansible_facts['pkg_mgr'] == 'apt'
+    - apt_google_chrome_enabled | bool
+
+- name: Install Google Chrome apt signing key
+  ansible.builtin.get_url:
+    url: https://dl.google.com/linux/linux_signing_key.pub
+    dest: /etc/apt/keyrings/google-chrome.asc
+    mode: "0644"
+  become: true
+  when:
+    - ansible_facts['pkg_mgr'] == 'apt'
+    - apt_google_chrome_enabled | bool
+
+- name: Configure Google Chrome apt repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/google-chrome.list
+    mode: "0644"
+    content: |
+      deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.asc] https://dl.google.com/linux/chrome/deb/ stable main
+  become: true
+  when:
+    - ansible_facts['pkg_mgr'] == 'apt'
+    - apt_google_chrome_enabled | bool
+
+- name: Check enabled foreign architectures
+  ansible.builtin.command: dpkg --print-foreign-architectures
+  register: enabled_foreign_architectures
+  changed_when: false
+  when:
+    - ansible_facts['pkg_mgr'] == 'apt'
+    - (apt_foreign_architectures + apt_foreign_architectures_extra) | length > 0
+
+- name: Enable required foreign architectures
+  ansible.builtin.command: dpkg --add-architecture {{ item }}
+  become: true
+  loop: "{{ (apt_foreign_architectures + apt_foreign_architectures_extra) | unique | list }}"
+  when:
+    - ansible_facts['pkg_mgr'] == 'apt'
+    - item not in enabled_foreign_architectures.stdout_lines
+
+- name: Install APT packages
+  ansible.builtin.apt:
+    name: "{{ (apt_packages + apt_packages_extra) | unique | list }}"
+    state: present
+    update_cache: true
+  become: true
+  when:
+    - ansible_facts['pkg_mgr'] == 'apt'
+    - (apt_packages + apt_packages_extra) | length > 0
+
+- name: Enable RPM Fusion repositories
+  ansible.builtin.dnf:
+    name: "{{ rpmfusion_release_packages }}"
+    state: present
+    disable_gpg_check: true
+  become: true
+  when:
+    - ansible_facts['pkg_mgr'] in ['dnf', 'dnf5']
+    - rpmfusion_release_packages | length > 0
+
+- name: Remove DNF packages
+  ansible.builtin.dnf:
+    name: "{{ dnf_remove_packages | difference(dnf_remove_packages_keep) | list }}"
+    state: absent
+  become: true
+  when:
+    - ansible_facts['pkg_mgr'] in ['dnf', 'dnf5']
+    - (dnf_remove_packages | difference(dnf_remove_packages_keep) | list) | length > 0
+
+- name: Install DNF packages
+  ansible.builtin.dnf:
+    name: "{{ (dnf_packages + dnf_packages_extra) | unique | list }}"
+    state: present
+    update_cache: true
+    allowerasing: "{{ dnf_install_allowerasing }}"
+  become: true
+  when:
+    - ansible_facts['pkg_mgr'] in ['dnf', 'dnf5']
+    - (dnf_packages + dnf_packages_extra) | length > 0

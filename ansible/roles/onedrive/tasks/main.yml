@@ -1,0 +1,49 @@
+- name: Ensure OneDrive config directory exists
+  ansible.builtin.file:
+    path: "{{ workstation_home }}/.config/onedrive"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0700"
+
+- name: Render OneDrive config
+  ansible.builtin.template:
+    src: config.j2
+    dest: "{{ workstation_home }}/.config/onedrive/config"
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0600"
+
+- name: Render OneDrive selective sync list
+  ansible.builtin.template:
+    src: sync_list.j2
+    dest: "{{ workstation_home }}/.config/onedrive/sync_list"
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0600"
+
+- name: Ensure OneDrive sync root exists
+  ansible.builtin.file:
+    path: "{{ workstation_home }}/OneDrive"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0700"
+
+- name: Check OneDrive authentication token
+  ansible.builtin.stat:
+    path: "{{ workstation_home }}/.config/onedrive/refresh_token"
+  register: onedrive_refresh_token
+
+- name: Enable and start OneDrive user service when authenticated
+  ansible.builtin.systemd:
+    name: onedrive.service
+    enabled: true
+    state: started
+    scope: user
+  when: onedrive_refresh_token.stat.exists
+
+- name: Report OneDrive manual authentication requirement
+  ansible.builtin.debug:
+    msg: "OneDrive is configured but not authenticated. Run 'onedrive' as {{ workstation_user }} and complete the Microsoft OAuth flow."
+  when: not onedrive_refresh_token.stat.exists

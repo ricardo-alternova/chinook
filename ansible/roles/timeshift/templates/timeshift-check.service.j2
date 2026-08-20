@@ -1,0 +1,7 @@
+[Unit]
+Description=Timeshift scheduled snapshot check
+Documentation=man:timeshift(1)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/timeshift --check --scripted --snapshot-device {{ timeshift_resolved_backup_device_uuid }}

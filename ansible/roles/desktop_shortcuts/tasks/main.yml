@@ -1,0 +1,17 @@
+- name: Ensure desktop directory exists
+  ansible.builtin.file:
+    path: "{{ workstation_home }}/Desktop"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0755"
+
+- name: Create desktop shortcuts
+  ansible.builtin.file:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    state: link
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    force: false
+  loop: "{{ desktop_shortcuts }}"

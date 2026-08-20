@@ -1,0 +1,95 @@
+- name: Ensure OpenCode Desktop install dependencies are present
+  ansible.builtin.package:
+    name: curl
+    state: present
+  become: true
+
+- name: Gather installed package facts
+  ansible.builtin.package_facts:
+    manager: auto
+
+- name: Fail when OpenCode Desktop is not available for this architecture
+  ansible.builtin.fail:
+    msg: "OpenCode Desktop Linux packages are available for x86_64 and arm64/aarch64. This machine reports {{ ansible_facts['architecture'] }}."
+  when: ansible_facts['architecture'] not in ['x86_64', 'amd64', 'aarch64', 'arm64']
+
+- name: Resolve OpenCode Desktop package paths
+  ansible.builtin.set_fact:
+    opencode_desktop_deb_arch: "{{ 'amd64' if ansible_facts['architecture'] in ['x86_64', 'amd64'] else 'arm64' }}"
+    opencode_desktop_rpm_arch: "{{ 'x86_64' if ansible_facts['architecture'] in ['x86_64', 'amd64'] else 'aarch64' }}"
+
+- name: Build OpenCode Desktop package URLs
+  ansible.builtin.set_fact:
+    opencode_desktop_deb_url: "{{ opencode_desktop_release_base_url }}/opencode-desktop-linux-{{ opencode_desktop_deb_arch }}.deb"
+    opencode_desktop_deb_path: "/tmp/opencode-desktop-linux-{{ opencode_desktop_deb_arch }}.deb"
+    opencode_desktop_rpm_url: "{{ opencode_desktop_release_base_url }}/opencode-desktop-linux-{{ opencode_desktop_rpm_arch }}.rpm"
+    opencode_desktop_rpm_path: "/tmp/opencode-desktop-linux-{{ opencode_desktop_rpm_arch }}.rpm"
+
+- name: Download OpenCode Desktop deb package
+  ansible.builtin.command:
+    argv:
+      - curl
+      - --fail
+      - --location
+      - --retry
+      - "3"
+      - --connect-timeout
+      - "30"
+      - --speed-limit
+      - "1024"
+      - --speed-time
+      - "60"
+      - --max-time
+      - "900"
+      - --output
+      - "{{ opencode_desktop_deb_path }}"
+      - "{{ opencode_desktop_deb_url }}"
+  become: true
+  changed_when: true
+  when:
+    - ansible_facts['pkg_mgr'] == 'apt'
+    - opencode_desktop_package_name not in ansible_facts.packages
+
+- name: Install OpenCode Desktop deb package
+  ansible.builtin.apt:
+    deb: "{{ opencode_desktop_deb_path }}"
+    state: present
+  become: true
+  when:
+    - ansible_facts['pkg_mgr'] == 'apt'
+    - opencode_desktop_package_name not in ansible_facts.packages
+
+- name: Download OpenCode Desktop rpm package
+  ansible.builtin.command:
+    argv:
+      - curl
+      - --fail
+      - --location
+      - --retry
+      - "3"
+      - --connect-timeout
+      - "30"
+      - --speed-limit
+      - "1024"
+      - --speed-time
+      - "60"
+      - --max-time
+      - "900"
+      - --output
+      - "{{ opencode_desktop_rpm_path }}"
+      - "{{ opencode_desktop_rpm_url }}"
+  become: true
+  changed_when: true
+  when:
+    - ansible_facts['pkg_mgr'] in ['dnf', 'dnf5']
+    - opencode_desktop_package_name not in ansible_facts.packages
+
+- name: Install OpenCode Desktop rpm package
+  ansible.builtin.dnf:
+    name: "{{ opencode_desktop_rpm_path }}"
+    state: present
+    disable_gpg_check: true
+  become: true
+  when:
+    - ansible_facts['pkg_mgr'] in ['dnf', 'dnf5']
+    - opencode_desktop_package_name not in ansible_facts.packages

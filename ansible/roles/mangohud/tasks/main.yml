@@ -1,0 +1,15 @@
+- name: Ensure MangoHud config directory exists
+  ansible.builtin.file:
+    path: "{{ mangohud_config_path | dirname }}"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0755"
+
+- name: Configure MangoHud overlay size
+  ansible.builtin.template:
+    src: MangoHud.conf.j2
+    dest: "{{ mangohud_config_path }}"
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0644"
