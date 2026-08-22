@@ -1,3 +1,21 @@
+- name: Validate fail2ban SSH port
+  ansible.builtin.fail:
+    msg: "fail2ban_sshd_port must be ssh and/or numeric ports (for example ssh or 22,2222)."
+  when: fail2ban_sshd_port is not match('^(ssh|[0-9]{1,5})(,(ssh|[0-9]{1,5}))*$')
+
+- name: Validate fail2ban numeric SSH ports
+  ansible.builtin.fail:
+    msg: "fail2ban SSH port {{ item }} is outside 1-65535."
+  when: (item | int) > 65535
+  loop: "{{ fail2ban_sshd_port.split(',') | select('match', '^[0-9]+$') | list }}"
+
+- name: Validate fail2ban ban action
+  ansible.builtin.fail:
+    msg: "fail2ban_banaction must be empty or match [A-Za-z0-9_-]+."
+  when:
+    - fail2ban_banaction | length > 0
+    - fail2ban_banaction is not match('^[A-Za-z0-9_-]+$')
+
 - name: Install fail2ban
   ansible.builtin.package:
     name: "{{ fail2ban_packages + ['python3-systemd'] }}"

@@ -267,9 +267,9 @@ This profile is for a headless Ubuntu box you SSH into — a remote agent machin
 - Timeshift daily snapshots with 7-day retention (CLI + systemd timer)
 - tmux with mouse support and a colorable status bar
 - Automatic tmux attach on interactive SSH (`SSH_TTY`) for bash and zsh, so disconnecting and reconnecting resumes the same session. An existing `~/.tmux.conf` is left alone.
-- Tailscale client install (`tailscaled` enabled). Join the tailnet yourself with `sudo tailscale up`, or put a reusable auth key in `tailscale_auth_key`
+- Tailscale client install (`tailscaled` enabled). Prefer `sudo tailscale up` interactively. An optional `tailscale_auth_key` is passed via `TS_AUTHKEY` (not the process argv). Use a single-use key if you store one in `local.yml`
 - UFW with default-deny inbound, allow outbound, OpenSSH allowed before the firewall is turned on, and `tailscale0` allowed when Tailscale is enabled so tailnet traffic is not blocked
-- fail2ban SSH jail (`jail.d/sshd.local` only — package `jail.conf` is left alone) using the systemd journal, 5 retries / 10 minutes / 1 hour ban
+- fail2ban SSH jail (`jail.d/sshd.local` only — package `jail.conf` is left alone) using the systemd journal, 5 retries / 10 minutes / 1 hour ban. Localhost is ignored; Tailscale/CGNAT addresses are not, so a compromised tailnet peer can still be banned
 
 Optional modules: SSH snippets, OneDrive, OpenCode CLI, Codex CLI, T3 Code, and Keychron udev rules. Desktop apps (Kitty, Chrome, Steam, Zed, snaps, GNOME settings) are not offered in the Server configurator.
 
@@ -375,7 +375,8 @@ keychron zed balena_etcher teams_pwa desktop_shortcuts
 - **GNOME/KDE tasks fail with "no display" or DBus errors** — the theme and shortcut roles configure a running desktop session via `gsettings`/`kwriteconfig`. Run the GNOME or KDE playbook from a logged-in GUI session, not a bare TTY or a server SSH login.
 - **SSH drops you into tmux and you wanted a plain shell** — set `configure_tmux: false` in `local.yml` and re-run, or detach with the usual tmux prefix. Auto-attach only runs on interactive SSH (`SSH_TTY`) from `.bashrc` and `.zshrc`, so `scp`, `sftp`, and Ansible are unaffected. An existing `~/.tmux.conf` is never overwritten.
 - **tmux did not start and you still have a shell** — Chinook no longer `exec`s tmux. If tmux fails, the login shell stays up. If tmux starts and you detach, the SSH session exits.
-- **Tailscale is installed but not connected** — run `sudo tailscale up` (or set `tailscale_auth_key` in `local.yml` and re-run).
+- **Tailscale is installed but not connected** — run `sudo tailscale up`. Storing `tailscale_auth_key` in `local.yml` is optional; use a single-use key. The playbook and configurator keep `local.yml` mode `0600`.
+- **fail2ban banned your Tailscale IP** — the default ignore list is localhost only. Add your admin tailnet address to `fail2ban_ignoreip` rather than the whole `100.64.0.0/10` range.
 - **Locked out after enabling UFW** — use console or a local session and run `sudo ufw allow OpenSSH` or `sudo ufw disable`. The Server profile allows OpenSSH before enabling UFW; this usually means SSH is on a non-standard port — add it to `ufw_allowed_ports`.
 - **fail2ban is not banning** — confirm `sudo fail2ban-client status sshd` and that `python3-systemd` is installed so the jail can read the journal.
 - **T3 Code won't start on Fedora Asahi** — the x86_64 AppImage may not mount FUSE through the emulation layer even with `fuse-libs` installed. Fall back to extraction, which needs no FUSE:
