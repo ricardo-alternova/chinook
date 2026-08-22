@@ -7,6 +7,7 @@ One command provisions packages, desktop defaults, codecs, and optional tooling.
 | System | Desktop | Playbook | Profile Vars |
 | --- | --- | --- | --- |
 | Ubuntu | GNOME | `ansible/playbooks/ubuntu.yml` | `ansible/group_vars/ubuntu.yml` |
+| Ubuntu Server | none (headless) | `ansible/playbooks/ubuntu_server.yml` | `ansible/group_vars/ubuntu_server.yml` |
 | Fedora Asahi Remix | KDE Plasma | `ansible/playbooks/fedora_asahi.yml` | `ansible/group_vars/fedora_asahi.yml` |
 
 Public defaults live in the profile files; your private choices live in `ansible/group_vars/local.yml`.
@@ -20,6 +21,7 @@ Public defaults live in the profile files; your private choices live in `ansible
 - [Local Configuration](#local-configuration)
 - [Feature Toggles](#feature-toggles)
 - [Ubuntu (GNOME) Profile](#ubuntu-gnome-profile)
+- [Ubuntu Server Profile](#ubuntu-server-profile)
 - [Fedora Asahi (KDE) Profile](#fedora-asahi-kde-profile)
 - [Optional Roles](#optional-roles)
 - [Project Layout](#project-layout)
@@ -42,7 +44,7 @@ Four phases take you from a fresh install to a finished workstation.
 
 ### 1. Prepare
 
-Pick the profile that matches your hardware. Apple Silicon Macs use Fedora Asahi; anything else runs Ubuntu.
+Pick the profile that matches your hardware. Apple Silicon Macs use Fedora Asahi. Ubuntu desktops use the GNOME profile. Headless boxes and remote agent machines use Ubuntu Server.
 
 Install the three prerequisites — `git` to clone this repo, `ansible` to run the setup, and `python3` for the config terminal UI.
 
@@ -77,10 +79,16 @@ Pick your profile, then toggle apps and modules on or off. The configurator writ
 
 Run the selected profile.
 
-Ubuntu:
+Ubuntu GNOME:
 
 ```bash
 ansible-playbook ansible/playbooks/ubuntu.yml --ask-become-pass
+```
+
+Ubuntu Server:
+
+```bash
+ansible-playbook ansible/playbooks/ubuntu_server.yml --ask-become-pass
 ```
 
 Fedora Asahi:
@@ -91,7 +99,7 @@ ansible-playbook ansible/playbooks/fedora_asahi.yml --ask-become-pass
 
 Drop `--ask-become-pass` if your user has passwordless sudo. The playbook is **idempotent** — re-running it any time is safe. It applies `local.yml` changes and picks up package updates without touching what already matches.
 
-The legacy Ubuntu entrypoint still works and imports `ubuntu.yml`:
+The GNOME playbook refuses to run on a machine without `gnome-shell` and points you at `ubuntu_server.yml`. The legacy Ubuntu entrypoint still works and imports `ubuntu.yml`:
 
 ```bash
 ansible-playbook ansible/playbooks/workstation.yml --ask-become-pass
@@ -135,11 +143,12 @@ Chinook installs and configures what it can, but the following need either you o
    sudo timeshift --create --comments "initial" --tags D
    ```
 
-6. **Verify your setup**:
-   - `echo $SHELL` returns `/usr/bin/zsh` and the Starship prompt loads in `kitty`
-   - `ffmpeg -version`, `zed`, and `flameshot` all work
-   - `t3-code` and the other apps appear in the app menu with their icons
-   - Flameshot fires on `Print` (GNOME) or `Meta+Shift+4` (KDE)
+6. **On Ubuntu Server, finish remote access.** Join Tailscale if you enabled it (`sudo tailscale up`), then `gh auth login` if you installed the GitHub CLI. SSH back in and confirm tmux resumes the same session after disconnect.
+
+7. **Verify your setup**:
+   - `echo $SHELL` returns `/usr/bin/zsh` and the Starship prompt loads (in `kitty` on desktop, or in tmux over SSH on Server)
+   - Desktop: `ffmpeg -version`, `zed`, and `flameshot` all work; Flameshot fires on `Print` (GNOME) or `Meta+Shift+4` (KDE); `t3-code` and the other apps appear in the app menu
+   - Server: `tmux -V`, `btop --version`, and `gh --version` work; `tailscale status` shows the tailnet after you join
 
 From here, treat the playbook as your update path: edit `local.yml`, re-run the profile, and Chinook converges your machine to the new state.
 
@@ -155,6 +164,7 @@ Depending on the selected profile and local config, Chinook can:
 - Write SSH client snippets, OneDrive config, and udev rules
 - Set up Timeshift daily snapshots
 - Install desktop launchers and shortcuts
+- On Ubuntu Server: install Tailscale, OpenSSH server, and tmux with SSH session resume
 
 ## Local Configuration
 
@@ -197,11 +207,13 @@ install_opencode_desktop: false
 install_zed: true
 install_balena_etcher: false
 install_t3_code: false
+install_tailscale: false
 
 configure_timeshift: true
 configure_ssh: false
 configure_gnome: true
 configure_kde: false
+configure_tmux: false
 configure_keychron: false
 configure_teams_pwa: false
 configure_desktop_shortcuts: false
@@ -233,7 +245,40 @@ The configurator writes these values for you.
 - FFmpeg/GStreamer codecs and HEIC/HEIF image support
 - MangoHud overlay and Zed with `~/.local/bin` on the Zsh path
 
-Optional modules: OneDrive, SSH snippets, Keychron udev rules, OBS Studio, OpenCode CLI/Desktop, Balena Etcher, Teams PWA, desktop shortcuts, and T3 Code. Enable them in `local.yml` or through `tools/configure.py`.
+Optional modules: OneDrive, SSH snippets, Keychron udev rules, OBS Studio, OpenCode CLI/Desktop, Balena Etcher, Teams PWA, desktop shortcuts, T3 Code, tmux, and Tailscale. Enable them in `local.yml` or through `tools/configure.py`.
+
+## Ubuntu Server Profile
+
+This profile is for a headless Ubuntu box you SSH into — a remote agent machine, not a daily-driver desktop. It skips GNOME, snaps, browsers, and every other GUI role.
+
+**APT packages, by category:**
+
+| Category | Packages |
+| --- | --- |
+| Core tools | `ansible` `curl` `git` `jq` `openssh-server` |
+| Shell & terminal | `zsh` `zsh-autosuggestions` `zsh-syntax-highlighting` `starship` `tmux` |
+| Ops | `btop` `gh` |
+
+**Also configures:**
+
+- Timeshift daily snapshots with 7-day retention (CLI + systemd timer)
+- tmux with mouse support and a colorable status bar
+- Automatic tmux attach on interactive SSH (`SSH_TTY`), so disconnecting and reconnecting resumes the same session
+- Tailscale client install (`tailscaled` enabled). Join the tailnet yourself with `sudo tailscale up`, or put a reusable auth key in `tailscale_auth_key`
+
+Optional modules: SSH snippets, OneDrive, OpenCode CLI, Codex CLI, T3 Code, and Keychron udev rules. Desktop apps (Kitty, Chrome, Steam, Zed, snaps, GNOME settings) are not offered in the Server configurator.
+
+### Remote agent workflow
+
+The Server profile is meant to be a box you leave running and connect to from a laptop:
+
+1. **SSH + tmux.** Interactive SSH drops you into a named tmux session. Work survives laptop sleep, network changes, and closing the lid. Give each machine a different `tmux_status_bg` (for example `green`, `red`, `colour24`) so you can tell them apart.
+2. **Tailscale.** Reach the box from outside the LAN without exposing SSH to the public internet. After `sudo tailscale up`, use the MagicDNS name from any device on the tailnet. Optional: set `tailscale_ssh: true` (with an auth key) if you want Tailscale SSH.
+3. **Agent CLIs on the box, not the laptop.** Enable OpenCode CLI, Codex CLI, and/or T3 Code in `local.yml`. Long-running agent jobs then keep going after you disconnect. Authenticate on the server (`gh auth login`, `codex login`, `opencode auth login`).
+4. **T3 Code for screenshots and a GUI.** Pasting images over raw SSH is unreliable. Install T3 Code on the server and connect to it from the T3 desktop/mobile app over Tailscale. The AppImage role is headless-safe: missing `update-desktop-database` / `gtk-update-icon-cache` is ignored.
+5. **Passwordless SSH between machines.** Chinook never writes private keys. Generate them, register the public key, and add `ssh_hosts` entries so your laptop (or an agent on it) can hop to the server without a password.
+
+Hardware KVMs and out-of-band power buttons are useful for this kind of box, but they are out of scope for the playbook.
 
 ## Fedora Asahi (KDE) Profile
 
@@ -281,10 +326,12 @@ The Zed role only creates `settings.json` when one doesn't already exist. The te
 | Path | Purpose |
 | --- | --- |
 | `ansible/playbooks/ubuntu.yml` | Ubuntu GNOME playbook |
+| `ansible/playbooks/ubuntu_server.yml` | Ubuntu Server playbook |
 | `ansible/playbooks/fedora_asahi.yml` | Fedora Asahi KDE playbook |
-| `ansible/playbooks/workstation.yml` | Backward-compatible Ubuntu wrapper |
+| `ansible/playbooks/workstation.yml` | Backward-compatible Ubuntu GNOME wrapper |
 | `ansible/group_vars/all.yml` | Shared generic defaults |
 | `ansible/group_vars/ubuntu.yml` | Ubuntu GNOME profile |
+| `ansible/group_vars/ubuntu_server.yml` | Ubuntu Server profile |
 | `ansible/group_vars/fedora_asahi.yml` | Fedora Asahi KDE profile |
 | `ansible/group_vars/local.yml.example` | Template for the private override file |
 | `ansible/roles/` | One role per workstation concern |
@@ -301,7 +348,7 @@ ansible-playbook ansible/playbooks/fedora_asahi.yml --tags packages
 Available tags match role names:
 
 ```bash
-packages snaps flatpaks timeshift ssh_client onedrive gnome kde
+packages snaps flatpaks timeshift tmux tailscale ssh_client onedrive gnome kde
 mangohud opencode_cli opencode_desktop codex_cli t3_code keychron zed
 balena_etcher teams_pwa desktop_shortcuts
 ```
@@ -309,7 +356,10 @@ balena_etcher teams_pwa desktop_shortcuts
 ## Troubleshooting
 
 - **`sudo a password is required` throughout the run** — your account needs passwordless sudo, or you must keep `--ask-become-pass`. To enable it, run `sudo visudo` and add `your-user ALL=(ALL) NOPASSWD: ALL`.
-- **GNOME/KDE tasks fail with "no display" or DBus errors** — the theme and shortcut roles configure a running desktop session via `gsettings`/`kwriteconfig`. Run the playbook from a logged-in GUI session, not a bare TTY or a server SSH login.
+- **`This playbook is for Ubuntu GNOME`** — you ran `ubuntu.yml` on a machine without `gnome-shell`. Use `ansible/playbooks/ubuntu_server.yml` instead.
+- **GNOME/KDE tasks fail with "no display" or DBus errors** — the theme and shortcut roles configure a running desktop session via `gsettings`/`kwriteconfig`. Run the GNOME or KDE playbook from a logged-in GUI session, not a bare TTY or a server SSH login.
+- **SSH drops you into tmux and you wanted a plain shell** — set `configure_tmux: false` in `local.yml` and re-run, or detach with the usual tmux prefix. Auto-attach only runs on interactive SSH (`SSH_TTY`), so `scp`, `sftp`, and Ansible are unaffected.
+- **Tailscale is installed but not connected** — run `sudo tailscale up` (or set `tailscale_auth_key` in `local.yml` and re-run).
 - **T3 Code won't start on Fedora Asahi** — the x86_64 AppImage may not mount FUSE through the emulation layer even with `fuse-libs` installed. Fall back to extraction, which needs no FUSE:
 
   ```bash

@@ -1,9 +1,9 @@
-- name: Configure Fedora Asahi Remix workstation
+- name: Configure Ubuntu Server
   hosts: localhost
   gather_facts: true
   vars_files:
     - ../group_vars/all.yml
-    - ../group_vars/fedora_asahi.yml
+    - ../group_vars/ubuntu_server.yml
 
   pre_tasks:
     - name: Check local workstation overrides
@@ -22,9 +22,6 @@
     - role: packages
       tags: packages
       when: install_packages | bool
-    - role: flatpaks
-      tags: flatpaks
-      when: install_flatpak_apps | bool
     - role: timeshift
       tags: timeshift
       when: configure_timeshift | bool
@@ -40,18 +37,9 @@
     - role: onedrive
       tags: onedrive
       when: install_onedrive | bool
-    - role: kde
-      tags: kde
-      when: configure_kde | bool
-    - role: mangohud
-      tags: mangohud
-      when: install_mangohud | bool
     - role: opencode_cli
       tags: opencode_cli
       when: install_opencode_cli | bool
-    - role: opencode_desktop
-      tags: opencode_desktop
-      when: install_opencode_desktop | bool
     - role: codex_cli
       tags: codex_cli
       when: install_codex_cli | bool
@@ -61,9 +49,3 @@
     - role: keychron
       tags: keychron
       when: configure_keychron | bool
-    - role: zed
-      tags: zed
-      when: install_zed | bool
-    - role: desktop_shortcuts
-      tags: desktop_shortcuts
-      when: configure_desktop_shortcuts | bool

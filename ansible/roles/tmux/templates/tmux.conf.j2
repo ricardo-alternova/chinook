@@ -1,0 +1,8 @@
+set -g mouse on
+set -g history-limit 10000
+set -g default-terminal "tmux-256color"
+set -g status-style "bg={{ tmux_status_bg }},fg={{ tmux_status_fg }}"
+set -g status-left "[{{ tmux_session_name }}] "
+set -g status-right "#H"
+set -g status-interval 5
+setw -g aggressive-resize on
