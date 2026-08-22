@@ -5,3 +5,7 @@ backend = systemd
 maxretry = {{ fail2ban_sshd_maxretry }}
 findtime = {{ fail2ban_sshd_findtime }}
 bantime = {{ fail2ban_sshd_bantime }}
+ignoreip = {{ fail2ban_ignoreip }}
+{% if configure_ufw | bool or fail2ban_banaction | length > 0 %}
+banaction = {{ fail2ban_banaction if fail2ban_banaction | length > 0 else 'ufw' }}
+{% endif %}

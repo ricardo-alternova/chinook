@@ -19,13 +19,20 @@
   become: true
   when: not tailscale_binary.stat.exists
 
+- name: Recheck Tailscale binary after install
+  ansible.builtin.stat:
+    path: /usr/bin/tailscale
+  register: tailscale_installed
+
 - name: Enable Tailscale service
   ansible.builtin.systemd:
     name: tailscaled
     enabled: true
     state: started
   become: true
-  when: not ansible_check_mode
+  when:
+    - not ansible_check_mode
+    - tailscale_installed.stat.exists
 
 - name: Read Tailscale status
   ansible.builtin.command: tailscale status --json
@@ -37,12 +44,12 @@
 - name: Resolve Tailscale backend state
   ansible.builtin.set_fact:
     tailscale_backend_state: "{{ (tailscale_status.stdout | from_json).BackendState | default('NeedsLogin') }}"
-  when: tailscale_status.stdout is search('BackendState')
+  when: tailscale_status.stdout is match('^\s*\{')
 
 - name: Default Tailscale backend state when status is unavailable
   ansible.builtin.set_fact:
     tailscale_backend_state: NeedsLogin
-  when: tailscale_status.stdout is not search('BackendState')
+  when: tailscale_status.stdout is not match('^\s*\{')
 
 - name: Join Tailscale when an auth key is provided
   ansible.builtin.command:

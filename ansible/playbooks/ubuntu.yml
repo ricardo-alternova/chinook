@@ -21,6 +21,7 @@
     - name: Gather package facts for desktop detection
       ansible.builtin.package_facts:
         manager: auto
+      become: true
       tags: always
 
     - name: Fail when the Ubuntu GNOME playbook is run without GNOME
@@ -28,7 +29,10 @@
         msg: >-
           This playbook is for Ubuntu GNOME. gnome-shell is not installed on this
           machine. Use ansible/playbooks/ubuntu_server.yml instead.
-      when: "'gnome-shell' not in ansible_facts.packages"
+      when:
+        - ansible_facts.packages is defined
+        - ansible_facts.packages | length > 0
+        - "'gnome-shell' not in ansible_facts.packages"
       tags: always
 
   roles:
