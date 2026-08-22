@@ -36,7 +36,7 @@ Public defaults live in the profile files; your private choices live in `ansible
 - **Opinionated defaults** — dark themes, codecs, keybindings; every one can be toggled
 - **Apps and codecs** — packages, snaps, and flatpaks configured for you
 - **Built-in safety** — Timeshift snapshots, so recovery is automatic
-- **Private by design** — nothing personal is ever committed to the repo
+- **Private by design** — nothing personal is ever committed to the repo, and `local.yml` is kept mode `0600`
 
 ## Quick Start
 
