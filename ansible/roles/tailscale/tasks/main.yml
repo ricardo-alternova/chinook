@@ -64,10 +64,11 @@
     argv:
       - tailscale
       - up
-      - --auth-key={{ tailscale_auth_key }}
       - --ssh={{ 'true' if tailscale_ssh | bool else 'false' }}
   become: true
   no_log: true
+  environment:
+    TS_AUTHKEY: "{{ tailscale_auth_key }}"
   when:
     - tailscale_binary.stat.exists
     - tailscale_auth_key | length > 0

@@ -7,3 +7,9 @@
   ansible.builtin.include_vars:
     file: "{{ playbook_dir }}/../group_vars/local.yml"
   when: local_workstation_vars.stat.exists
+
+- name: Restrict local.yml permissions
+  ansible.builtin.file:
+    path: "{{ playbook_dir }}/../group_vars/local.yml"
+    mode: "0600"
+  when: local_workstation_vars.stat.exists

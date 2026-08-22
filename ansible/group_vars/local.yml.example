@@ -32,6 +32,7 @@ configure_desktop_shortcuts: false
 # Optional tmux / Tailscale / firewall settings for the Ubuntu Server profile.
 # tmux_session_name: main
 # tmux_status_bg: colour24
+# Prefer `sudo tailscale up` over storing a key. If you must, use a single-use key.
 # tailscale_auth_key: ""
 # tailscale_ssh: false
 # ufw_allowed_ports:
@@ -39,7 +40,7 @@ configure_desktop_shortcuts: false
 #   - 443/tcp
 # fail2ban_sshd_maxretry: 5
 # fail2ban_sshd_bantime: 1h
-# fail2ban_ignoreip: 127.0.0.1/8 ::1 100.64.0.0/10
+# fail2ban_ignoreip: 127.0.0.1/8 ::1
 
 # Personal additions that do not replace the profile package lists.
 apt_packages_extra: []

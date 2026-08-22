@@ -45,7 +45,7 @@ fail2ban_sshd_port: ssh
 fail2ban_sshd_maxretry: 5
 fail2ban_sshd_findtime: 10m
 fail2ban_sshd_bantime: 1h
-fail2ban_ignoreip: 127.0.0.1/8 ::1 100.64.0.0/10
+fail2ban_ignoreip: 127.0.0.1/8 ::1
 fail2ban_banaction: ""
 
 apt_packages: []

@@ -438,6 +438,7 @@ def main():
             write_scalar(lines, key, config[key])
 
     LOCAL_VARS.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    LOCAL_VARS.chmod(0o600)
     print(f"\nWrote {LOCAL_VARS}")
     print(f"Run: ansible-playbook {PLAYBOOKS[profile]} --ask-become-pass")
 
