@@ -6,16 +6,8 @@
     - ../group_vars/fedora_asahi.yml
 
   pre_tasks:
-    - name: Check local workstation overrides
-      ansible.builtin.stat:
-        path: "{{ playbook_dir }}/../group_vars/local.yml"
-      register: local_workstation_vars
-      tags: always
-
     - name: Load local workstation overrides
-      ansible.builtin.include_vars:
-        file: "{{ playbook_dir }}/../group_vars/local.yml"
-      when: local_workstation_vars.stat.exists
+      ansible.builtin.import_tasks: tasks/load_local_vars.yml
       tags: always
 
   roles:
@@ -28,6 +20,18 @@
     - role: timeshift
       tags: timeshift
       when: configure_timeshift | bool
+    - role: tmux
+      tags: tmux
+      when: configure_tmux | bool
+    - role: tailscale
+      tags: tailscale
+      when: install_tailscale | bool
+    - role: ufw
+      tags: ufw
+      when: configure_ufw | bool
+    - role: fail2ban
+      tags: fail2ban
+      when: configure_fail2ban | bool
     - role: ssh_client
       tags: ssh_client
       when: configure_ssh | bool

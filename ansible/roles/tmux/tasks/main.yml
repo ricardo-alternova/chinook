@@ -1,0 +1,50 @@
+- name: Validate tmux session name
+  ansible.builtin.fail:
+    msg: "tmux_session_name must match [A-Za-z0-9_-]+ to avoid shell injection in rc files."
+  when: tmux_session_name is not match('^[A-Za-z0-9_-]+$')
+
+- name: Install tmux
+  ansible.builtin.package:
+    name: tmux
+    state: present
+  become: true
+
+- name: Ensure workstation home exists
+  ansible.builtin.file:
+    path: "{{ workstation_home }}"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0755"
+
+- name: Check existing tmux config
+  ansible.builtin.stat:
+    path: "{{ workstation_home }}/.tmux.conf"
+  register: tmux_config
+
+- name: Configure tmux when no config exists
+  ansible.builtin.template:
+    src: tmux.conf.j2
+    dest: "{{ workstation_home }}/.tmux.conf"
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0644"
+  when: not tmux_config.stat.exists
+
+- name: Report existing tmux config left unchanged
+  ansible.builtin.debug:
+    msg: "Existing tmux config was left unchanged at {{ workstation_home }}/.tmux.conf."
+  when: tmux_config.stat.exists
+
+- name: Attach tmux automatically on interactive SSH
+  ansible.builtin.blockinfile:
+    path: "{{ item }}"
+    create: true
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0644"
+    marker: "# {mark} CHINOOK TMUX SSH AUTO-ATTACH"
+    block: "{{ lookup('template', 'ssh_auto_attach.sh.j2') }}"
+  loop:
+    - "{{ workstation_home }}/.zshrc"
+    - "{{ workstation_home }}/.bashrc"

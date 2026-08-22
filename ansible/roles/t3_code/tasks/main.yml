@@ -114,12 +114,32 @@
       StartupWMClass=t3code
   become: true
 
+- name: Check update-desktop-database
+  ansible.builtin.shell: command -v update-desktop-database
+  args:
+    executable: /bin/bash
+  register: t3_code_update_desktop_database
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Check gtk-update-icon-cache
+  ansible.builtin.shell: command -v gtk-update-icon-cache
+  args:
+    executable: /bin/bash
+  register: t3_code_gtk_update_icon_cache
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
 - name: Refresh T3 Code desktop database
   ansible.builtin.command: update-desktop-database /usr/share/applications
   become: true
   changed_when: false
+  when: t3_code_update_desktop_database.rc == 0
 
 - name: Refresh T3 Code icon cache
   ansible.builtin.command: gtk-update-icon-cache /usr/share/icons/hicolor
   become: true
   changed_when: false
+  when: t3_code_gtk_update_icon_cache.rc == 0
