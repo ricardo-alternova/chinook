@@ -1,0 +1,62 @@
+- name: Install UFW
+  ansible.builtin.package:
+    name: ufw
+    state: present
+  become: true
+
+- name: Read UFW status
+  ansible.builtin.command: ufw status verbose
+  register: ufw_status
+  changed_when: false
+  check_mode: false
+  become: true
+
+- name: Fail when UFW would enable without an SSH allow rule
+  ansible.builtin.fail:
+    msg: >-
+      Refusing to enable UFW without an SSH allow rule. Keep ufw_allow_openssh
+      enabled, or add your SSH port to ufw_allowed_ports (for example 22/tcp).
+  when:
+    - not ufw_allow_openssh | bool
+    - ufw_allowed_ports | select('search', '(?i)^(22(/tcp)?|ssh)$') | list | length == 0
+
+- name: Set UFW default incoming policy
+  ansible.builtin.command: ufw default {{ ufw_default_incoming }} incoming
+  become: true
+  changed_when: (ufw_default_incoming ~ ' (incoming)') not in ufw_status.stdout
+
+- name: Set UFW default outgoing policy
+  ansible.builtin.command: ufw default {{ ufw_default_outgoing }} outgoing
+  become: true
+  changed_when: (ufw_default_outgoing ~ ' (outgoing)') not in ufw_status.stdout
+
+- name: Set UFW default routed policy
+  ansible.builtin.command: ufw default {{ ufw_default_routed }} routed
+  become: true
+  changed_when: (ufw_default_routed ~ ' (routed)') not in ufw_status.stdout
+
+- name: Allow OpenSSH through UFW
+  ansible.builtin.command: ufw allow OpenSSH
+  become: true
+  register: ufw_allow_openssh_result
+  changed_when: ufw_allow_openssh_result.stdout is search('(?i)rule added|rules updated')
+  when: ufw_allow_openssh | bool
+
+- name: Allow extra UFW ports
+  ansible.builtin.command: ufw allow {{ item }}
+  become: true
+  loop: "{{ ufw_allowed_ports }}"
+  register: ufw_allow_port_result
+  changed_when: ufw_allow_port_result.stdout is search('(?i)rule added|rules updated')
+
+- name: Allow traffic on the Tailscale interface
+  ansible.builtin.command: ufw allow in on tailscale0
+  become: true
+  register: ufw_allow_tailscale_result
+  changed_when: ufw_allow_tailscale_result.stdout is search('(?i)rule added|rules updated')
+  when: ufw_allow_tailscale | bool
+
+- name: Enable UFW
+  ansible.builtin.command: ufw --force enable
+  become: true
+  when: "'Status: active' not in ufw_status.stdout"

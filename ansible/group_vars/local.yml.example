@@ -23,15 +23,22 @@ configure_ssh: false
 configure_gnome: false
 configure_kde: false
 configure_tmux: false
+configure_ufw: false
+configure_fail2ban: false
 configure_keychron: false
 configure_teams_pwa: false
 configure_desktop_shortcuts: false
 
-# Optional tmux / Tailscale settings for the Ubuntu Server remote-agent profile.
+# Optional tmux / Tailscale / firewall settings for the Ubuntu Server profile.
 # tmux_session_name: main
 # tmux_status_bg: colour24
 # tailscale_auth_key: ""
 # tailscale_ssh: false
+# ufw_allowed_ports:
+#   - 80/tcp
+#   - 443/tcp
+# fail2ban_sshd_maxretry: 5
+# fail2ban_sshd_bantime: 1h
 
 # Personal additions that do not replace the profile package lists.
 apt_packages_extra: []

@@ -143,12 +143,12 @@ Chinook installs and configures what it can, but the following need either you o
    sudo timeshift --create --comments "initial" --tags D
    ```
 
-6. **On Ubuntu Server, finish remote access.** Join Tailscale if you enabled it (`sudo tailscale up`), then `gh auth login` if you installed the GitHub CLI. SSH back in and confirm tmux resumes the same session after disconnect.
+6. **On Ubuntu Server, finish remote access.** Confirm `sudo ufw status` is active with OpenSSH allowed, then join Tailscale if you enabled it (`sudo tailscale up`) and `gh auth login` if you installed the GitHub CLI. SSH back in and confirm tmux resumes the same session after disconnect.
 
 7. **Verify your setup**:
    - `echo $SHELL` returns `/usr/bin/zsh` and the Starship prompt loads (in `kitty` on desktop, or in tmux over SSH on Server)
    - Desktop: `ffmpeg -version`, `zed`, and `flameshot` all work; Flameshot fires on `Print` (GNOME) or `Meta+Shift+4` (KDE); `t3-code` and the other apps appear in the app menu
-   - Server: `tmux -V`, `btop --version`, and `gh --version` work; `tailscale status` shows the tailnet after you join
+   - Server: `tmux -V`, `btop --version`, and `gh --version` work; `sudo ufw status verbose` shows active with OpenSSH; `sudo fail2ban-client status sshd` shows the SSH jail; `tailscale status` shows the tailnet after you join
 
 From here, treat the playbook as your update path: edit `local.yml`, re-run the profile, and Chinook converges your machine to the new state.
 
@@ -164,7 +164,7 @@ Depending on the selected profile and local config, Chinook can:
 - Write SSH client snippets, OneDrive config, and udev rules
 - Set up Timeshift daily snapshots
 - Install desktop launchers and shortcuts
-- On Ubuntu Server: install Tailscale, OpenSSH server, and tmux with SSH session resume
+- On Ubuntu Server: install Tailscale, OpenSSH server, tmux with SSH session resume, UFW, and fail2ban
 
 ## Local Configuration
 
@@ -214,6 +214,8 @@ configure_ssh: false
 configure_gnome: true
 configure_kde: false
 configure_tmux: false
+configure_ufw: false
+configure_fail2ban: false
 configure_keychron: false
 configure_teams_pwa: false
 configure_desktop_shortcuts: false
@@ -258,6 +260,7 @@ This profile is for a headless Ubuntu box you SSH into — a remote agent machin
 | Core tools | `ansible` `curl` `git` `jq` `openssh-server` |
 | Shell & terminal | `zsh` `zsh-autosuggestions` `zsh-syntax-highlighting` `starship` `tmux` |
 | Ops | `btop` `gh` |
+| Security | `ufw` `fail2ban` (installed by their roles) |
 
 **Also configures:**
 
@@ -265,18 +268,29 @@ This profile is for a headless Ubuntu box you SSH into — a remote agent machin
 - tmux with mouse support and a colorable status bar
 - Automatic tmux attach on interactive SSH (`SSH_TTY`), so disconnecting and reconnecting resumes the same session
 - Tailscale client install (`tailscaled` enabled). Join the tailnet yourself with `sudo tailscale up`, or put a reusable auth key in `tailscale_auth_key`
+- UFW with default-deny inbound, allow outbound, OpenSSH allowed before the firewall is turned on, and `tailscale0` allowed so tailnet traffic is not blocked
+- fail2ban SSH jail (`jail.d/sshd.local` only — package `jail.conf` is left alone) using the systemd journal, 5 retries / 10 minutes / 1 hour ban
 
 Optional modules: SSH snippets, OneDrive, OpenCode CLI, Codex CLI, T3 Code, and Keychron udev rules. Desktop apps (Kitty, Chrome, Steam, Zed, snaps, GNOME settings) are not offered in the Server configurator.
+
+Open extra ports in `local.yml` without replacing the SSH rule:
+
+```yaml
+ufw_allowed_ports:
+  - 80/tcp
+  - 443/tcp
+```
 
 ### Remote agent workflow
 
 The Server profile is meant to be a box you leave running and connect to from a laptop:
 
 1. **SSH + tmux.** Interactive SSH drops you into a named tmux session. Work survives laptop sleep, network changes, and closing the lid. Give each machine a different `tmux_status_bg` (for example `green`, `red`, `colour24`) so you can tell them apart.
-2. **Tailscale.** Reach the box from outside the LAN without exposing SSH to the public internet. After `sudo tailscale up`, use the MagicDNS name from any device on the tailnet. Optional: set `tailscale_ssh: true` (with an auth key) if you want Tailscale SSH.
-3. **Agent CLIs on the box, not the laptop.** Enable OpenCode CLI, Codex CLI, and/or T3 Code in `local.yml`. Long-running agent jobs then keep going after you disconnect. Authenticate on the server (`gh auth login`, `codex login`, `opencode auth login`).
-4. **T3 Code for screenshots and a GUI.** Pasting images over raw SSH is unreliable. Install T3 Code on the server and connect to it from the T3 desktop/mobile app over Tailscale. The AppImage role is headless-safe: missing `update-desktop-database` / `gtk-update-icon-cache` is ignored.
-5. **Passwordless SSH between machines.** Chinook never writes private keys. Generate them, register the public key, and add `ssh_hosts` entries so your laptop (or an agent on it) can hop to the server without a password.
+2. **Tailscale.** Reach the box from outside the LAN without exposing extra ports to the public internet. After `sudo tailscale up`, use the MagicDNS name from any device on the tailnet. Optional: set `tailscale_ssh: true` (with an auth key) if you want Tailscale SSH. UFW still allows OpenSSH so a local or tailnet SSH session is not locked out.
+3. **UFW + fail2ban.** Inbound traffic is denied except SSH (and Tailscale). fail2ban bans IPs that hammer SSH. This is the baseline before you put the box on a network.
+4. **Agent CLIs on the box, not the laptop.** Enable OpenCode CLI, Codex CLI, and/or T3 Code in `local.yml`. Long-running agent jobs then keep going after you disconnect. Authenticate on the server (`gh auth login`, `codex login`, `opencode auth login`).
+5. **T3 Code for screenshots and a GUI.** Pasting images over raw SSH is unreliable. Install T3 Code on the server and connect to it from the T3 desktop/mobile app over Tailscale. The AppImage role is headless-safe: missing `update-desktop-database` / `gtk-update-icon-cache` is ignored.
+6. **Passwordless SSH between machines.** Chinook never writes private keys. Generate them, register the public key, and add `ssh_hosts` entries so your laptop (or an agent on it) can hop to the server without a password.
 
 Hardware KVMs and out-of-band power buttons are useful for this kind of box, but they are out of scope for the playbook.
 
@@ -348,9 +362,9 @@ ansible-playbook ansible/playbooks/fedora_asahi.yml --tags packages
 Available tags match role names:
 
 ```bash
-packages snaps flatpaks timeshift tmux tailscale ssh_client onedrive gnome kde
-mangohud opencode_cli opencode_desktop codex_cli t3_code keychron zed
-balena_etcher teams_pwa desktop_shortcuts
+packages snaps flatpaks timeshift tmux tailscale ufw fail2ban ssh_client
+onedrive gnome kde mangohud opencode_cli opencode_desktop codex_cli t3_code
+keychron zed balena_etcher teams_pwa desktop_shortcuts
 ```
 
 ## Troubleshooting
@@ -360,6 +374,8 @@ balena_etcher teams_pwa desktop_shortcuts
 - **GNOME/KDE tasks fail with "no display" or DBus errors** — the theme and shortcut roles configure a running desktop session via `gsettings`/`kwriteconfig`. Run the GNOME or KDE playbook from a logged-in GUI session, not a bare TTY or a server SSH login.
 - **SSH drops you into tmux and you wanted a plain shell** — set `configure_tmux: false` in `local.yml` and re-run, or detach with the usual tmux prefix. Auto-attach only runs on interactive SSH (`SSH_TTY`), so `scp`, `sftp`, and Ansible are unaffected.
 - **Tailscale is installed but not connected** — run `sudo tailscale up` (or set `tailscale_auth_key` in `local.yml` and re-run).
+- **Locked out after enabling UFW** — use console or a local session and run `sudo ufw allow OpenSSH` or `sudo ufw disable`. The Server profile allows OpenSSH before enabling UFW; this usually means SSH is on a non-standard port — add it to `ufw_allowed_ports`.
+- **fail2ban is not banning** — confirm `sudo fail2ban-client status sshd` and that `python3-systemd` is installed so the jail can read the journal.
 - **T3 Code won't start on Fedora Asahi** — the x86_64 AppImage may not mount FUSE through the emulation layer even with `fuse-libs` installed. Fall back to extraction, which needs no FUSE:
 
   ```bash
