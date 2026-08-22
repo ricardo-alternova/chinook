@@ -2,6 +2,7 @@
 from pathlib import Path
 import getpass
 import os
+import re
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -368,7 +369,12 @@ def main():
         config["ssh_hosts"] = [{"host": host, "hostname": hostname, "user": "git", "identity_file": identity}]
 
     if "tmux" in selected:
-        config["tmux_session_name"] = ask("tmux session name", "main")
+        while True:
+            session_name = ask("tmux session name", "main")
+            if re.fullmatch(r"[A-Za-z0-9_-]+", session_name):
+                config["tmux_session_name"] = session_name
+                break
+            print("Use only letters, numbers, underscores, or hyphens.")
         config["tmux_status_bg"] = ask("tmux status bar color (colour24, green, red, blue)", "colour24")
 
     if "tailscale" in selected:

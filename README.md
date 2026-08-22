@@ -266,7 +266,7 @@ This profile is for a headless Ubuntu box you SSH into — a remote agent machin
 
 - Timeshift daily snapshots with 7-day retention (CLI + systemd timer)
 - tmux with mouse support and a colorable status bar
-- Automatic tmux attach on interactive SSH (`SSH_TTY`), so disconnecting and reconnecting resumes the same session
+- Automatic tmux attach on interactive SSH (`SSH_TTY`) for bash and zsh, so disconnecting and reconnecting resumes the same session. An existing `~/.tmux.conf` is left alone.
 - Tailscale client install (`tailscaled` enabled). Join the tailnet yourself with `sudo tailscale up`, or put a reusable auth key in `tailscale_auth_key`
 - UFW with default-deny inbound, allow outbound, OpenSSH allowed before the firewall is turned on, and `tailscale0` allowed so tailnet traffic is not blocked
 - fail2ban SSH jail (`jail.d/sshd.local` only — package `jail.conf` is left alone) using the systemd journal, 5 retries / 10 minutes / 1 hour ban
@@ -372,7 +372,8 @@ keychron zed balena_etcher teams_pwa desktop_shortcuts
 - **`sudo a password is required` throughout the run** — your account needs passwordless sudo, or you must keep `--ask-become-pass`. To enable it, run `sudo visudo` and add `your-user ALL=(ALL) NOPASSWD: ALL`.
 - **`This playbook is for Ubuntu GNOME`** — you ran `ubuntu.yml` on a machine without `gnome-shell`. Use `ansible/playbooks/ubuntu_server.yml` instead.
 - **GNOME/KDE tasks fail with "no display" or DBus errors** — the theme and shortcut roles configure a running desktop session via `gsettings`/`kwriteconfig`. Run the GNOME or KDE playbook from a logged-in GUI session, not a bare TTY or a server SSH login.
-- **SSH drops you into tmux and you wanted a plain shell** — set `configure_tmux: false` in `local.yml` and re-run, or detach with the usual tmux prefix. Auto-attach only runs on interactive SSH (`SSH_TTY`), so `scp`, `sftp`, and Ansible are unaffected.
+- **SSH drops you into tmux and you wanted a plain shell** — set `configure_tmux: false` in `local.yml` and re-run, or detach with the usual tmux prefix. Auto-attach only runs on interactive SSH (`SSH_TTY`) from `.bashrc` and `.zshrc`, so `scp`, `sftp`, and Ansible are unaffected. An existing `~/.tmux.conf` is never overwritten.
+- **tmux did not start and you still have a shell** — Chinook no longer `exec`s tmux. If tmux fails, the login shell stays up. If tmux starts and you detach, the SSH session exits.
 - **Tailscale is installed but not connected** — run `sudo tailscale up` (or set `tailscale_auth_key` in `local.yml` and re-run).
 - **Locked out after enabling UFW** — use console or a local session and run `sudo ufw allow OpenSSH` or `sudo ufw disable`. The Server profile allows OpenSSH before enabling UFW; this usually means SSH is on a non-standard port — add it to `ufw_allowed_ports`.
 - **fail2ban is not banning** — confirm `sudo fail2ban-client status sshd` and that `python3-systemd` is installed so the jail can read the journal.
