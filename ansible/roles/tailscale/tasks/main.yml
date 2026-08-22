@@ -22,7 +22,7 @@
 - name: Recheck Tailscale binary after install
   ansible.builtin.stat:
     path: /usr/bin/tailscale
-  register: tailscale_installed
+  register: tailscale_binary
 
 - name: Enable Tailscale service
   ansible.builtin.systemd:
@@ -32,7 +32,7 @@
   become: true
   when:
     - not ansible_check_mode
-    - tailscale_installed.stat.exists
+    - tailscale_binary.stat.exists
 
 - name: Read Tailscale status
   ansible.builtin.command: tailscale status --json
@@ -40,16 +40,19 @@
   changed_when: false
   failed_when: false
   check_mode: false
+  when: tailscale_binary.stat.exists
 
 - name: Resolve Tailscale backend state
   ansible.builtin.set_fact:
     tailscale_backend_state: "{{ (tailscale_status.stdout | from_json).BackendState | default('NeedsLogin') }}"
-  when: tailscale_status.stdout is match('^\s*\{')
+  when:
+    - tailscale_binary.stat.exists
+    - tailscale_status.stdout is match('^\s*\{')
 
-- name: Default Tailscale backend state when status is unavailable
+- name: Default Tailscale backend state when not connected
   ansible.builtin.set_fact:
     tailscale_backend_state: NeedsLogin
-  when: tailscale_status.stdout is not match('^\s*\{')
+  when: tailscale_backend_state is not defined
 
 - name: Join Tailscale when an auth key is provided
   ansible.builtin.command:
@@ -61,6 +64,7 @@
   become: true
   no_log: true
   when:
+    - tailscale_binary.stat.exists
     - tailscale_auth_key | length > 0
     - tailscale_backend_state != 'Running'
 
@@ -68,5 +72,6 @@
   ansible.builtin.debug:
     msg: "Tailscale is installed. Run 'sudo tailscale up' as {{ workstation_user }} to join this machine to your tailnet."
   when:
+    - tailscale_binary.stat.exists
     - tailscale_auth_key | length == 0
     - tailscale_backend_state != 'Running'

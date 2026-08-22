@@ -9,7 +9,6 @@
     name: python3-systemd
     state: present
   become: true
-  when: ansible_facts['pkg_mgr'] == 'apt'
 
 - name: Ensure fail2ban jail.d directory exists
   ansible.builtin.file:

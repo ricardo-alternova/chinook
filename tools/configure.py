@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import getpass
-import os
 import re
 
 
@@ -35,7 +34,6 @@ APPS = [
     {
         "key": "tmux",
         "label": "tmux with SSH session resume",
-        "default": True,
         "default_profiles": ["ubuntu_server"],
         "apt": ["tmux"],
         "dnf": ["tmux"],
@@ -115,7 +113,7 @@ APPS = [
         "apt": ["heif-gdk-pixbuf", "heif-thumbnailer", "libheif-examples", "libheif-plugins-all"],
     },
     {"key": "flameshot", "label": "Flameshot", "default": True, "profiles": DESKTOP_PROFILES, "apt": ["flameshot"], "dnf": ["flameshot"]},
-    {"key": "chrome", "label": "Google Chrome on Ubuntu / Chromium on Fedora Asahi", "default": True, "profiles": DESKTOP_PROFILES, "apt": ["google-chrome-stable"], "dnf": ["chromium"], "chrome_repo": True},
+    {"key": "chrome", "label": "Google Chrome on Ubuntu / Chromium on Fedora Asahi", "default": True, "profiles": DESKTOP_PROFILES, "apt": ["google-chrome-stable"], "dnf": ["chromium"]},
     {"key": "gimp", "label": "GIMP", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["gimp"], "dnf": ["gimp"]},
     {"key": "xournalpp", "label": "Xournal++", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["xournalpp"], "dnf": ["xournalpp"]},
     {"key": "onedrive", "label": "OneDrive", "default": False, "apt": ["onedrive"], "dnf": ["onedrive"], "flag": "install_onedrive"},

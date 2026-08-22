@@ -15,8 +15,8 @@
 
 - name: Validate extra UFW port specs
   ansible.builtin.fail:
-    msg: "Invalid UFW port spec {{ item }}. Use PORT or PORT/tcp or PORT/udp."
-  when: item is not match('^[0-9]{1,5}(/(tcp|udp))?$')
+    msg: "Invalid UFW port spec {{ item }}. Use PORT or PORT/tcp or PORT/udp (1-65535)."
+  when: item is not match('^[0-9]{1,5}(/(tcp|udp))?$') or (item.split('/')[0] | int) > 65535
   loop: "{{ ufw_allowed_ports }}"
 
 - name: Fail when UFW would enable without an SSH allow rule
@@ -27,6 +27,13 @@
   when:
     - not ufw_allow_openssh | bool
     - ufw_allowed_ports | length == 0
+
+- name: Install OpenSSH server when UFW will allow it
+  ansible.builtin.package:
+    name: openssh-server
+    state: present
+  become: true
+  when: ufw_allow_openssh | bool
 
 - name: Allow OpenSSH through UFW before changing the default policy
   ansible.builtin.command:
@@ -74,11 +81,11 @@
   check_mode: false
   become: true
 
-- name: Fail when SSH is still not allowed before tightening UFW
+- name: Fail when OpenSSH is still not allowed before tightening UFW
   ansible.builtin.fail:
     msg: >-
-      UFW has no OpenSSH or extra-port allow rule after the allow tasks.
-      Refusing to change the default policy or enable the firewall.
+      UFW has no OpenSSH allow rule after the allow tasks. Refusing to
+      change the default policy or enable the firewall.
   when:
     - not ansible_check_mode
     - ufw_allow_openssh | bool
@@ -125,17 +132,6 @@
   become: true
   changed_when: (ufw_default_routed ~ ' (routed)') not in ufw_status.stdout
 
-- name: Read UFW status before enable
-  ansible.builtin.command:
-    argv:
-      - ufw
-      - status
-      - verbose
-  register: ufw_status_before_enable
-  changed_when: false
-  check_mode: false
-  become: true
-
 - name: Enable UFW
   ansible.builtin.command:
     argv:
@@ -143,7 +139,7 @@
       - --force
       - enable
   become: true
-  changed_when: "'Status: active' not in ufw_status_before_enable.stdout"
+  changed_when: "'Status: active' not in ufw_status.stdout"
   when:
     - not ansible_check_mode
-    - "'Status: active' not in ufw_status_before_enable.stdout"
+    - "'Status: active' not in ufw_status.stdout"

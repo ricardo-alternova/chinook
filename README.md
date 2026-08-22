@@ -268,7 +268,7 @@ This profile is for a headless Ubuntu box you SSH into — a remote agent machin
 - tmux with mouse support and a colorable status bar
 - Automatic tmux attach on interactive SSH (`SSH_TTY`) for bash and zsh, so disconnecting and reconnecting resumes the same session. An existing `~/.tmux.conf` is left alone.
 - Tailscale client install (`tailscaled` enabled). Join the tailnet yourself with `sudo tailscale up`, or put a reusable auth key in `tailscale_auth_key`
-- UFW with default-deny inbound, allow outbound, OpenSSH allowed before the firewall is turned on, and `tailscale0` allowed so tailnet traffic is not blocked
+- UFW with default-deny inbound, allow outbound, OpenSSH allowed before the firewall is turned on, and `tailscale0` allowed when Tailscale is enabled so tailnet traffic is not blocked
 - fail2ban SSH jail (`jail.d/sshd.local` only — package `jail.conf` is left alone) using the systemd journal, 5 retries / 10 minutes / 1 hour ban
 
 Optional modules: SSH snippets, OneDrive, OpenCode CLI, Codex CLI, T3 Code, and Keychron udev rules. Desktop apps (Kitty, Chrome, Steam, Zed, snaps, GNOME settings) are not offered in the Server configurator.
