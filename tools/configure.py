@@ -6,6 +6,7 @@ import re
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCAL_VARS = ROOT / "ansible" / "group_vars" / "local.yml"
+TMUX_SESSION_NAME_RE = re.compile(r"[A-Za-z0-9_-]+")
 
 
 DESKTOP_PROFILES = ("ubuntu", "fedora_asahi")
@@ -283,28 +284,18 @@ def build_config(profile, selected):
         "install_packages": True,
         "install_snap_apps": profile == "ubuntu",
         "install_flatpak_apps": profile == "fedora_asahi",
-        "install_onedrive": "onedrive" in selected,
-        "install_mangohud": "mangohud" in selected,
-        "install_opencode_cli": "opencode_cli" in selected,
-        "install_opencode_desktop": "opencode_desktop" in selected,
-        "install_codex_cli": "codex_cli" in selected,
-        "install_t3_code": "t3_code" in selected,
-        "install_zed": "zed" in selected,
-        "install_balena_etcher": "balena_etcher" in selected,
-        "install_tailscale": "tailscale" in selected,
         "configure_timeshift": True,
         "configure_ssh": False,
         "configure_gnome": profile == "ubuntu",
         "configure_kde": profile == "fedora_asahi",
-        "configure_tmux": "tmux" in selected,
-        "configure_ufw": "ufw" in selected,
-        "configure_fail2ban": "fail2ban" in selected,
-        "configure_keychron": "keychron" in selected,
-        "configure_teams_pwa": "teams_pwa" in selected,
         "configure_desktop_shortcuts": False,
         "apt_google_chrome_enabled": profile == "ubuntu" and "chrome" in selected,
         "dnf_install_allowerasing": profile == "fedora_asahi",
     }
+    for app in APPS:
+        flag = app.get("flag")
+        if flag:
+            config[flag] = app["key"] in selected
 
     apt_packages = []
     dnf_packages = []
@@ -369,7 +360,7 @@ def main():
     if "tmux" in selected:
         while True:
             session_name = ask("tmux session name", "main")
-            if re.fullmatch(r"[A-Za-z0-9_-]+", session_name):
+            if TMUX_SESSION_NAME_RE.fullmatch(session_name):
                 config["tmux_session_name"] = session_name
                 break
             print("Use only letters, numbers, underscores, or hyphens.")

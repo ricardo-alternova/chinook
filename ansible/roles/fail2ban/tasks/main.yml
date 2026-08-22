@@ -1,12 +1,6 @@
 - name: Install fail2ban
   ansible.builtin.package:
-    name: "{{ fail2ban_packages }}"
-    state: present
-  become: true
-
-- name: Install fail2ban systemd journal backend
-  ansible.builtin.package:
-    name: python3-systemd
+    name: "{{ fail2ban_packages + ['python3-systemd'] }}"
     state: present
   become: true
 

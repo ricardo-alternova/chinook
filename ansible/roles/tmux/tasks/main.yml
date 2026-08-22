@@ -44,10 +44,7 @@
     group: "{{ workstation_user }}"
     mode: "0644"
     marker: "# {mark} CHINOOK TMUX SSH AUTO-ATTACH"
-    block: |
-      if [ -z "$TMUX" ] && [ -n "$SSH_TTY" ] && command -v tmux >/dev/null 2>&1; then
-        tmux new-session -A -s "{{ tmux_session_name }}" && exit
-      fi
+    block: "{{ lookup('template', 'ssh_auto_attach.sh.j2') }}"
   loop:
     - "{{ workstation_home }}/.zshrc"
     - "{{ workstation_home }}/.bashrc"

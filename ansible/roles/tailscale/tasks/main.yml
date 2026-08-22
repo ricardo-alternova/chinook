@@ -3,21 +3,22 @@
     path: /usr/bin/tailscale
   register: tailscale_binary
 
-- name: Ensure Tailscale installer dependencies are present
-  ansible.builtin.package:
-    name:
-      - curl
-      - ca-certificates
-    state: present
-  become: true
+- name: Install Tailscale when missing
   when: not tailscale_binary.stat.exists
+  block:
+    - name: Ensure Tailscale installer dependencies are present
+      ansible.builtin.package:
+        name:
+          - curl
+          - ca-certificates
+        state: present
+      become: true
 
-- name: Install Tailscale with the official installer
-  ansible.builtin.shell: curl -fsSL https://tailscale.com/install.sh | sh
-  args:
-    executable: /bin/bash
-  become: true
-  when: not tailscale_binary.stat.exists
+    - name: Install Tailscale with the official installer
+      ansible.builtin.shell: curl -fsSL https://tailscale.com/install.sh | sh
+      args:
+        executable: /bin/bash
+      become: true
 
 - name: Recheck Tailscale binary after install
   ansible.builtin.stat:
@@ -35,7 +36,11 @@
     - tailscale_binary.stat.exists
 
 - name: Read Tailscale status
-  ansible.builtin.command: tailscale status --json
+  ansible.builtin.command:
+    argv:
+      - tailscale
+      - status
+      - --json
   register: tailscale_status
   changed_when: false
   failed_when: false

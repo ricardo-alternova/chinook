@@ -1,0 +1,9 @@
+- name: Check local workstation overrides
+  ansible.builtin.stat:
+    path: "{{ playbook_dir }}/../group_vars/local.yml"
+  register: local_workstation_vars
+
+- name: Load local workstation overrides
+  ansible.builtin.include_vars:
+    file: "{{ playbook_dir }}/../group_vars/local.yml"
+  when: local_workstation_vars.stat.exists
