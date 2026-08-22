@@ -6,16 +6,25 @@
     - ../group_vars/ubuntu.yml
 
   pre_tasks:
-    - name: Check local workstation overrides
-      ansible.builtin.stat:
-        path: "{{ playbook_dir }}/../group_vars/local.yml"
-      register: local_workstation_vars
+    - name: Load local workstation overrides
+      ansible.builtin.import_tasks: tasks/load_local_vars.yml
       tags: always
 
-    - name: Load local workstation overrides
-      ansible.builtin.include_vars:
-        file: "{{ playbook_dir }}/../group_vars/local.yml"
-      when: local_workstation_vars.stat.exists
+    - name: Gather package facts for desktop detection
+      ansible.builtin.package_facts:
+        manager: auto
+      become: true
+      tags: always
+
+    - name: Fail when the Ubuntu GNOME playbook is run without GNOME
+      ansible.builtin.fail:
+        msg: >-
+          This playbook is for Ubuntu GNOME. gnome-shell is not installed on this
+          machine. Use ansible/playbooks/ubuntu_server.yml instead.
+      when:
+        - ansible_facts.packages is defined
+        - ansible_facts.packages | length > 0
+        - "'gnome-shell' not in ansible_facts.packages"
       tags: always
 
   roles:
@@ -28,6 +37,18 @@
     - role: timeshift
       tags: timeshift
       when: configure_timeshift | bool
+    - role: tmux
+      tags: tmux
+      when: configure_tmux | bool
+    - role: tailscale
+      tags: tailscale
+      when: install_tailscale | bool
+    - role: ufw
+      tags: ufw
+      when: configure_ufw | bool
+    - role: fail2ban
+      tags: fail2ban
+      when: configure_fail2ban | bool
     - role: ssh_client
       tags: ssh_client
       when: configure_ssh | bool

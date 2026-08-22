@@ -1,0 +1,122 @@
+- name: Install UFW
+  ansible.builtin.package:
+    name: "{{ ['ufw'] + (['openssh-server'] if ufw_allow_openssh | bool else []) }}"
+    state: present
+  become: true
+
+- name: Validate UFW default policies
+  ansible.builtin.fail:
+    msg: "UFW default policies must be allow, deny, or reject."
+  when: item not in ['allow', 'deny', 'reject']
+  loop:
+    - "{{ ufw_default_incoming }}"
+    - "{{ ufw_default_outgoing }}"
+    - "{{ ufw_default_routed }}"
+
+- name: Validate extra UFW port specs
+  ansible.builtin.fail:
+    msg: "Invalid UFW port spec {{ item }}. Use PORT or PORT/tcp or PORT/udp (1-65535)."
+  when: item is not match('^[0-9]{1,5}(/(tcp|udp))?$') or (item.split('/')[0] | int) > 65535
+  loop: "{{ ufw_allowed_ports }}"
+
+- name: Fail when UFW would enable without an SSH allow rule
+  ansible.builtin.fail:
+    msg: >-
+      Refusing to configure UFW without an SSH allow rule. Keep ufw_allow_openssh
+      enabled, or add your SSH port to ufw_allowed_ports (for example 22/tcp).
+  when:
+    - not ufw_allow_openssh | bool
+    - ufw_allowed_ports | length == 0
+
+- name: Allow OpenSSH through UFW before changing the default policy
+  ansible.builtin.command:
+    argv:
+      - ufw
+      - allow
+      - OpenSSH
+  become: true
+  register: ufw_allow_openssh_result
+  changed_when: ufw_allow_openssh_result.stdout is search('(?i)rule added|rules updated')
+  when: ufw_allow_openssh | bool
+
+- name: Allow extra UFW ports
+  ansible.builtin.command:
+    argv:
+      - ufw
+      - allow
+      - "{{ item }}"
+  become: true
+  loop: "{{ ufw_allowed_ports }}"
+  register: ufw_allow_port_result
+  changed_when: ufw_allow_port_result.stdout is defined and ufw_allow_port_result.stdout is search('(?i)rule added|rules updated')
+
+- name: Allow traffic on the Tailscale interface
+  ansible.builtin.command:
+    argv:
+      - ufw
+      - allow
+      - in
+      - on
+      - tailscale0
+  become: true
+  register: ufw_allow_tailscale_result
+  changed_when: ufw_allow_tailscale_result.stdout is search('(?i)rule added|rules updated')
+  when: ufw_allow_tailscale | bool
+
+- name: Read added UFW rules
+  ansible.builtin.command:
+    argv:
+      - ufw
+      - show
+      - added
+  register: ufw_added_rules
+  changed_when: false
+  check_mode: false
+  become: true
+
+- name: Fail when OpenSSH is still not allowed before tightening UFW
+  ansible.builtin.fail:
+    msg: >-
+      UFW has no OpenSSH allow rule after the allow tasks. Refusing to
+      change the default policy or enable the firewall.
+  when:
+    - not ansible_check_mode
+    - ufw_allow_openssh | bool
+    - ufw_added_rules.stdout is not search('OpenSSH')
+
+- name: Read UFW status
+  ansible.builtin.command:
+    argv:
+      - ufw
+      - status
+      - verbose
+  register: ufw_status
+  changed_when: false
+  check_mode: false
+  become: true
+
+- name: Set UFW default policies
+  ansible.builtin.command:
+    argv:
+      - ufw
+      - default
+      - "{{ item.policy }}"
+      - "{{ item.direction }}"
+  become: true
+  loop:
+    - { direction: incoming, policy: "{{ ufw_default_incoming }}" }
+    - { direction: outgoing, policy: "{{ ufw_default_outgoing }}" }
+    - { direction: routed, policy: "{{ ufw_default_routed }}" }
+  changed_when: (item.policy ~ ' (' ~ item.direction ~ ')') not in ufw_status.stdout
+
+- name: Enable UFW
+  ansible.builtin.command:
+    argv:
+      - ufw
+      - --force
+      - enable
+  become: true
+  changed_when: "'Status: active' not in ufw_status.stdout"
+  when:
+    - not ansible_check_mode
+    - "'Status: active' not in ufw_status.stdout"

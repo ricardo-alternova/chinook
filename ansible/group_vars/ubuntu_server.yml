@@ -1,0 +1,22 @@
+install_packages: true
+install_t3_code: false
+install_tailscale: true
+
+configure_timeshift: true
+configure_tmux: true
+configure_ufw: true
+configure_fail2ban: true
+
+apt_packages:
+  - ansible
+  - btop
+  - curl
+  - gh
+  - git
+  - jq
+  - openssh-server
+  - starship
+  - tmux
+  - zsh
+  - zsh-autosuggestions
+  - zsh-syntax-highlighting
