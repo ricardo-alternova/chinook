@@ -1,0 +1,30 @@
+install_packages: true
+install_snap_apps: false
+install_onedrive: false
+install_zed: false
+install_t3_code: false
+install_tailscale: true
+
+configure_timeshift: true
+configure_ssh: false
+configure_gnome: false
+configure_tmux: true
+configure_keychron: false
+
+apt_google_chrome_enabled: false
+apt_packages:
+  - ansible
+  - btop
+  - curl
+  - gh
+  - git
+  - jq
+  - openssh-server
+  - starship
+  - tmux
+  - zsh
+  - zsh-autosuggestions
+  - zsh-syntax-highlighting
+
+tmux_session_name: main
+tmux_status_bg: colour24

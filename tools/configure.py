@@ -8,12 +8,20 @@ ROOT = Path(__file__).resolve().parents[1]
 LOCAL_VARS = ROOT / "ansible" / "group_vars" / "local.yml"
 
 
+DESKTOP_PROFILES = ("ubuntu", "fedora_asahi")
+APT_PROFILES = ("ubuntu", "ubuntu_server")
+PLAYBOOKS = {
+    "ubuntu": "ansible/playbooks/ubuntu.yml",
+    "ubuntu_server": "ansible/playbooks/ubuntu_server.yml",
+    "fedora_asahi": "ansible/playbooks/fedora_asahi.yml",
+}
+
 APPS = [
     {
         "key": "base_cli",
         "label": "Base CLI tools",
         "default": True,
-        "apt": ["ansible", "git", "jq"],
+        "apt": ["ansible", "curl", "git", "jq"],
         "dnf": ["ansible", "git", "jq", "curl"],
     },
     {
@@ -23,11 +31,41 @@ APPS = [
         "apt": ["starship", "zsh", "zsh-autosuggestions", "zsh-syntax-highlighting"],
         "dnf": ["starship", "zsh", "zsh-autosuggestions", "zsh-syntax-highlighting"],
     },
-    {"key": "kitty", "label": "Kitty terminal", "default": True, "apt": ["kitty"], "dnf": ["kitty"]},
+    {
+        "key": "tmux",
+        "label": "tmux with SSH session resume",
+        "default": True,
+        "default_profiles": ["ubuntu_server"],
+        "apt": ["tmux"],
+        "dnf": ["tmux"],
+        "flag": "configure_tmux",
+    },
+    {
+        "key": "btop",
+        "label": "btop process viewer",
+        "default_profiles": ["ubuntu_server"],
+        "apt": ["btop"],
+        "dnf": ["btop"],
+    },
+    {
+        "key": "gh",
+        "label": "GitHub CLI",
+        "default_profiles": ["ubuntu_server"],
+        "apt": ["gh"],
+        "dnf": ["gh"],
+    },
+    {
+        "key": "tailscale",
+        "label": "Tailscale (install only; join is manual)",
+        "default_profiles": ["ubuntu_server"],
+        "flag": "install_tailscale",
+    },
+    {"key": "kitty", "label": "Kitty terminal", "default": True, "profiles": DESKTOP_PROFILES, "apt": ["kitty"], "dnf": ["kitty"]},
     {
         "key": "codecs",
         "label": "Audio/video codecs",
         "default": True,
+        "profiles": DESKTOP_PROFILES,
         "apt": [
             "ffmpeg",
             "gstreamer1.0-libav",
@@ -60,28 +98,29 @@ APPS = [
         "key": "heif",
         "label": "HEIC/HEIF image support",
         "default": True,
+        "profiles": DESKTOP_PROFILES,
         "apt": ["heif-gdk-pixbuf", "heif-thumbnailer", "libheif-examples", "libheif-plugins-all"],
     },
-    {"key": "flameshot", "label": "Flameshot", "default": True, "apt": ["flameshot"], "dnf": ["flameshot"]},
-    {"key": "chrome", "label": "Google Chrome on Ubuntu / Chromium on Fedora Asahi", "default": True, "apt": ["google-chrome-stable"], "dnf": ["chromium"], "chrome_repo": True},
-    {"key": "gimp", "label": "GIMP", "default": False, "apt": ["gimp"], "dnf": ["gimp"]},
-    {"key": "xournalpp", "label": "Xournal++", "default": False, "apt": ["xournalpp"], "dnf": ["xournalpp"]},
+    {"key": "flameshot", "label": "Flameshot", "default": True, "profiles": DESKTOP_PROFILES, "apt": ["flameshot"], "dnf": ["flameshot"]},
+    {"key": "chrome", "label": "Google Chrome on Ubuntu / Chromium on Fedora Asahi", "default": True, "profiles": DESKTOP_PROFILES, "apt": ["google-chrome-stable"], "dnf": ["chromium"], "chrome_repo": True},
+    {"key": "gimp", "label": "GIMP", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["gimp"], "dnf": ["gimp"]},
+    {"key": "xournalpp", "label": "Xournal++", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["xournalpp"], "dnf": ["xournalpp"]},
     {"key": "onedrive", "label": "OneDrive", "default": False, "apt": ["onedrive"], "dnf": ["onedrive"], "flag": "install_onedrive"},
-    {"key": "mangohud", "label": "MangoHud", "default": False, "apt": ["mangohud"], "dnf": ["mangohud"], "flag": "install_mangohud"},
-    {"key": "obs_studio", "label": "OBS Studio", "default": False, "apt": ["obs-studio"], "dnf": ["obs-studio"]},
+    {"key": "mangohud", "label": "MangoHud", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["mangohud"], "dnf": ["mangohud"], "flag": "install_mangohud"},
+    {"key": "obs_studio", "label": "OBS Studio", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["obs-studio"], "dnf": ["obs-studio"]},
     {"key": "opencode_cli", "label": "OpenCode CLI", "default": False, "flag": "install_opencode_cli"},
-    {"key": "opencode_desktop", "label": "OpenCode Desktop (x86_64 Linux only)", "default": False, "flag": "install_opencode_desktop"},
+    {"key": "opencode_desktop", "label": "OpenCode Desktop (x86_64 Linux only)", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_opencode_desktop"},
     {"key": "codex_cli", "label": "Codex CLI", "default": False, "flag": "install_codex_cli"},
-    {"key": "t3_code", "label": "T3 Code (agent control surface)", "default": False, "flag": "install_t3_code"},
-    {"key": "steam", "label": "Steam", "default": False, "apt": ["steam-installer"], "foreign_arch": ["i386"]},
-    {"key": "discord", "label": "Discord", "default": False, "snap": ["discord"], "flatpak": ["com.discordapp.Discord"]},
-    {"key": "onlyoffice", "label": "OnlyOffice", "default": True, "snap": ["onlyoffice-desktopeditors"], "flatpak": ["org.onlyoffice.desktopeditors"]},
-    {"key": "spotify", "label": "Spotify", "default": False, "snap": ["spotify"], "flatpak": ["com.spotify.Client"]},
-    {"key": "localsend", "label": "LocalSend", "default": True, "snap": ["localsend"], "flatpak": ["org.localsend.localsend_app"]},
-    {"key": "zapzap", "label": "ZapZap", "default": False, "snap": ["zapzap"]},
-    {"key": "zed", "label": "Zed editor", "default": True, "flag": "install_zed"},
-    {"key": "balena_etcher", "label": "Balena Etcher", "default": False, "flag": "install_balena_etcher"},
-    {"key": "teams_pwa", "label": "Microsoft Teams PWA", "default": False, "flag": "configure_teams_pwa"},
+    {"key": "t3_code", "label": "T3 Code (remote agent control surface)", "default": False, "flag": "install_t3_code"},
+    {"key": "steam", "label": "Steam", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["steam-installer"], "foreign_arch": ["i386"]},
+    {"key": "discord", "label": "Discord", "default": False, "profiles": DESKTOP_PROFILES, "snap": ["discord"], "flatpak": ["com.discordapp.Discord"]},
+    {"key": "onlyoffice", "label": "OnlyOffice", "default": True, "profiles": DESKTOP_PROFILES, "snap": ["onlyoffice-desktopeditors"], "flatpak": ["org.onlyoffice.desktopeditors"]},
+    {"key": "spotify", "label": "Spotify", "default": False, "profiles": DESKTOP_PROFILES, "snap": ["spotify"], "flatpak": ["com.spotify.Client"]},
+    {"key": "localsend", "label": "LocalSend", "default": True, "profiles": DESKTOP_PROFILES, "snap": ["localsend"], "flatpak": ["org.localsend.localsend_app"]},
+    {"key": "zapzap", "label": "ZapZap", "default": False, "profiles": DESKTOP_PROFILES, "snap": ["zapzap"]},
+    {"key": "zed", "label": "Zed editor", "default": True, "profiles": DESKTOP_PROFILES, "flag": "install_zed"},
+    {"key": "balena_etcher", "label": "Balena Etcher", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_balena_etcher"},
+    {"key": "teams_pwa", "label": "Microsoft Teams PWA", "default": False, "profiles": DESKTOP_PROFILES, "flag": "configure_teams_pwa"},
     {"key": "keychron", "label": "Keychron udev rule", "default": False, "flag": "configure_keychron"},
 ]
 
@@ -217,6 +256,17 @@ def unique(values):
     return result
 
 
+def app_visible(app, profile):
+    profiles = app.get("profiles")
+    return profiles is None or profile in profiles
+
+
+def app_default(app, profile):
+    if "default_profiles" in app:
+        return profile in app["default_profiles"]
+    return app.get("default", False)
+
+
 def build_config(profile, selected):
     config = {
         "install_packages": True,
@@ -230,10 +280,12 @@ def build_config(profile, selected):
         "install_t3_code": "t3_code" in selected,
         "install_zed": "zed" in selected,
         "install_balena_etcher": "balena_etcher" in selected,
+        "install_tailscale": "tailscale" in selected,
         "configure_timeshift": True,
         "configure_ssh": False,
         "configure_gnome": profile == "ubuntu",
         "configure_kde": profile == "fedora_asahi",
+        "configure_tmux": "tmux" in selected,
         "configure_keychron": "keychron" in selected,
         "configure_teams_pwa": "teams_pwa" in selected,
         "configure_desktop_shortcuts": False,
@@ -258,10 +310,13 @@ def build_config(profile, selected):
         apt_foreign_architectures += app.get("foreign_arch", [])
         rpmfusion = rpmfusion or app.get("rpmfusion", False)
 
-    if profile == "ubuntu":
+    if profile in APT_PROFILES:
+        if profile == "ubuntu_server":
+            apt_packages += ["openssh-server"]
         config["apt_packages"] = unique(apt_packages)
         config["apt_foreign_architectures"] = unique(apt_foreign_architectures)
-        config["snap_packages"] = unique(snap_packages)
+        if profile == "ubuntu":
+            config["snap_packages"] = unique(snap_packages)
     else:
         config["dnf_packages"] = unique(dnf_packages)
         config["flatpak_packages"] = unique(flatpak_packages)
@@ -277,13 +332,18 @@ def main():
     print("Chinook workstation configurator")
     profile = choose_one(
         "Select a setup profile",
-        [("ubuntu", "Ubuntu GNOME"), ("fedora_asahi", "Fedora Asahi Remix KDE")],
+        [
+            ("ubuntu", "Ubuntu GNOME"),
+            ("ubuntu_server", "Ubuntu Server (remote agent box)"),
+            ("fedora_asahi", "Fedora Asahi Remix KDE"),
+        ],
     )
 
     user = ask("Workstation user", getpass.getuser())
     home = ask("Workstation home", str(Path.home()))
-    default_apps = {item["key"] for item in APPS if item["default"]}
-    selected = choose_many("Select apps and modules", APPS, default_apps)
+    visible_apps = [item for item in APPS if app_visible(item, profile)]
+    default_apps = {item["key"] for item in visible_apps if app_default(item, profile)}
+    selected = choose_many("Select apps and modules", visible_apps, default_apps)
     config = build_config(profile, selected)
 
     if ask_yes_no("Configure SSH snippets", False):
@@ -292,6 +352,15 @@ def main():
         hostname = ask("SSH hostname", host)
         identity = ask("SSH identity file", "~/.ssh/id_ed25519_github")
         config["ssh_hosts"] = [{"host": host, "hostname": hostname, "user": "git", "identity_file": identity}]
+
+    if "tmux" in selected:
+        config["tmux_session_name"] = ask("tmux session name", "main")
+        config["tmux_status_bg"] = ask("tmux status bar color (colour24, green, red, blue)", "colour24")
+
+    if "tailscale" in selected:
+        auth_key = ask("Tailscale auth key (optional, leave empty to join later)", "")
+        if auth_key:
+            config["tailscale_auth_key"] = auth_key
 
     if "onedrive" in selected:
         sync_dir = ask("OneDrive sync dir", "~/OneDrive")
@@ -352,16 +421,16 @@ def main():
         "keychron_product_id",
         "teams_pwa_app_id",
         "teams_pwa_profile_directory",
+        "tmux_session_name",
+        "tmux_status_bg",
+        "tailscale_auth_key",
     ]:
         if key in config:
             write_scalar(lines, key, config[key])
 
     LOCAL_VARS.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"\nWrote {LOCAL_VARS}")
-    if profile == "ubuntu":
-        print("Run: ansible-playbook ansible/playbooks/ubuntu.yml --ask-become-pass")
-    else:
-        print("Run: ansible-playbook ansible/playbooks/fedora_asahi.yml --ask-become-pass")
+    print(f"Run: ansible-playbook {PLAYBOOKS[profile]} --ask-become-pass")
 
 
 if __name__ == "__main__":

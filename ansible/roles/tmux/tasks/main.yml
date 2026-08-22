@@ -1,0 +1,34 @@
+- name: Install tmux
+  ansible.builtin.package:
+    name: tmux
+    state: present
+  become: true
+
+- name: Ensure workstation home exists
+  ansible.builtin.file:
+    path: "{{ workstation_home }}"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0755"
+
+- name: Configure tmux
+  ansible.builtin.template:
+    src: tmux.conf.j2
+    dest: "{{ workstation_home }}/.tmux.conf"
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0644"
+
+- name: Attach tmux automatically on interactive SSH
+  ansible.builtin.blockinfile:
+    path: "{{ workstation_home }}/.zshrc"
+    create: true
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0644"
+    marker: "# {mark} CHINOOK TMUX SSH AUTO-ATTACH"
+    block: |
+      if [ -z "$TMUX" ] && [ -n "$SSH_TTY" ] && command -v tmux >/dev/null 2>&1; then
+        exec tmux new-session -A -s "{{ tmux_session_name }}"
+      fi

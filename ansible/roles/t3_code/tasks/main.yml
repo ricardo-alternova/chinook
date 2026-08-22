@@ -118,8 +118,10 @@
   ansible.builtin.command: update-desktop-database /usr/share/applications
   become: true
   changed_when: false
+  failed_when: false
 
 - name: Refresh T3 Code icon cache
   ansible.builtin.command: gtk-update-icon-cache /usr/share/icons/hicolor
   become: true
   changed_when: false
+  failed_when: false

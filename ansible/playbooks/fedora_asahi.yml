@@ -28,6 +28,12 @@
     - role: timeshift
       tags: timeshift
       when: configure_timeshift | bool
+    - role: tmux
+      tags: tmux
+      when: configure_tmux | bool
+    - role: tailscale
+      tags: tailscale
+      when: install_tailscale | bool
     - role: ssh_client
       tags: ssh_client
       when: configure_ssh | bool
