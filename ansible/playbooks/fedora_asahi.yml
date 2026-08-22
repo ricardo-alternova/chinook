@@ -34,6 +34,12 @@
     - role: tailscale
       tags: tailscale
       when: install_tailscale | bool
+    - role: ufw
+      tags: ufw
+      when: configure_ufw | bool
+    - role: fail2ban
+      tags: fail2ban
+      when: configure_fail2ban | bool
     - role: ssh_client
       tags: ssh_client
       when: configure_ssh | bool

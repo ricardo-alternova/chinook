@@ -9,6 +9,8 @@ configure_timeshift: true
 configure_ssh: false
 configure_gnome: false
 configure_tmux: true
+configure_ufw: true
+configure_fail2ban: true
 configure_keychron: false
 
 apt_google_chrome_enabled: false

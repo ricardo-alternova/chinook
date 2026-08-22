@@ -60,6 +60,18 @@ APPS = [
         "default_profiles": ["ubuntu_server"],
         "flag": "install_tailscale",
     },
+    {
+        "key": "ufw",
+        "label": "UFW firewall (deny inbound, allow SSH)",
+        "default_profiles": ["ubuntu_server"],
+        "flag": "configure_ufw",
+    },
+    {
+        "key": "fail2ban",
+        "label": "fail2ban (ban repeated SSH failures)",
+        "default_profiles": ["ubuntu_server"],
+        "flag": "configure_fail2ban",
+    },
     {"key": "kitty", "label": "Kitty terminal", "default": True, "profiles": DESKTOP_PROFILES, "apt": ["kitty"], "dnf": ["kitty"]},
     {
         "key": "codecs",
@@ -286,6 +298,8 @@ def build_config(profile, selected):
         "configure_gnome": profile == "ubuntu",
         "configure_kde": profile == "fedora_asahi",
         "configure_tmux": "tmux" in selected,
+        "configure_ufw": "ufw" in selected,
+        "configure_fail2ban": "fail2ban" in selected,
         "configure_keychron": "keychron" in selected,
         "configure_teams_pwa": "teams_pwa" in selected,
         "configure_desktop_shortcuts": False,

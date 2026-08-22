@@ -20,6 +20,8 @@ configure_ssh: false
 configure_gnome: false
 configure_kde: false
 configure_tmux: false
+configure_ufw: false
+configure_fail2ban: false
 configure_keychron: false
 configure_teams_pwa: false
 configure_desktop_shortcuts: false
@@ -29,6 +31,20 @@ tmux_status_bg: colour24
 tmux_status_fg: white
 tailscale_auth_key: ""
 tailscale_ssh: false
+
+ufw_default_incoming: deny
+ufw_default_outgoing: allow
+ufw_default_routed: deny
+ufw_allow_openssh: true
+ufw_allow_tailscale: true
+ufw_allowed_ports: []
+
+fail2ban_packages:
+  - fail2ban
+fail2ban_sshd_port: ssh
+fail2ban_sshd_maxretry: 5
+fail2ban_sshd_findtime: 10m
+fail2ban_sshd_bantime: 1h
 
 apt_packages: []
 apt_packages_extra: []
