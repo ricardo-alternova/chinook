@@ -1,6 +1,6 @@
 - name: Install UFW
   ansible.builtin.package:
-    name: ufw
+    name: "{{ ['ufw'] + (['openssh-server'] if ufw_allow_openssh | bool else []) }}"
     state: present
   become: true
 
@@ -27,13 +27,6 @@
   when:
     - not ufw_allow_openssh | bool
     - ufw_allowed_ports | length == 0
-
-- name: Install OpenSSH server when UFW will allow it
-  ansible.builtin.package:
-    name: openssh-server
-    state: present
-  become: true
-  when: ufw_allow_openssh | bool
 
 - name: Allow OpenSSH through UFW before changing the default policy
   ansible.builtin.command:
@@ -102,35 +95,19 @@
   check_mode: false
   become: true
 
-- name: Set UFW default incoming policy
+- name: Set UFW default policies
   ansible.builtin.command:
     argv:
       - ufw
       - default
-      - "{{ ufw_default_incoming }}"
-      - incoming
+      - "{{ item.policy }}"
+      - "{{ item.direction }}"
   become: true
-  changed_when: (ufw_default_incoming ~ ' (incoming)') not in ufw_status.stdout
-
-- name: Set UFW default outgoing policy
-  ansible.builtin.command:
-    argv:
-      - ufw
-      - default
-      - "{{ ufw_default_outgoing }}"
-      - outgoing
-  become: true
-  changed_when: (ufw_default_outgoing ~ ' (outgoing)') not in ufw_status.stdout
-
-- name: Set UFW default routed policy
-  ansible.builtin.command:
-    argv:
-      - ufw
-      - default
-      - "{{ ufw_default_routed }}"
-      - routed
-  become: true
-  changed_when: (ufw_default_routed ~ ' (routed)') not in ufw_status.stdout
+  loop:
+    - { direction: incoming, policy: "{{ ufw_default_incoming }}" }
+    - { direction: outgoing, policy: "{{ ufw_default_outgoing }}" }
+    - { direction: routed, policy: "{{ ufw_default_routed }}" }
+  changed_when: (item.policy ~ ' (' ~ item.direction ~ ')') not in ufw_status.stdout
 
 - name: Enable UFW
   ansible.builtin.command:

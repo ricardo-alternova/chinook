@@ -1,3 +1,4 @@
+{% set banaction = fail2ban_banaction or ('ufw' if configure_ufw | bool else '') %}
 [sshd]
 enabled = true
 port = {{ fail2ban_sshd_port }}
@@ -6,6 +7,6 @@ maxretry = {{ fail2ban_sshd_maxretry }}
 findtime = {{ fail2ban_sshd_findtime }}
 bantime = {{ fail2ban_sshd_bantime }}
 ignoreip = {{ fail2ban_ignoreip }}
-{% if configure_ufw | bool or fail2ban_banaction | length > 0 %}
-banaction = {{ fail2ban_banaction if fail2ban_banaction | length > 0 else 'ufw' }}
+{% if banaction %}
+banaction = {{ banaction }}
 {% endif %}

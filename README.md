@@ -343,6 +343,7 @@ The Zed role only creates `settings.json` when one doesn't already exist. The te
 | `ansible/playbooks/ubuntu_server.yml` | Ubuntu Server playbook |
 | `ansible/playbooks/fedora_asahi.yml` | Fedora Asahi KDE playbook |
 | `ansible/playbooks/workstation.yml` | Backward-compatible Ubuntu GNOME wrapper |
+| `ansible/playbooks/tasks/load_local_vars.yml` | Shared `local.yml` loader used by every playbook |
 | `ansible/group_vars/all.yml` | Shared generic defaults |
 | `ansible/group_vars/ubuntu.yml` | Ubuntu GNOME profile |
 | `ansible/group_vars/ubuntu_server.yml` | Ubuntu Server profile |
