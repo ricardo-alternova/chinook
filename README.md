@@ -22,7 +22,7 @@ Public defaults live in the profile files; your private choices live in `ansible
 
 - [What Chinook gives you](#what-chinook-gives-you)
 - [Quick Start](#quick-start)
-- [After Provisioning: Manual Steps](#after-provisioning-manual-steps)
+- [Next steps](#next-steps)
 - [What Chinook Changes](#what-chinook-changes)
 - [Local Configuration](#local-configuration)
 - [Feature Toggles](#feature-toggles)
@@ -113,50 +113,16 @@ If you would rather walk the steps yourself:
 
    Drop `--ask-become-pass` if your user has passwordless sudo. The GNOME playbook refuses to run on a machine without `gnome-shell` and points you at `ubuntu_server.yml`. The legacy Ubuntu entrypoint `ansible/playbooks/workstation.yml` still imports `ubuntu.yml`.
 
-4. Finish the [After Provisioning](#after-provisioning-manual-steps) checklist.
+4. Do the [next steps](#next-steps).
 
-## After Provisioning: Manual Steps
+## Next steps
 
-Chinook installs and configures what it can, but the following need either you or a fresh session. Do them in order on a new machine.
+When the installer finishes, that is everything Chinook can do for you. Two things are left:
 
-1. **Log out and back in (or reboot).** Theme changes, app menu entries, keybindings, and udev rules apply to new sessions. On a very fresh install a reboot is the cleanest finish.
+1. **Open OpenCode and set up your credentials** so you can tweak the OS using AI.
+2. **Set up your GitHub / GitLab accounts.**
 
-2. **Make Zsh your default shell.** Chinook installs zsh, Starship, and plugins but does **not** change your login shell:
-
-   ```bash
-   chsh -s "$(which zsh)"
-   ```
-
-   Re-login, then confirm with `echo $SHELL` → `/usr/bin/zsh`.
-
-3. **Generate and register SSH keys.** Chinook never manages private keys — it only writes `~/.ssh/config.d/` snippets that reference keys you already have:
-
-   ```bash
-   ssh-keygen -t ed25519 -C "$USER@$(hostname)"
-   cat ~/.ssh/id_ed25519.pub
-   ```
-
-   Paste the public key into GitHub, GitLab, or whichever hosts your `ssh_hosts` entries point at.
-
-4. **Authenticate cloud and agent services.** These logins need your account and can't be automated:
-   - **OneDrive** — when no `refresh_token` exists, the playbook prints the manual OAuth step. Follow it, then `onedrive --synchronize`.
-   - **Agent CLIs** — run your provider's login: `opencode auth login`, `claude auth login`, `codex login`, and so on. T3 Code only drives agents whose CLIs are installed **and authenticated**.
-   - **Snap/Flatpak apps** (Discord, Spotify, OnlyOffice, LocalSend, ZapZap) — sign in on first launch.
-
-5. **Take an initial Timeshift snapshot** instead of waiting for the daily timer:
-
-   ```bash
-   sudo timeshift --create --comments "initial" --tags D
-   ```
-
-6. **On Ubuntu Server, finish remote access.** Confirm `sudo ufw status` is active with OpenSSH allowed, then join Tailscale if you enabled it (`sudo tailscale up`) and `gh auth login` if you installed the GitHub CLI. SSH back in and confirm tmux resumes the same session after disconnect.
-
-7. **Verify your setup**:
-   - `echo $SHELL` returns `/usr/bin/zsh` and the Starship prompt loads (in `kitty` on desktop, or in tmux over SSH on Server)
-   - Desktop: `ffmpeg -version`, `zed`, and `flameshot` all work; Flameshot fires on `Print` (GNOME) or `Meta+Shift+4` (KDE); `t3-code` and the other apps appear in the app menu
-   - Server: `tmux -V`, `btop --version`, and `gh --version` work; `sudo ufw status verbose` shows active with OpenSSH; `sudo fail2ban-client status sshd` shows the SSH jail; `tailscale status` shows the tailnet after you join
-
-From here, treat the playbook as your update path: edit `local.yml`, re-run the profile, and Chinook converges your machine to the new state.
+That is it. From here, edit `local.yml` or ask OpenCode, re-run the profile playbook, and Chinook converges the machine to the new state.
 
 ## What Chinook Changes
 
@@ -358,6 +324,7 @@ The Zed role only creates `settings.json` when one doesn't already exist. The te
 | `ansible/group_vars/local.yml.example` | Template for the private override file |
 | `ansible/roles/` | One role per workstation concern |
 | `tools/configure.py` | Terminal UI that generates `local.yml` |
+| `tests/test_configure.py` | Automated coverage of the configurator TUI |
 
 ## Tags
 
