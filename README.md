@@ -22,7 +22,7 @@ Public defaults live in the profile files; your private choices live in `ansible
 
 - [What Chinook gives you](#what-chinook-gives-you)
 - [Quick Start](#quick-start)
-- [After Provisioning: Manual Steps](#after-provisioning-manual-steps)
+- [Next steps](#next-steps)
 - [What Chinook Changes](#what-chinook-changes)
 - [Local Configuration](#local-configuration)
 - [Feature Toggles](#feature-toggles)
@@ -60,7 +60,7 @@ If `wget` is missing:
 curl -fsSL https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash
 ```
 
-The installer asks for `sudo` when it needs it. Override the checkout path with `CHINOOK_DIR`, pin a branch/tag with `CHINOOK_REF`, or force a profile with `CHINOOK_PROFILE=ubuntu|ubuntu_server|fedora_asahi`.
+The installer asks for `sudo` when it needs it. Override the checkout path with `CHINOOK_DIR`, or pin a branch/tag with `CHINOOK_REF`. Force a profile with `CHINOOK_PROFILE=ubuntu` or `ubuntu_server` on Ubuntu, or `fedora_asahi` on Fedora.
 
 ### Manual install
 
@@ -113,50 +113,16 @@ If you would rather walk the steps yourself:
 
    Drop `--ask-become-pass` if your user has passwordless sudo. The GNOME playbook refuses to run on a machine without `gnome-shell` and points you at `ubuntu_server.yml`. The legacy Ubuntu entrypoint `ansible/playbooks/workstation.yml` still imports `ubuntu.yml`.
 
-4. Finish the [After Provisioning](#after-provisioning-manual-steps) checklist.
+4. Do the [next steps](#next-steps).
 
-## After Provisioning: Manual Steps
+## Next steps
 
-Chinook installs and configures what it can, but the following need either you or a fresh session. Do them in order on a new machine.
+When the installer finishes, that is everything Chinook can do for you. Two things are left:
 
-1. **Log out and back in (or reboot).** Theme changes, app menu entries, keybindings, and udev rules apply to new sessions. On a very fresh install a reboot is the cleanest finish.
+1. **Open OpenCode and set up your credentials** (`opencode auth login`) so you can tweak the OS using AI.
+2. **Set up your GitHub / GitLab accounts.**
 
-2. **Make Zsh your default shell.** Chinook installs zsh, Starship, and plugins but does **not** change your login shell:
-
-   ```bash
-   chsh -s "$(which zsh)"
-   ```
-
-   Re-login, then confirm with `echo $SHELL` → `/usr/bin/zsh`.
-
-3. **Generate and register SSH keys.** Chinook never manages private keys — it only writes `~/.ssh/config.d/` snippets that reference keys you already have:
-
-   ```bash
-   ssh-keygen -t ed25519 -C "$USER@$(hostname)"
-   cat ~/.ssh/id_ed25519.pub
-   ```
-
-   Paste the public key into GitHub, GitLab, or whichever hosts your `ssh_hosts` entries point at.
-
-4. **Authenticate cloud and agent services.** These logins need your account and can't be automated:
-   - **OneDrive** — when no `refresh_token` exists, the playbook prints the manual OAuth step. Follow it, then `onedrive --synchronize`.
-   - **Agent CLIs** — run your provider's login: `opencode auth login`, `claude auth login`, `codex login`, and so on. T3 Code only drives agents whose CLIs are installed **and authenticated**.
-   - **Snap/Flatpak apps** (Discord, Spotify, OnlyOffice, LocalSend, ZapZap) — sign in on first launch.
-
-5. **Take an initial Timeshift snapshot** instead of waiting for the daily timer:
-
-   ```bash
-   sudo timeshift --create --comments "initial" --tags D
-   ```
-
-6. **On Ubuntu Server, finish remote access.** Confirm `sudo ufw status` is active with OpenSSH allowed, then join Tailscale if you enabled it (`sudo tailscale up`) and `gh auth login` if you installed the GitHub CLI. SSH back in and confirm tmux resumes the same session after disconnect.
-
-7. **Verify your setup**:
-   - `echo $SHELL` returns `/usr/bin/zsh` and the Starship prompt loads (in `kitty` on desktop, or in tmux over SSH on Server)
-   - Desktop: `ffmpeg -version`, `zed`, and `flameshot` all work; Flameshot fires on `Print` (GNOME) or `Meta+Shift+4` (KDE); `t3-code` and the other apps appear in the app menu
-   - Server: `tmux -V`, `btop --version`, and `gh --version` work; `sudo ufw status verbose` shows active with OpenSSH; `sudo fail2ban-client status sshd` shows the SSH jail; `tailscale status` shows the tailnet after you join
-
-From here, treat the playbook as your update path: edit `local.yml`, re-run the profile, and Chinook converges your machine to the new state.
+That is it. From here, edit `local.yml` or ask OpenCode, re-run the profile playbook, and Chinook converges the machine to the new state.
 
 ## What Chinook Changes
 
@@ -208,8 +174,8 @@ install_snap_apps: true
 install_flatpak_apps: false
 install_onedrive: false
 install_mangohud: false
-install_opencode_cli: false
-install_opencode_desktop: false
+install_opencode_cli: true
+install_opencode_desktop: true
 install_zed: true
 install_balena_etcher: false
 install_t3_code: false
@@ -252,8 +218,9 @@ The configurator writes these values for you.
 - Flameshot on the `Print` key
 - FFmpeg/GStreamer codecs and HEIC/HEIF image support
 - MangoHud overlay and Zed with `~/.local/bin` on the Zsh path
+- OpenCode CLI and Desktop
 
-Optional modules: OneDrive, SSH snippets, Keychron udev rules, OBS Studio, OpenCode CLI/Desktop, Balena Etcher, Teams PWA, desktop shortcuts, T3 Code, tmux, and Tailscale. Enable them in `local.yml` or through `tools/configure.py`.
+Optional modules: OneDrive, SSH snippets, Keychron udev rules, OBS Studio, Balena Etcher, Teams PWA, desktop shortcuts, T3 Code, tmux, and Tailscale. Enable them in `local.yml` or through `tools/configure.py`.
 
 ## Ubuntu Server Profile
 
@@ -276,8 +243,9 @@ This profile is for a headless Ubuntu box you SSH into — a remote agent machin
 - Tailscale client install (`tailscaled` enabled). Prefer `sudo tailscale up` interactively. An optional `tailscale_auth_key` is passed via `TS_AUTHKEY` (not the process argv). Use a single-use key if you store one in `local.yml`
 - UFW with default-deny inbound, allow outbound, OpenSSH allowed before the firewall is turned on, and `tailscale0` allowed when Tailscale is enabled so tailnet traffic is not blocked
 - fail2ban SSH jail (`jail.d/sshd.local` only — package `jail.conf` is left alone) using the systemd journal, 5 retries / 10 minutes / 1 hour ban. Localhost is ignored; Tailscale/CGNAT addresses are not, so a compromised tailnet peer can still be banned
+- OpenCode CLI
 
-Optional modules: SSH snippets, OneDrive, OpenCode CLI, Codex CLI, T3 Code, and Keychron udev rules. Desktop apps (Kitty, Chrome, Steam, Zed, snaps, GNOME settings) are not offered in the Server configurator.
+Optional modules: SSH snippets, OneDrive, Codex CLI, T3 Code, and Keychron udev rules. Desktop apps (Kitty, Chrome, Steam, Zed, snaps, GNOME settings) are not offered in the Server configurator.
 
 Open extra ports in `local.yml` without replacing the SSH rule:
 
@@ -294,7 +262,7 @@ The Server profile is meant to be a box you leave running and connect to from a 
 1. **SSH + tmux.** Interactive SSH drops you into a named tmux session. Work survives laptop sleep, network changes, and closing the lid. Give each machine a different `tmux_status_bg` (for example `green`, `red`, `colour24`) so you can tell them apart.
 2. **Tailscale.** Reach the box from outside the LAN without exposing extra ports to the public internet. After `sudo tailscale up`, use the MagicDNS name from any device on the tailnet. Optional: set `tailscale_ssh: true` (with an auth key) if you want Tailscale SSH. UFW still allows OpenSSH so a local or tailnet SSH session is not locked out.
 3. **UFW + fail2ban.** Inbound traffic is denied except SSH (and Tailscale). fail2ban bans IPs that hammer SSH. This is the baseline before you put the box on a network.
-4. **Agent CLIs on the box, not the laptop.** Enable OpenCode CLI, Codex CLI, and/or T3 Code in `local.yml`. Long-running agent jobs then keep going after you disconnect. Authenticate on the server (`gh auth login`, `codex login`, `opencode auth login`).
+4. **Agent CLIs on the box, not the laptop.** OpenCode CLI is on by default. Enable Codex CLI and/or T3 Code in `local.yml` if you want them too. Long-running agent jobs then keep going after you disconnect. Authenticate on the server (`opencode auth login`, `gh auth login`, `codex login`).
 5. **T3 Code for screenshots and a GUI.** Pasting images over raw SSH is unreliable. Install T3 Code on the server and connect to it from the T3 desktop/mobile app over Tailscale. The AppImage role is headless-safe: missing `update-desktop-database` / `gtk-update-icon-cache` is ignored.
 6. **Passwordless SSH between machines.** Chinook never writes private keys. Generate them, register the public key, and add `ssh_hosts` entries so your laptop (or an agent on it) can hop to the server without a password.
 
@@ -321,6 +289,7 @@ Hardware KVMs and out-of-band power buttons are useful for this kind of box, but
 - KDE Breeze Dark theme
 - Flameshot on `Meta+Shift+4`
 - Zed with `~/.local/bin` on the Zsh path
+- OpenCode CLI and Desktop
 - Removal of the default Fedora games, maps, weather, and welcome apps when present
 
 Google Chrome is not installed here because official Linux builds don't exist for Apple Silicon — Chromium is used instead. The terminal UI includes a step to keep any removed default apps if you want them.
@@ -331,7 +300,11 @@ Google Chrome is not installed here because official Linux builds don't exist fo
 
 T3 Code is an agent-harness control surface that drives Claude Code, Codex, Cursor, Grok Build, and OpenCode. The `t3_code` role downloads the desktop AppImage into `/opt/t3-code` and adds a `t3-code` launcher and desktop entry.
 
-The only published Linux build is **x86_64**; on Fedora Asahi (aarch64) the AppImage runs through the x86 emulation layer, so the same install works on both distros. T3 Code needs at least one provider CLI installed and authenticated to drive agents — such as the optional OpenCode CLI.
+The only published Linux build is **x86_64**; on Fedora Asahi (aarch64) the AppImage runs through the x86 emulation layer, so the same install works on both distros. T3 Code needs at least one provider CLI installed and authenticated to drive agents — such as OpenCode CLI (installed by default).
+
+### OpenCode CLI / Desktop
+
+The `opencode_cli` role runs the official installer (`curl -fsSL https://opencode.ai/install | bash -s -- --no-modify-path`) and puts `~/.opencode/bin` on the Zsh PATH. The `opencode_desktop` role installs the GitHub-release `.deb`/`.rpm` on desktop profiles only. After provisioning, sign in with `opencode auth login`.
 
 ### Codex CLI
 
@@ -358,6 +331,8 @@ The Zed role only creates `settings.json` when one doesn't already exist. The te
 | `ansible/group_vars/local.yml.example` | Template for the private override file |
 | `ansible/roles/` | One role per workstation concern |
 | `tools/configure.py` | Terminal UI that generates `local.yml` |
+| `tests/test_configure.py` | Automated coverage of the configurator TUI |
+| `.github/workflows/test.yml` | CI: installer `bash -n` + configurator tests |
 
 ## Tags
 

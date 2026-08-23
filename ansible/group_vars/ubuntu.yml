@@ -3,6 +3,8 @@ install_snap_apps: true
 install_onedrive: true
 install_mangohud: true
 install_zed: true
+install_opencode_cli: true
+install_opencode_desktop: true
 install_balena_etcher: false
 
 configure_timeshift: true

@@ -1,6 +1,7 @@
 install_packages: true
 install_t3_code: false
 install_tailscale: true
+install_opencode_cli: true
 
 configure_timeshift: true
 configure_tmux: true
