@@ -2,11 +2,22 @@
 
 **Chinook** turns a fresh Linux install into your daily driver — reproducible, opinionated, and private by design.
 
-One command provisions packages, desktop defaults, codecs, and optional tooling:
-
 ```bash
 wget -qO- https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash
 ```
+
+If `wget` is missing:
+
+```bash
+curl -fsSL https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash
+```
+
+That command installs `git`, `ansible`, and `python3`, clones this repo to `~/chinook`, detects Ubuntu GNOME, Ubuntu Server, or Fedora Asahi Remix, opens the app selector, and runs the matching playbook.
+
+When it finishes:
+
+1. Open OpenCode and set up your credentials (`opencode auth login`) so you can tweak the OS using AI.
+2. Set up your GitHub / GitLab accounts.
 
 Your username, SSH hosts, sync paths, and device IDs stay in a git-ignored `local.yml`, so the public repo never carries personal data.
 
@@ -46,19 +57,7 @@ Public defaults live in the profile files; your private choices live in `ansible
 
 ## Quick Start
 
-On a fresh Ubuntu GNOME, Ubuntu Server, or Fedora Asahi Remix KDE machine:
-
-```bash
-wget -qO- https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash
-```
-
-That one command installs `git`, `ansible`, and `python3`, clones this repo to `~/chinook`, detects your OS, and opens the app selector. After you choose what to install, it runs the matching playbook. Re-run the same command (or `~/chinook/install`) any time — the playbook is **idempotent**.
-
-If `wget` is missing:
-
-```bash
-curl -fsSL https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash
-```
+The command at the top of this README is the full install. Re-run it (or `~/chinook/install`) any time — the playbook is **idempotent**.
 
 The installer asks for `sudo` when it needs it. Override the checkout path with `CHINOOK_DIR`, or pin a branch/tag with `CHINOOK_REF`. Force a profile with `CHINOOK_PROFILE=ubuntu` or `ubuntu_server` on Ubuntu, or `fedora_asahi` on Fedora.
 
@@ -122,7 +121,7 @@ When the installer finishes, that is everything Chinook can do for you. Two thin
 1. **Open OpenCode and set up your credentials** (`opencode auth login`) so you can tweak the OS using AI.
 2. **Set up your GitHub / GitLab accounts.**
 
-That is it. From here, edit `local.yml` or ask OpenCode, re-run the profile playbook, and Chinook converges the machine to the new state.
+That is it. From here, edit `local.yml` or ask OpenCode, re-run `~/chinook/install` (or the profile playbook), and Chinook converges the machine to the new state.
 
 ## What Chinook Changes
 
