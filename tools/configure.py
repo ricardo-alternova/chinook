@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import argparse
 import getpass
 import re
 
@@ -332,16 +333,34 @@ def build_config(profile, selected):
     return config
 
 
-def main():
-    print("Chinook workstation configurator")
-    profile = choose_one(
-        "Select a setup profile",
-        [
-            ("ubuntu", "Ubuntu GNOME"),
-            ("ubuntu_server", "Ubuntu Server (remote agent box)"),
-            ("fedora_asahi", "Fedora Asahi Remix KDE"),
-        ],
+PROFILE_LABELS = {
+    "ubuntu": "Ubuntu GNOME",
+    "ubuntu_server": "Ubuntu Server (remote agent box)",
+    "fedora_asahi": "Fedora Asahi Remix KDE",
+}
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Chinook workstation configurator")
+    parser.add_argument(
+        "--profile",
+        choices=list(PLAYBOOKS),
+        help="Skip the profile prompt (used by the one-line installer after OS detection)",
     )
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    print("Chinook workstation configurator")
+    if args.profile:
+        profile = args.profile
+        print(f"\nUsing detected profile: {PROFILE_LABELS[profile]}")
+    else:
+        profile = choose_one(
+            "Select a setup profile",
+            list(PROFILE_LABELS.items()),
+        )
 
     user = ask("Workstation user", getpass.getuser())
     home = ask("Workstation home", str(Path.home()))

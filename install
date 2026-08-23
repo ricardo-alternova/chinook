@@ -1,0 +1,243 @@
+#!/usr/bin/env bash
+# Chinook one-line installer.
+# wget -qO- https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash
+set -euo pipefail
+
+CHINOOK_REPO="${CHINOOK_REPO:-https://github.com/ricardo-alternova/chinook.git}"
+CHINOOK_DIR="${CHINOOK_DIR:-$HOME/chinook}"
+CHINOOK_REF="${CHINOOK_REF:-main}"
+
+banner() {
+  cat <<'EOF'
+   _____ _     _
+  / ____| |__ (_)_ __   ___   ___ | | __
+ | |    | '_ \| | '_ \ / _ \ / _ \| |/ /
+ | |___ | | | | | | | | (_) | (_) |   <
+  \____|_| |_|_|_| |_|\___/ \___/|_|\_\
+
+  Fresh Linux → daily driver
+EOF
+}
+
+die() {
+  echo "error: $*" >&2
+  exit 1
+}
+
+need_tty() {
+  [[ -r /dev/tty && -w /dev/tty ]] || die "Chinook needs an interactive terminal (prompts and sudo)."
+}
+
+prompt_enter() {
+  echo
+  echo "Begin installation (Ctrl+C to abort)."
+  read -r -p "Press Enter to continue. " _ </dev/tty
+}
+
+detect_os() {
+  [[ -r /etc/os-release ]] || die "Unsupported system: /etc/os-release is missing."
+  # shellcheck disable=SC1091
+  . /etc/os-release
+
+  case "${ID:-}" in
+    ubuntu)
+      CHINOOK_OS_LABEL="Ubuntu ${VERSION_ID:-}"
+      choose_ubuntu_profile
+      ;;
+    fedora)
+      CHINOOK_PROFILE=fedora_asahi
+      if [[ "${NAME:-} ${VARIANT:-} ${VERSION:-}" == *[Aa]sahi* ]] || uname -r | grep -qi asahi; then
+        CHINOOK_OS_LABEL="Fedora Asahi Remix ${VERSION_ID:-}"
+      else
+        CHINOOK_OS_LABEL="Fedora ${VERSION_ID:-}"
+        echo "Fedora detected. Chinook's Fedora profile targets Asahi Remix + KDE; other desktops may skip or fail KDE steps."
+      fi
+      ;;
+    *)
+      die "Unsupported OS '${ID:-unknown}'. Chinook supports Ubuntu (GNOME or Server) and Fedora Asahi Remix (KDE)."
+      ;;
+  esac
+
+  case "$CHINOOK_PROFILE" in
+    ubuntu) CHINOOK_PLAYBOOK=ansible/playbooks/ubuntu.yml ;;
+    ubuntu_server) CHINOOK_PLAYBOOK=ansible/playbooks/ubuntu_server.yml ;;
+    fedora_asahi) CHINOOK_PLAYBOOK=ansible/playbooks/fedora_asahi.yml ;;
+    *) die "Unknown profile '$CHINOOK_PROFILE'." ;;
+  esac
+}
+
+choose_ubuntu_profile() {
+  if [[ -n "${CHINOOK_PROFILE:-}" ]]; then
+    case "$CHINOOK_PROFILE" in
+      ubuntu|ubuntu_server|fedora_asahi) return ;;
+      *) die "CHINOOK_PROFILE must be ubuntu, ubuntu_server, or fedora_asahi." ;;
+    esac
+  fi
+
+  local default=ubuntu_server
+  local hint="no GNOME detected"
+  if command -v gnome-shell >/dev/null 2>&1 || [[ "${XDG_CURRENT_DESKTOP:-}" == *GNOME* ]]; then
+    default=ubuntu
+    hint="GNOME detected"
+  elif [[ "${VARIANT_ID:-}${VARIANT:-}${PRETTY_NAME:-}" == *[Ss]erver* ]]; then
+    hint="Ubuntu Server variant"
+  fi
+
+  echo "Detected $CHINOOK_OS_LABEL ($hint)."
+  echo "  1. Ubuntu GNOME"
+  echo "  2. Ubuntu Server (headless / remote agent box)"
+  local pick default_n=2
+  [[ "$default" == ubuntu ]] && default_n=1
+  read -r -p "Choose profile [1/2] (default ${default_n}): " pick </dev/tty
+  pick="${pick:-$default_n}"
+  case "$pick" in
+    1) CHINOOK_PROFILE=ubuntu ;;
+    2) CHINOOK_PROFILE=ubuntu_server ;;
+    *) die "Enter 1 or 2." ;;
+  esac
+}
+
+pkg_install() {
+  case "${ID:-}" in
+    ubuntu)
+      sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
+      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git ansible python3
+      ;;
+    fedora)
+      sudo dnf install -y git ansible python3
+      ;;
+    *)
+      die "No package manager path for '${ID:-unknown}'."
+      ;;
+  esac
+}
+
+ensure_git() {
+  command -v git >/dev/null 2>&1 && return 0
+  echo "Installing git..."
+  [[ -r /etc/os-release ]] || die "Unsupported system: /etc/os-release is missing."
+  # shellcheck disable=SC1091
+  . /etc/os-release
+  case "${ID:-}" in
+    ubuntu)
+      sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
+      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
+      ;;
+    fedora)
+      sudo dnf install -y git
+      ;;
+    *)
+      die "Install git, then re-run."
+      ;;
+  esac
+}
+
+in_repo_root() {
+  local src="${BASH_SOURCE[0]:-}"
+  [[ -n "$src" && -f "$src" ]] || return 1
+  [[ "$src" == /dev/fd/* || "$src" == /proc/self/fd/* ]] && return 1
+  local here
+  here="$(cd "$(dirname "$src")" && pwd)"
+  [[ -f "$here/tools/configure.py" ]] || return 1
+  printf '%s\n' "$here"
+}
+
+clone_or_update() {
+  if [[ -d "$CHINOOK_DIR/.git" ]]; then
+    echo "Updating Chinook in $CHINOOK_DIR ..."
+    git -C "$CHINOOK_DIR" remote set-url origin "$CHINOOK_REPO"
+    git -C "$CHINOOK_DIR" fetch --depth 1 origin "$CHINOOK_REF"
+    git -C "$CHINOOK_DIR" reset --hard FETCH_HEAD
+    return
+  fi
+
+  if [[ -e "$CHINOOK_DIR" ]] && [[ -n "$(ls -A "$CHINOOK_DIR" 2>/dev/null)" ]]; then
+    die "$CHINOOK_DIR exists and is not a Chinook checkout. Set CHINOOK_DIR to an empty path."
+  fi
+
+  echo "Cloning Chinook into $CHINOOK_DIR ..."
+  git clone --depth 1 --branch "$CHINOOK_REF" "$CHINOOK_REPO" "$CHINOOK_DIR"
+}
+
+bootstrap() {
+  [[ "$(uname -s)" == Linux ]] || die "Chinook is for Linux. Detected $(uname -s)."
+  [[ "${EUID:-$(id -u)}" -ne 0 ]] || die "Run as your user, not root. The installer will sudo when needed."
+  need_tty
+  banner
+  echo
+  echo "This will install git, ansible, and python3, then help you pick apps."
+  prompt_enter
+
+  local root
+  if root="$(in_repo_root)"; then
+    echo "Using existing checkout at $root"
+    exec bash "$root/install" --in-repo </dev/tty
+  fi
+
+  ensure_git
+  clone_or_update
+  exec bash "$CHINOOK_DIR/install" --in-repo </dev/tty
+}
+
+run_from_repo() {
+  [[ "$(uname -s)" == Linux ]] || die "Chinook is for Linux. Detected $(uname -s)."
+  [[ "${EUID:-$(id -u)}" -ne 0 ]] || die "Run as your user, not root. The installer will sudo when needed."
+  need_tty
+
+  local root
+  root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  cd "$root"
+
+  detect_os
+  echo
+  echo "Detected $CHINOOK_OS_LABEL → profile '$CHINOOK_PROFILE'"
+  echo "Installing prerequisites (git, ansible, python3)..."
+  pkg_install
+
+  command -v python3 >/dev/null 2>&1 || die "python3 is required."
+  command -v ansible-playbook >/dev/null 2>&1 || die "ansible-playbook is required."
+
+  local local_vars="$root/ansible/group_vars/local.yml"
+  local configure=1
+  if [[ -f "$local_vars" ]]; then
+    echo
+    echo "Found existing $local_vars"
+    read -r -p "Re-run the app selector? [y/N] " reply </dev/tty
+    [[ "${reply:-}" =~ ^[Yy]$ ]] || configure=0
+  fi
+
+  if [[ "$configure" -eq 1 ]]; then
+    python3 "$root/tools/configure.py" --profile "$CHINOOK_PROFILE"
+  fi
+
+  [[ -f "$local_vars" ]] || die "No local.yml generated; aborting before the playbook."
+
+  echo
+  echo "Running $CHINOOK_PLAYBOOK ..."
+  local become=()
+  if sudo -n true 2>/dev/null; then
+    echo "Passwordless sudo detected."
+  else
+    become=(--ask-become-pass)
+  fi
+  ansible-playbook "$CHINOOK_PLAYBOOK" "${become[@]}"
+
+  cat <<EOF
+
+Chinook provisioning finished.
+
+A few first-time steps still need you — see the README:
+  https://github.com/ricardo-alternova/chinook#after-provisioning-manual-steps
+
+Checkout: $root
+Re-run anytime: $root/install
+EOF
+}
+
+trap 'echo "Chinook installation failed. Retry with: wget -qO- https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash"' ERR
+
+if [[ "${1:-}" == "--in-repo" ]]; then
+  run_from_repo
+else
+  bootstrap
+fi
