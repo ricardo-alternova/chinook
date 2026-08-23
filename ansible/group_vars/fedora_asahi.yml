@@ -1,6 +1,8 @@
 install_packages: true
 install_flatpak_apps: true
 install_zed: true
+install_opencode_cli: true
+install_opencode_desktop: true
 
 configure_timeshift: true
 configure_ssh: false

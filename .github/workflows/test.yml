@@ -14,5 +14,7 @@ jobs:
           python-version: "3.12"
       - name: Install test dependencies
         run: python3 -m pip install pyyaml
+      - name: Check installer syntax
+        run: bash -n install
       - name: Run configurator tests
         run: python3 -m unittest discover -s tests -v

@@ -29,7 +29,8 @@ def app_index(profile, key):
 
 
 def run_tui(args, answers, timeout=8):
-    output = Path(tempfile.mkdtemp()) / "local.yml"
+    tmp = tempfile.TemporaryDirectory()
+    output = Path(tmp.name) / "local.yml"
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
     result = subprocess.run(
@@ -42,12 +43,12 @@ def run_tui(args, answers, timeout=8):
         timeout=timeout,
         check=False,
     )
-    return result, output
+    return result, output, tmp
 
 
 def parse_yaml(text):
     if yaml is None:
-        raise unittest.SkipTest("PyYAML is not installed")
+        raise RuntimeError("PyYAML is required: python3 -m pip install pyyaml")
     return yaml.safe_load(text)
 
 
@@ -86,6 +87,16 @@ class TestCatalog(unittest.TestCase):
         self.assertIn("tailscale", server_defaults)
         self.assertNotIn("tmux", ubuntu_defaults)
         self.assertNotIn("opencode_desktop", server_defaults)
+
+    def test_profile_vars_enable_opencode(self):
+        ubuntu = (ROOT / "ansible/group_vars/ubuntu.yml").read_text(encoding="utf-8")
+        fedora = (ROOT / "ansible/group_vars/fedora_asahi.yml").read_text(encoding="utf-8")
+        server = (ROOT / "ansible/group_vars/ubuntu_server.yml").read_text(encoding="utf-8")
+        self.assertIn("install_opencode_cli: true", ubuntu)
+        self.assertIn("install_opencode_desktop: true", ubuntu)
+        self.assertIn("install_opencode_cli: true", fedora)
+        self.assertIn("install_opencode_desktop: true", fedora)
+        self.assertIn("install_opencode_cli: true", server)
 
 
 class TestYamlValue(unittest.TestCase):
@@ -197,6 +208,11 @@ class TestPrompts(unittest.TestCase):
 
 
 class TestTuiProcess(unittest.TestCase):
+    def run_tui(self, args, answers, timeout=8):
+        result, output, tmp = run_tui(args, answers, timeout)
+        self.addCleanup(tmp.cleanup)
+        return result, output
+
     def test_help(self):
         result = subprocess.run(
             [sys.executable, str(CONFIGURE_PATH), "--help"],
@@ -208,13 +224,13 @@ class TestTuiProcess(unittest.TestCase):
         self.assertIn("--profile", result.stdout)
 
     def test_eof_exits_before_writing(self):
-        result, output = run_tui(["--profile", "ubuntu"], [])
+        result, output = self.run_tui(["--profile", "ubuntu"], [])
         self.assertEqual(result.returncode, 1)
         self.assertIn("input ended before configuration finished", result.stderr)
         self.assertFalse(output.exists())
 
     def test_ubuntu_defaults_via_stdin(self):
-        result, output = run_tui(
+        result, output = self.run_tui(
             ["--profile", "ubuntu"],
             ["ricardo", "/home/ricardo", "", ""],
         )
@@ -230,7 +246,7 @@ class TestTuiProcess(unittest.TestCase):
         self.assertIn("ansible/playbooks/ubuntu.yml", result.stdout)
 
     def test_ubuntu_without_preset_profile_choice(self):
-        result, output = run_tui(
+        result, output = self.run_tui(
             [],
             ["1", "ricardo", "/home/ricardo", "", ""],
         )
@@ -239,7 +255,7 @@ class TestTuiProcess(unittest.TestCase):
         self.assertEqual(data["profile"], "ubuntu")
 
     def test_ubuntu_server_extra_prompts(self):
-        result, output = run_tui(
+        result, output = self.run_tui(
             ["--profile", "ubuntu_server"],
             [
                 "agent",
@@ -263,7 +279,7 @@ class TestTuiProcess(unittest.TestCase):
         self.assertNotIn("snap_packages", data)
 
     def test_fedora_removals_keep_one(self):
-        result, output = run_tui(
+        result, output = self.run_tui(
             ["--profile", "fedora_asahi"],
             ["ricardo", "/home/ricardo", "", "", "1", ""],
         )
@@ -277,7 +293,7 @@ class TestTuiProcess(unittest.TestCase):
 
     def test_optional_prompts_onedrive_ssh_and_toggle(self):
         onedrive = app_index("ubuntu", "onedrive")
-        result, output = run_tui(
+        result, output = self.run_tui(
             ["--profile", "ubuntu"],
             [
                 "ricardo",
@@ -300,6 +316,27 @@ class TestTuiProcess(unittest.TestCase):
         self.assertEqual(data["ssh_hosts"][0]["hostname"], "gitlab.com")
         self.assertEqual(data["onedrive_sync_dir"], "~/OneDrive/Work")
         self.assertEqual(data["onedrive_sync_list"], ["Documents", "Photos"])
+
+
+class TestInstallScript(unittest.TestCase):
+    def test_bash_syntax(self):
+        result = subprocess.run(
+            ["bash", "-n", str(ROOT / "install")],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_next_steps_copy(self):
+        text = (ROOT / "install").read_text(encoding="utf-8")
+        self.assertIn("Open OpenCode and set up your credentials", text)
+        self.assertIn("GitHub / GitLab accounts", text)
+        self.assertNotIn("after-provisioning-manual-steps", text)
+
+    def test_ubuntu_profile_override_rejects_fedora(self):
+        text = (ROOT / "install").read_text(encoding="utf-8")
+        self.assertIn("On Ubuntu, CHINOOK_PROFILE must be ubuntu or ubuntu_server", text)
 
 
 if __name__ == "__main__":
