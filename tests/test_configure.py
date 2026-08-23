@@ -87,16 +87,36 @@ class TestCatalog(unittest.TestCase):
         self.assertIn("tailscale", server_defaults)
         self.assertNotIn("tmux", ubuntu_defaults)
         self.assertNotIn("opencode_desktop", server_defaults)
+        fedora_defaults = configure.default_selection("fedora_asahi")
+        self.assertIn("opencode_cli", fedora_defaults)
+        self.assertIn("opencode_desktop", fedora_defaults)
 
     def test_profile_vars_enable_opencode(self):
         ubuntu = (ROOT / "ansible/group_vars/ubuntu.yml").read_text(encoding="utf-8")
         fedora = (ROOT / "ansible/group_vars/fedora_asahi.yml").read_text(encoding="utf-8")
         server = (ROOT / "ansible/group_vars/ubuntu_server.yml").read_text(encoding="utf-8")
+        example = (ROOT / "ansible/group_vars/local.yml.example").read_text(encoding="utf-8")
         self.assertIn("install_opencode_cli: true", ubuntu)
         self.assertIn("install_opencode_desktop: true", ubuntu)
         self.assertIn("install_opencode_cli: true", fedora)
         self.assertIn("install_opencode_desktop: true", fedora)
         self.assertIn("install_opencode_cli: true", server)
+        self.assertNotIn("install_opencode_desktop: true", server)
+        self.assertIn("install_opencode_cli: true", example)
+        self.assertIn("install_opencode_desktop: true", example)
+
+    def test_generated_local_yml_overrides_profile_opencode(self):
+        def load(name):
+            return parse_yaml((ROOT / "ansible/group_vars" / name).read_text(encoding="utf-8"))
+
+        merged = {}
+        merged.update(load("all.yml"))
+        merged.update(load("ubuntu.yml"))
+        self.assertTrue(merged["install_opencode_cli"])
+        self.assertTrue(merged["install_opencode_desktop"])
+        merged.update({"install_opencode_cli": False, "install_opencode_desktop": False})
+        self.assertFalse(merged["install_opencode_cli"])
+        self.assertFalse(merged["install_opencode_desktop"])
 
 
 class TestYamlValue(unittest.TestCase):
@@ -154,6 +174,8 @@ class TestBuildConfig(unittest.TestCase):
         self.assertNotIn("google-chrome-stable", config.get("apt_packages", []))
         self.assertTrue(config["rpmfusion_release_packages"])
         self.assertIn("org.onlyoffice.desktopeditors", config["flatpak_packages"])
+        self.assertTrue(config["install_opencode_cli"])
+        self.assertTrue(config["install_opencode_desktop"])
 
 
 class TestGenerateLocalYml(unittest.TestCase):
@@ -331,6 +353,7 @@ class TestInstallScript(unittest.TestCase):
     def test_next_steps_copy(self):
         text = (ROOT / "install").read_text(encoding="utf-8")
         self.assertIn("Open OpenCode and set up your credentials", text)
+        self.assertIn("opencode auth login", text)
         self.assertIn("GitHub / GitLab accounts", text)
         self.assertNotIn("after-provisioning-manual-steps", text)
 

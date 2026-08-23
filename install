@@ -228,7 +228,7 @@ run_from_repo() {
 Chinook is ready.
 
 Next steps:
-  1. Open OpenCode and set up your credentials so you can tweak the OS using AI.
+  1. Open OpenCode and set up your credentials (`opencode auth login`) so you can tweak the OS using AI.
   2. Set up your GitHub / GitLab accounts.
 
 That is it.

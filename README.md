@@ -60,7 +60,7 @@ If `wget` is missing:
 curl -fsSL https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash
 ```
 
-The installer asks for `sudo` when it needs it. Override the checkout path with `CHINOOK_DIR`, pin a branch/tag with `CHINOOK_REF`, or force a profile with `CHINOOK_PROFILE=ubuntu|ubuntu_server|fedora_asahi`.
+The installer asks for `sudo` when it needs it. Override the checkout path with `CHINOOK_DIR`, or pin a branch/tag with `CHINOOK_REF`. Force a profile with `CHINOOK_PROFILE=ubuntu` or `ubuntu_server` on Ubuntu, or `fedora_asahi` on Fedora.
 
 ### Manual install
 
@@ -119,7 +119,7 @@ If you would rather walk the steps yourself:
 
 When the installer finishes, that is everything Chinook can do for you. Two things are left:
 
-1. **Open OpenCode and set up your credentials** so you can tweak the OS using AI.
+1. **Open OpenCode and set up your credentials** (`opencode auth login`) so you can tweak the OS using AI.
 2. **Set up your GitHub / GitLab accounts.**
 
 That is it. From here, edit `local.yml` or ask OpenCode, re-run the profile playbook, and Chinook converges the machine to the new state.
@@ -218,8 +218,9 @@ The configurator writes these values for you.
 - Flameshot on the `Print` key
 - FFmpeg/GStreamer codecs and HEIC/HEIF image support
 - MangoHud overlay and Zed with `~/.local/bin` on the Zsh path
+- OpenCode CLI and Desktop
 
-Optional modules: OneDrive, SSH snippets, Keychron udev rules, OBS Studio, OpenCode CLI/Desktop, Balena Etcher, Teams PWA, desktop shortcuts, T3 Code, tmux, and Tailscale. Enable them in `local.yml` or through `tools/configure.py`.
+Optional modules: OneDrive, SSH snippets, Keychron udev rules, OBS Studio, Balena Etcher, Teams PWA, desktop shortcuts, T3 Code, tmux, and Tailscale. Enable them in `local.yml` or through `tools/configure.py`.
 
 ## Ubuntu Server Profile
 
@@ -242,8 +243,9 @@ This profile is for a headless Ubuntu box you SSH into — a remote agent machin
 - Tailscale client install (`tailscaled` enabled). Prefer `sudo tailscale up` interactively. An optional `tailscale_auth_key` is passed via `TS_AUTHKEY` (not the process argv). Use a single-use key if you store one in `local.yml`
 - UFW with default-deny inbound, allow outbound, OpenSSH allowed before the firewall is turned on, and `tailscale0` allowed when Tailscale is enabled so tailnet traffic is not blocked
 - fail2ban SSH jail (`jail.d/sshd.local` only — package `jail.conf` is left alone) using the systemd journal, 5 retries / 10 minutes / 1 hour ban. Localhost is ignored; Tailscale/CGNAT addresses are not, so a compromised tailnet peer can still be banned
+- OpenCode CLI
 
-Optional modules: SSH snippets, OneDrive, OpenCode CLI, Codex CLI, T3 Code, and Keychron udev rules. Desktop apps (Kitty, Chrome, Steam, Zed, snaps, GNOME settings) are not offered in the Server configurator.
+Optional modules: SSH snippets, OneDrive, Codex CLI, T3 Code, and Keychron udev rules. Desktop apps (Kitty, Chrome, Steam, Zed, snaps, GNOME settings) are not offered in the Server configurator.
 
 Open extra ports in `local.yml` without replacing the SSH rule:
 
@@ -260,7 +262,7 @@ The Server profile is meant to be a box you leave running and connect to from a 
 1. **SSH + tmux.** Interactive SSH drops you into a named tmux session. Work survives laptop sleep, network changes, and closing the lid. Give each machine a different `tmux_status_bg` (for example `green`, `red`, `colour24`) so you can tell them apart.
 2. **Tailscale.** Reach the box from outside the LAN without exposing extra ports to the public internet. After `sudo tailscale up`, use the MagicDNS name from any device on the tailnet. Optional: set `tailscale_ssh: true` (with an auth key) if you want Tailscale SSH. UFW still allows OpenSSH so a local or tailnet SSH session is not locked out.
 3. **UFW + fail2ban.** Inbound traffic is denied except SSH (and Tailscale). fail2ban bans IPs that hammer SSH. This is the baseline before you put the box on a network.
-4. **Agent CLIs on the box, not the laptop.** Enable OpenCode CLI, Codex CLI, and/or T3 Code in `local.yml`. Long-running agent jobs then keep going after you disconnect. Authenticate on the server (`gh auth login`, `codex login`, `opencode auth login`).
+4. **Agent CLIs on the box, not the laptop.** OpenCode CLI is on by default. Enable Codex CLI and/or T3 Code in `local.yml` if you want them too. Long-running agent jobs then keep going after you disconnect. Authenticate on the server (`opencode auth login`, `gh auth login`, `codex login`).
 5. **T3 Code for screenshots and a GUI.** Pasting images over raw SSH is unreliable. Install T3 Code on the server and connect to it from the T3 desktop/mobile app over Tailscale. The AppImage role is headless-safe: missing `update-desktop-database` / `gtk-update-icon-cache` is ignored.
 6. **Passwordless SSH between machines.** Chinook never writes private keys. Generate them, register the public key, and add `ssh_hosts` entries so your laptop (or an agent on it) can hop to the server without a password.
 
@@ -287,6 +289,7 @@ Hardware KVMs and out-of-band power buttons are useful for this kind of box, but
 - KDE Breeze Dark theme
 - Flameshot on `Meta+Shift+4`
 - Zed with `~/.local/bin` on the Zsh path
+- OpenCode CLI and Desktop
 - Removal of the default Fedora games, maps, weather, and welcome apps when present
 
 Google Chrome is not installed here because official Linux builds don't exist for Apple Silicon — Chromium is used instead. The terminal UI includes a step to keep any removed default apps if you want them.
@@ -297,7 +300,11 @@ Google Chrome is not installed here because official Linux builds don't exist fo
 
 T3 Code is an agent-harness control surface that drives Claude Code, Codex, Cursor, Grok Build, and OpenCode. The `t3_code` role downloads the desktop AppImage into `/opt/t3-code` and adds a `t3-code` launcher and desktop entry.
 
-The only published Linux build is **x86_64**; on Fedora Asahi (aarch64) the AppImage runs through the x86 emulation layer, so the same install works on both distros. T3 Code needs at least one provider CLI installed and authenticated to drive agents — such as the optional OpenCode CLI.
+The only published Linux build is **x86_64**; on Fedora Asahi (aarch64) the AppImage runs through the x86 emulation layer, so the same install works on both distros. T3 Code needs at least one provider CLI installed and authenticated to drive agents — such as OpenCode CLI (installed by default).
+
+### OpenCode CLI / Desktop
+
+The `opencode_cli` role runs the official installer (`curl -fsSL https://opencode.ai/install | bash -s -- --no-modify-path`) and puts `~/.opencode/bin` on the Zsh PATH. The `opencode_desktop` role installs the GitHub-release `.deb`/`.rpm` on desktop profiles only. After provisioning, sign in with `opencode auth login`.
 
 ### Codex CLI
 
@@ -325,6 +332,7 @@ The Zed role only creates `settings.json` when one doesn't already exist. The te
 | `ansible/roles/` | One role per workstation concern |
 | `tools/configure.py` | Terminal UI that generates `local.yml` |
 | `tests/test_configure.py` | Automated coverage of the configurator TUI |
+| `.github/workflows/test.yml` | CI: installer `bash -n` + configurator tests |
 
 ## Tags
 
