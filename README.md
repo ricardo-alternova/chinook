@@ -2,7 +2,13 @@
 
 **Chinook** turns a fresh Linux install into your daily driver — reproducible, opinionated, and private by design.
 
-One command provisions packages, desktop defaults, codecs, and optional tooling. Your username, SSH hosts, sync paths, and device IDs stay in a git-ignored `local.yml`, so the public repo never carries personal data.
+One command provisions packages, desktop defaults, codecs, and optional tooling:
+
+```bash
+wget -qO- https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash
+```
+
+Your username, SSH hosts, sync paths, and device IDs stay in a git-ignored `local.yml`, so the public repo never carries personal data.
 
 | System | Desktop | Playbook | Profile Vars |
 | --- | --- | --- | --- |
@@ -40,74 +46,74 @@ Public defaults live in the profile files; your private choices live in `ansible
 
 ## Quick Start
 
-Four phases take you from a fresh install to a finished workstation.
-
-### 1. Prepare
-
-Pick the profile that matches your hardware. Apple Silicon Macs use Fedora Asahi. Ubuntu desktops use the GNOME profile. Headless boxes and remote agent machines use Ubuntu Server.
-
-Install the three prerequisites — `git` to clone this repo, `ansible` to run the setup, and `python3` for the config terminal UI.
-
-Ubuntu:
+On a fresh Ubuntu GNOME, Ubuntu Server, or Fedora Asahi Remix KDE machine:
 
 ```bash
-sudo apt update
-sudo apt install git ansible python3
+wget -qO- https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash
 ```
 
-Fedora:
+That one command installs `git`, `ansible`, and `python3`, clones this repo to `~/chinook`, detects your OS, and opens the app selector. After you choose what to install, it runs the matching playbook. Re-run the same command (or `~/chinook/install`) any time — the playbook is **idempotent**.
+
+If `wget` is missing:
 
 ```bash
-sudo dnf install git ansible python3
+curl -fsSL https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash
 ```
 
-> The playbook elevates to root with `sudo` for system changes. If your account has passwordless sudo the run is smoother; otherwise keep `--ask-become-pass` when invoking the playbook.
+The installer asks for `sudo` when it needs it. Override the checkout path with `CHINOOK_DIR`, pin a branch/tag with `CHINOOK_REF`, or force a profile with `CHINOOK_PROFILE=ubuntu|ubuntu_server|fedora_asahi`.
 
-### 2. Configure
+### Manual install
 
-Clone Chinook and generate your personal config:
+If you would rather walk the steps yourself:
 
-```bash
-git clone https://github.com/ricardo-alternova/chinook.git
-cd chinook
-python3 tools/configure.py
-```
+1. Install prerequisites (`git`, `ansible`, `python3`):
 
-Pick your profile, then toggle apps and modules on or off. The configurator writes `ansible/group_vars/local.yml` (git-ignored) with your choices.
+   Ubuntu:
 
-### 3. Provision
+   ```bash
+   sudo apt update
+   sudo apt install git ansible python3
+   ```
 
-Run the selected profile.
+   Fedora:
 
-Ubuntu GNOME:
+   ```bash
+   sudo dnf install git ansible python3
+   ```
 
-```bash
-ansible-playbook ansible/playbooks/ubuntu.yml --ask-become-pass
-```
+2. Clone and configure:
 
-Ubuntu Server:
+   ```bash
+   git clone https://github.com/ricardo-alternova/chinook.git
+   cd chinook
+   python3 tools/configure.py
+   ```
 
-```bash
-ansible-playbook ansible/playbooks/ubuntu_server.yml --ask-become-pass
-```
+   Pick your profile, then toggle apps and modules. The configurator writes `ansible/group_vars/local.yml` (git-ignored).
 
-Fedora Asahi:
+3. Provision:
 
-```bash
-ansible-playbook ansible/playbooks/fedora_asahi.yml --ask-become-pass
-```
+   Ubuntu GNOME:
 
-Drop `--ask-become-pass` if your user has passwordless sudo. The playbook is **idempotent** — re-running it any time is safe. It applies `local.yml` changes and picks up package updates without touching what already matches.
+   ```bash
+   ansible-playbook ansible/playbooks/ubuntu.yml --ask-become-pass
+   ```
 
-The GNOME playbook refuses to run on a machine without `gnome-shell` and points you at `ubuntu_server.yml`. The legacy Ubuntu entrypoint still works and imports `ubuntu.yml`:
+   Ubuntu Server:
 
-```bash
-ansible-playbook ansible/playbooks/workstation.yml --ask-become-pass
-```
+   ```bash
+   ansible-playbook ansible/playbooks/ubuntu_server.yml --ask-become-pass
+   ```
 
-### 4. Finish manually
+   Fedora Asahi:
 
-A few first-time steps can't be automated. Follow the [After Provisioning](#after-provisioning-manual-steps) checklist before calling it done.
+   ```bash
+   ansible-playbook ansible/playbooks/fedora_asahi.yml --ask-become-pass
+   ```
+
+   Drop `--ask-become-pass` if your user has passwordless sudo. The GNOME playbook refuses to run on a machine without `gnome-shell` and points you at `ubuntu_server.yml`. The legacy Ubuntu entrypoint `ansible/playbooks/workstation.yml` still imports `ubuntu.yml`.
+
+4. Finish the [After Provisioning](#after-provisioning-manual-steps) checklist.
 
 ## After Provisioning: Manual Steps
 
@@ -339,6 +345,7 @@ The Zed role only creates `settings.json` when one doesn't already exist. The te
 
 | Path | Purpose |
 | --- | --- |
+| `install` | One-line bootstrap: prereqs, clone, OS detect, configure, playbook |
 | `ansible/playbooks/ubuntu.yml` | Ubuntu GNOME playbook |
 | `ansible/playbooks/ubuntu_server.yml` | Ubuntu Server playbook |
 | `ansible/playbooks/fedora_asahi.yml` | Fedora Asahi KDE playbook |
@@ -371,6 +378,7 @@ keychron zed balena_etcher teams_pwa desktop_shortcuts
 ## Troubleshooting
 
 - **`sudo a password is required` throughout the run** — your account needs passwordless sudo, or you must keep `--ask-become-pass`. To enable it, run `sudo visudo` and add `your-user ALL=(ALL) NOPASSWD: ALL`.
+- **The one-line installer says it needs an interactive terminal** — run it from a real terminal (desktop or SSH). `wget | bash` still works because prompts are read from `/dev/tty`.
 - **`This playbook is for Ubuntu GNOME`** — you ran `ubuntu.yml` on a machine without `gnome-shell`. Use `ansible/playbooks/ubuntu_server.yml` instead.
 - **GNOME/KDE tasks fail with "no display" or DBus errors** — the theme and shortcut roles configure a running desktop session via `gsettings`/`kwriteconfig`. Run the GNOME or KDE playbook from a logged-in GUI session, not a bare TTY or a server SSH login.
 - **SSH drops you into tmux and you wanted a plain shell** — set `configure_tmux: false` in `local.yml` and re-run, or detach with the usual tmux prefix. Auto-attach only runs on interactive SSH (`SSH_TTY`) from `.bashrc` and `.zshrc`, so `scp`, `sftp`, and Ansible are unaffected. An existing `~/.tmux.conf` is never overwritten.
