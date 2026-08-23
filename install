@@ -69,8 +69,8 @@ detect_os() {
 choose_ubuntu_profile() {
   if [[ -n "${CHINOOK_PROFILE:-}" ]]; then
     case "$CHINOOK_PROFILE" in
-      ubuntu|ubuntu_server|fedora_asahi) return ;;
-      *) die "CHINOOK_PROFILE must be ubuntu, ubuntu_server, or fedora_asahi." ;;
+      ubuntu|ubuntu_server) return ;;
+      *) die "On Ubuntu, CHINOOK_PROFILE must be ubuntu or ubuntu_server (got '$CHINOOK_PROFILE')." ;;
     esac
   fi
 
@@ -90,6 +90,7 @@ choose_ubuntu_profile() {
   [[ "$default" == ubuntu ]] && default_n=1
   read -r -p "Choose profile [1/2] (default ${default_n}): " pick </dev/tty
   pick="${pick:-$default_n}"
+  pick="${pick//[[:space:]]/}"
   case "$pick" in
     1) CHINOOK_PROFILE=ubuntu ;;
     2) CHINOOK_PROFILE=ubuntu_server ;;

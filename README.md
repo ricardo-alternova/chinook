@@ -174,8 +174,8 @@ install_snap_apps: true
 install_flatpak_apps: false
 install_onedrive: false
 install_mangohud: false
-install_opencode_cli: false
-install_opencode_desktop: false
+install_opencode_cli: true
+install_opencode_desktop: true
 install_zed: true
 install_balena_etcher: false
 install_t3_code: false
