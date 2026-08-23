@@ -224,13 +224,13 @@ run_from_repo() {
 
   cat <<EOF
 
-Chinook provisioning finished.
+Chinook is ready.
 
-A few first-time steps still need you — see the README:
-  https://github.com/ricardo-alternova/chinook#after-provisioning-manual-steps
+Next steps:
+  1. Open OpenCode and set up your credentials so you can tweak the OS using AI.
+  2. Set up your GitHub / GitLab accounts.
 
-Checkout: $root
-Re-run anytime: $root/install
+That is it.
 EOF
 }
 
