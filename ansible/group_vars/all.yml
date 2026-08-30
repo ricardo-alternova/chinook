@@ -10,6 +10,7 @@ install_mangohud: false
 install_opencode_cli: false
 install_opencode_desktop: false
 install_codex_cli: false
+install_helium: false
 install_zed: false
 install_balena_etcher: false
 install_t3_code: false
@@ -114,6 +115,12 @@ codex_cli_bin_path: "{{ workstation_home }}/.local/bin/codex"
 
 opencode_desktop_package_name: opencode
 opencode_desktop_release_base_url: https://github.com/anomalyco/opencode/releases/latest/download
+
+helium_package_name: helium-bin
+helium_apt_key_url: https://raw.githubusercontent.com/imputnet/helium-linux/main/pubkey.asc
+helium_apt_key_path: /etc/apt/keyrings/helium.gpg
+helium_apt_repo_url: https://pkg.helium.computer/deb
+helium_copr_project: imput/helium
 
 t3_code_install_dir: /opt/t3-code
 t3_code_extract_dir: /tmp/t3-code-extract
