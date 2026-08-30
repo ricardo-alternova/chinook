@@ -56,6 +56,9 @@
     - role: t3_code
       tags: t3_code
       when: install_t3_code | bool
+    - role: helium
+      tags: helium
+      when: install_helium | bool
     - role: keychron
       tags: keychron
       when: configure_keychron | bool

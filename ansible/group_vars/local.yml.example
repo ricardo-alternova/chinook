@@ -13,6 +13,7 @@ install_mangohud: false
 install_opencode_cli: true
 install_opencode_desktop: true
 install_codex_cli: false
+install_helium: false
 install_zed: true
 install_balena_etcher: false
 install_t3_code: false

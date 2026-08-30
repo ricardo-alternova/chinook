@@ -1,0 +1,59 @@
+- name: Ensure Helium install dependencies are present
+  ansible.builtin.package:
+    name: curl
+    state: present
+  become: true
+
+- name: Gather installed package facts
+  ansible.builtin.package_facts:
+    manager: auto
+
+- name: Download Helium signing key
+  ansible.builtin.get_url:
+    url: "{{ helium_apt_key_url }}"
+    dest: "{{ helium_apt_key_path }}.asc"
+    mode: "0644"
+  become: true
+  register: helium_apt_key
+  when: ansible_facts['pkg_mgr'] == 'apt'
+
+- name: Convert Helium signing key to keyring format
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --dearmor
+      - --yes
+      - --output
+      - "{{ helium_apt_key_path }}"
+      - "{{ helium_apt_key_path }}.asc"
+  become: true
+  when:
+    - ansible_facts['pkg_mgr'] == 'apt'
+    - helium_apt_key.changed
+
+- name: Configure Helium apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by={{ helium_apt_key_path }}] {{ helium_apt_repo_url }} stable main"
+    filename: helium
+    state: present
+    update_cache: true
+  become: true
+  when: ansible_facts['pkg_mgr'] == 'apt'
+
+- name: Enable Helium COPR repository
+  ansible.builtin.command:
+    argv:
+      - dnf
+      - copr
+      - enable
+      - -y
+      - "{{ helium_copr_project }}"
+  become: true
+  changed_when: false
+  when: ansible_facts['pkg_mgr'] in ['dnf', 'dnf5']
+
+- name: Install Helium browser package
+  ansible.builtin.package:
+    name: "{{ helium_package_name }}"
+    state: present
+  become: true

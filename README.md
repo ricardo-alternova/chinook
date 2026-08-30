@@ -177,6 +177,7 @@ install_opencode_cli: true
 install_opencode_desktop: true
 install_zed: true
 install_balena_etcher: false
+install_helium: false
 install_t3_code: false
 install_tailscale: false
 
@@ -219,7 +220,7 @@ The configurator writes these values for you.
 - MangoHud overlay and Zed with `~/.local/bin` on the Zsh path
 - OpenCode CLI and Desktop
 
-Optional modules: OneDrive, SSH snippets, Keychron udev rules, OBS Studio, Balena Etcher, Teams PWA, desktop shortcuts, T3 Code, tmux, and Tailscale. Enable them in `local.yml` or through `tools/configure.py`.
+Optional modules: OneDrive, SSH snippets, Keychron udev rules, OBS Studio, Balena Etcher, Teams PWA, Helium browser, desktop shortcuts, T3 Code, tmux, and Tailscale. Enable them in `local.yml` or through `tools/configure.py`.
 
 ## Ubuntu Server Profile
 
@@ -289,6 +290,7 @@ Hardware KVMs and out-of-band power buttons are useful for this kind of box, but
 - Flameshot on `Meta+Shift+4`
 - Zed with `~/.local/bin` on the Zsh path
 - OpenCode CLI and Desktop
+- Helium browser (optional)
 - Removal of the default Fedora games, maps, weather, and welcome apps when present
 
 Google Chrome is not installed here because official Linux builds don't exist for Apple Silicon — Chromium is used instead. The terminal UI includes a step to keep any removed default apps if you want them.
@@ -308,6 +310,10 @@ The `opencode_cli` role runs the official installer (`curl -fsSL https://opencod
 ### Codex CLI
 
 The `codex_cli` role installs the official Codex CLI via the installer script (`curl -fsSL https://chatgpt.com/codex/install.sh | sh`), landing the `codex` binary in `~/.local/bin`. It's idempotent: the installer only re-downloads when a newer release is available, and the role runs it non-interactively.
+
+### Helium Browser
+
+The `helium` role installs `helium-bin` from Helium's official repositories: the signed APT repo (`pkg.helium.computer/deb`) on Ubuntu and the `imput/helium` COPR on Fedora. The repo supports both amd64 and arm64, so it works on Fedora Asahi too. Helium is a Chromium fork with ads, trackers, and fingerprinting blocked by default — a good companion or replacement for the default Chrome/Chromium option.
 
 ### Zed Defaults
 
@@ -346,7 +352,7 @@ Available tags match role names:
 ```bash
 packages snaps flatpaks timeshift tmux tailscale ufw fail2ban ssh_client
 onedrive gnome kde mangohud opencode_cli opencode_desktop codex_cli t3_code
-keychron zed balena_etcher teams_pwa desktop_shortcuts
+helium keychron zed balena_etcher teams_pwa desktop_shortcuts
 ```
 
 ## Troubleshooting
