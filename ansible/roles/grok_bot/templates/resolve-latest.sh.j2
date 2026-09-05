@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Resolves the current Grok Bot download URLs published on https://x.ai/bot.
+# Prints "deb_url=<url>" and "rpm_url=<url>" (values may be empty).
+set -euo pipefail
+
+UA="{{ grok_bot_user_agent }}"
+ARCH="{{ grok_bot_artifact_arch }}"
+API_BASE_DEFAULT="{{ grok_bot_api_base }}"
+DL_BASE_DEFAULT="{{ grok_bot_downloads_base }}"
+
+empty_result() {
+  echo "deb_url="
+  echo "rpm_url="
+  exit 0
+}
+
+page=$(curl -fsSL --max-time 30 -A "$UA" https://x.ai/bot 2>/dev/null) || empty_result
+
+chunks=""
+for path in $(printf '%s\n' "$page" | grep -oE '/_next/static/chunks/[^"]+' | sort -u); do
+  part=$(curl -fsSL --max-time 30 -A "$UA" "https://x.ai$path" 2>/dev/null) || continue
+  chunks="$chunks$part"
+done
+[[ -n "$chunks" ]] || empty_result
+
+api_base=$(printf '%s' "$chunks" | grep -oE '"https://api2\.cursor\.sh/updates/download/stable"' | head -1 | tr -d '"')
+dl_base=$(printf '%s' "$chunks" | grep -oE '"https://downloads\.cursor\.com/grokbot/stable"' | head -1 | tr -d '"')
+api_base="${api_base:-$API_BASE_DEFAULT}"
+dl_base="${dl_base:-$DL_BASE_DEFAULT}"
+
+deb_hash=$(printf '%s' "$chunks" | grep -oE "linux-$ARCH/grok-bot-[a-f0-9]+" | head -1 | sed -E 's/.*grok-bot-//')
+deb_url=""
+if [[ -n "$deb_hash" ]]; then
+  deb_url="${api_base}/linux-$ARCH/grok-bot-$deb_hash"
+fi
+
+rpm_dir=$(printf '%s' "$chunks" | grep -oE '[a-f0-9]{16,64}/linux' | head -1 | cut -d/ -f1)
+rpm_version=$(printf '%s' "$chunks" | grep -oE '[A-Za-z0-9_$]+="[0-9]+\.[0-9]+\.[0-9]+",[A-Za-z0-9_$]+="https://downloads\.cursor\.com/grokbot/stable"' | head -1 | sed -E 's/^[^"]*"//; s/",.*//')
+rpm_url=""
+if [[ -n "$rpm_dir" && -n "$rpm_version" ]]; then
+  rpm_url="${dl_base}/$rpm_dir/linux/$ARCH/Grok_Bot_$rpm_version.rpm"
+fi
+
+echo "deb_url=$deb_url"
+echo "rpm_url=$rpm_url"

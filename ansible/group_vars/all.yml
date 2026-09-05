@@ -10,6 +10,7 @@ install_mangohud: false
 install_opencode_cli: false
 install_opencode_desktop: false
 install_codex_cli: false
+install_grok_bot: false
 install_helium: false
 install_zed: false
 install_balena_etcher: false
@@ -112,6 +113,15 @@ opencode_cli_install_path: "{{ workstation_home }}/.opencode/bin/opencode"
 opencode_cli_install_dir: "{{ opencode_cli_install_path | dirname }}"
 
 codex_cli_bin_path: "{{ workstation_home }}/.local/bin/codex"
+
+grok_bot_user_agent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+grok_bot_api_base: https://api2.cursor.sh/updates/download/stable
+grok_bot_downloads_base: https://downloads.cursor.com/grokbot/stable
+grok_bot_deb_url: ""
+grok_bot_rpm_url: ""
+grok_bot_fallback_deb_urls:
+  x64: https://api2.cursor.sh/updates/download/stable/linux-x64/grok-bot-fb0a830618be0c54
+  arm64: https://api2.cursor.sh/updates/download/stable/linux-arm64/grok-bot-922bf0a2bf7ebaa3
 
 opencode_desktop_package_name: opencode
 opencode_desktop_release_base_url: https://github.com/anomalyco/opencode/releases/latest/download

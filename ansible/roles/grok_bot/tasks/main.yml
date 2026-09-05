@@ -1,0 +1,193 @@
+---
+- name: Ensure Grok Bot install dependencies are present
+  ansible.builtin.package:
+    name:
+      - ca-certificates
+      - curl
+    state: present
+  become: true
+
+- name: Map machine architecture to Grok Bot artifact name
+  ansible.builtin.set_fact:
+    grok_bot_artifact_arch: >-
+      {{ 'x64' if ansible_facts.architecture == 'x86_64'
+         else 'arm64' if ansible_facts.architecture == 'aarch64'
+         else '' }}
+
+- name: Fail when no Grok Bot build exists for this architecture
+  ansible.builtin.fail:
+    msg: "Grok Bot publishes no Linux build for {{ ansible_facts.architecture }}."
+  when: grok_bot_artifact_arch | length == 0
+
+- name: Render the Grok Bot URL resolver
+  ansible.builtin.template:
+    src: resolve-latest.sh.j2
+    dest: /tmp/grok-bot-resolve-latest.sh
+    mode: "0755"
+  changed_when: false
+
+- name: Resolve the current Grok Bot download URLs
+  ansible.builtin.command: /tmp/grok-bot-resolve-latest.sh
+  register: grok_bot_resolution
+  changed_when: false
+  failed_when: false
+
+- name: Parse the resolved Grok Bot deb URL
+  ansible.builtin.set_fact:
+    grok_bot_resolved_deb_url: >-
+      {{ (grok_bot_resolution.stdout_lines
+          | select('match', '^deb_url=')
+          | list | first | default('deb_url=')
+          | regex_replace('^deb_url=', '')) | trim }}
+
+- name: Parse the resolved Grok Bot rpm URL
+  ansible.builtin.set_fact:
+    grok_bot_resolved_rpm_url: >-
+      {{ (grok_bot_resolution.stdout_lines
+          | select('match', '^rpm_url=')
+          | list | first | default('rpm_url=')
+          | regex_replace('^rpm_url=', '')) | trim }}
+
+- name: Clean up the Grok Bot URL resolver
+  ansible.builtin.file:
+    path: /tmp/grok-bot-resolve-latest.sh
+    state: absent
+  changed_when: false
+
+# apt path (Ubuntu desktop)
+- name: Choose the Grok Bot deb source
+  ansible.builtin.set_fact:
+    grok_bot_deb_source: >-
+      {{ grok_bot_deb_url
+         or grok_bot_resolved_deb_url
+         or grok_bot_fallback_deb_urls[grok_bot_artifact_arch] }}
+  when: ansible_facts.pkg_mgr == 'apt'
+
+- name: Discover the current Grok Bot deb version
+  ansible.builtin.command: >-
+    curl -fsIL --max-time 30 -A {{ grok_bot_user_agent | quote }} {{ grok_bot_deb_source | quote }}
+  register: grok_bot_deb_probe
+  changed_when: false
+  failed_when: false
+  when:
+    - ansible_facts.pkg_mgr == 'apt'
+    - grok_bot_deb_source | length > 0
+
+- name: Parse the current Grok Bot deb version
+  ansible.builtin.set_fact:
+    grok_bot_deb_version: >-
+      {{ (grok_bot_deb_probe.stdout
+          | regex_search('grok-bot_[0-9.]+_(?:amd64|arm64)\.deb')
+          | default('', true)
+          | regex_replace('^grok-bot_', '')
+          | regex_replace('_(?:amd64|arm64)\.deb$', '')) }}
+  when:
+    - ansible_facts.pkg_mgr == 'apt'
+    - grok_bot_deb_probe is not skipped
+
+- name: Fail when the Grok Bot deb could not be resolved
+  ansible.builtin.fail:
+    msg: >-
+      Could not determine the current Grok Bot deb URL. Set grok_bot_deb_url in
+      local.yml to a direct download link (for example the one published on
+      https://x.ai/bot) and re-run.
+  when:
+    - ansible_facts.pkg_mgr == 'apt'
+    - grok_bot_deb_version | default('') | length == 0
+
+- name: Check the installed Grok Bot version
+  ansible.builtin.command: dpkg-query -W -f='${Version}' grok-bot
+  register: grok_bot_installed_version
+  changed_when: false
+  failed_when: false
+  when: ansible_facts.pkg_mgr == 'apt'
+
+- name: Install or update Grok Bot
+  when:
+    - ansible_facts.pkg_mgr == 'apt'
+    - grok_bot_deb_version | length > 0
+    - grok_bot_installed_version.stdout | default('') != grok_bot_deb_version
+  block:
+    - name: Download the Grok Bot deb
+      ansible.builtin.get_url:
+        url: "{{ grok_bot_deb_source }}"
+        dest: "/tmp/grok-bot_{{ grok_bot_deb_version }}_{{ 'amd64' if grok_bot_artifact_arch == 'x64' else 'arm64' }}.deb"
+        mode: "0644"
+        timeout: 300
+
+    - name: Install the Grok Bot package
+      ansible.builtin.apt:
+        deb: "/tmp/grok-bot_{{ grok_bot_deb_version }}_{{ 'amd64' if grok_bot_artifact_arch == 'x64' else 'arm64' }}.deb"
+        state: present
+      become: true
+
+    - name: Remove the downloaded Grok Bot deb
+      ansible.builtin.file:
+        path: "/tmp/grok-bot_{{ grok_bot_deb_version }}_{{ 'amd64' if grok_bot_artifact_arch == 'x64' else 'arm64' }}.deb"
+        state: absent
+
+# dnf path (Fedora Asahi)
+- name: Choose the Grok Bot rpm source
+  ansible.builtin.set_fact:
+    grok_bot_rpm_source: >-
+      {{ grok_bot_rpm_url or grok_bot_resolved_rpm_url }}
+  when: ansible_facts.pkg_mgr == 'dnf'
+
+- name: Fail when the Grok Bot rpm could not be resolved
+  ansible.builtin.fail:
+    msg: >-
+      Could not determine the current Grok Bot rpm URL. Set grok_bot_rpm_url in
+      local.yml to a direct download link (for example the one published on
+      https://x.ai/bot) and re-run.
+  when:
+    - ansible_facts.pkg_mgr == 'dnf'
+    - grok_bot_rpm_source | default('') | length == 0
+
+- name: Parse the current Grok Bot rpm version
+  ansible.builtin.set_fact:
+    grok_bot_rpm_version: >-
+      {{ (grok_bot_rpm_source
+          | regex_search('Grok_Bot_[0-9.]+\.rpm')
+          | default('', true)
+          | regex_replace('^Grok_Bot_', '')
+          | regex_replace('\.rpm$', '')) }}
+  when: ansible_facts.pkg_mgr == 'dnf'
+
+- name: Fail when the Grok Bot rpm version could not be parsed
+  ansible.builtin.fail:
+    msg: >-
+      Could not determine the current Grok Bot rpm version from
+      {{ grok_bot_rpm_source }}. Set grok_bot_rpm_url in local.yml to a direct
+      download link and re-run.
+  when:
+    - ansible_facts.pkg_mgr == 'dnf'
+    - grok_bot_rpm_version | length == 0
+
+- name: Check the installed Grok Bot rpm version
+  ansible.builtin.command: rpm -q --qf '%{VERSION}' grok-bot
+  register: grok_bot_installed_rpm_version
+  changed_when: false
+  failed_when: false
+  when: ansible_facts.pkg_mgr == 'dnf'
+
+- name: Install or update the Grok Bot rpm
+  ansible.builtin.dnf:
+    name: "{{ grok_bot_rpm_source }}"
+    state: present
+  become: true
+  when:
+    - ansible_facts.pkg_mgr == 'dnf'
+    - grok_bot_rpm_version | default('') | length > 0
+    - grok_bot_installed_rpm_version.stdout | default('') != grok_bot_rpm_version
+
+- name: Verify the Grok Bot binary is on PATH
+  ansible.builtin.stat:
+    path: /usr/bin/grok-bot
+  register: grok_bot_binary
+
+- name: Assert the Grok Bot binary is present
+  ansible.builtin.assert:
+    that:
+      - grok_bot_binary.stat.exists
+    success_msg: "Grok Bot is installed."
+    fail_msg: "Grok Bot was installed but /usr/bin/grok-bot is missing."
