@@ -220,7 +220,7 @@ The configurator writes these values for you.
 - MangoHud overlay and Zed with `~/.local/bin` on the Zsh path
 - OpenCode CLI and Desktop
 
-Optional modules: OneDrive, SSH snippets, Keychron udev rules, OBS Studio, Balena Etcher, Teams PWA, Helium browser, desktop shortcuts, Grok Bot, T3 Code, tmux, and Tailscale. Enable them in `local.yml` or through `tools/configure.py`.
+Optional modules: OneDrive, SSH snippets, Keychron udev rules, OBS Studio, Balena Etcher, Teams PWA, Helium browser, desktop shortcuts, Grok Bot, Cursor, T3 Code, tmux, and Tailscale. Enable them in `local.yml` or through `tools/configure.py`.
 
 ## Ubuntu Server Profile
 
@@ -292,6 +292,7 @@ Hardware KVMs and out-of-band power buttons are useful for this kind of box, but
 - OpenCode CLI and Desktop
 - Helium browser (optional)
 - Grok Bot desktop agent (optional)
+- Cursor editor (optional)
 - Removal of the default Fedora games, maps, weather, and welcome apps when present
 
 Google Chrome is not installed here because official Linux builds don't exist for Apple Silicon — Chromium is used instead. The terminal UI includes a step to keep any removed default apps if you want them.
@@ -317,6 +318,12 @@ The `codex_cli` role installs the official Codex CLI via the installer script (`
 The `grok_bot` role installs xAI's Grok Bot desktop agent on the desktop profiles only (it is hidden from the Ubuntu Server selector). Sign in after install with your Cursor account.
 
 Linux builds are distributed through Cursor's release CDN rather than a package repository, and the download links embed a per-release artifact hash. The role therefore resolves the current release at runtime from the download map published on [x.ai/bot](https://x.ai/bot): Ubuntu installs the `.deb` through APT, Fedora Asahi installs the `.rpm` through DNF. Nothing is version-pinned — each run fetches the latest published release, compares it with the installed version, and re-downloads only when the release changed. If the page structure ever changes and resolution fails, pin a direct link in `local.yml` with `grok_bot_deb_url` or `grok_bot_rpm_url`.
+
+### Cursor
+
+The `cursor` role installs the Cursor editor on the desktop profiles only (it is hidden from the Ubuntu Server selector). Sign in after install with your Cursor account.
+
+Like Grok Bot, Cursor publishes Linux builds through its release CDN with version-stamped links, so the role resolves the current release at runtime from the download map on [cursor.com/downloads](https://cursor.com/downloads): the `.deb` through APT on Ubuntu and the `.rpm` through DNF on Fedora Asahi, for both x64 and arm64. Each run compares the installed version with the latest published release and re-downloads only when it changed. If resolution fails, pin a direct link in `local.yml` with `cursor_deb_url` or `cursor_rpm_url`.
 
 ### Helium Browser
 
@@ -358,7 +365,7 @@ Available tags match role names:
 
 ```bash
 packages snaps flatpaks timeshift tmux tailscale ufw fail2ban ssh_client
-onedrive gnome kde mangohud opencode_cli opencode_desktop codex_cli grok_bot t3_code
+onedrive gnome kde mangohud opencode_cli opencode_desktop codex_cli grok_bot cursor t3_code
 helium keychron zed balena_etcher teams_pwa desktop_shortcuts
 ```
 

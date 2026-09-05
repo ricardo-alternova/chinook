@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Resolves the current Cursor editor download URLs published on
+# https://cursor.com/downloads. Prints "deb_url=<url>" and "rpm_url=<url>"
+# (values may be empty).
+set -euo pipefail
+
+UA="{{ cursor_user_agent }}"
+ARCH="{{ cursor_arch_sub }}"
+DOWNLOADS_URL="{{ cursor_downloads_url }}"
+
+empty_result() {
+  echo "deb_url="
+  echo "rpm_url="
+  exit 0
+}
+
+page=$(curl -fsSL --max-time 30 -A "$UA" "$DOWNLOADS_URL" 2>/dev/null) || empty_result
+[[ -n "$page" ]] || empty_result
+
+case "$ARCH" in
+  x64) label_arch="x64" ;;
+  arm64) label_arch="ARM64" ;;
+  *) empty_result ;;
+esac
+
+resolve() {
+  printf '%s' "$page" \
+    | grep -oE "Linux $1 \($label_arch\)\\\\\",\\\\\"downloadUrl\\\\\":\\\\\"https://[^\\\\\"]+" \
+    | head -1 \
+    | grep -oE 'https://[^\\"]+' || true
+}
+
+deb_url=$(resolve '\.deb')
+rpm_url=$(resolve 'RPM')
+
+echo "deb_url=$deb_url"
+echo "rpm_url=$rpm_url"
