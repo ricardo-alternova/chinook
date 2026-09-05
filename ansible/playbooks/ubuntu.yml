@@ -70,6 +70,9 @@
     - role: codex_cli
       tags: codex_cli
       when: install_codex_cli | bool
+    - role: grok_bot
+      tags: grok_bot
+      when: install_grok_bot | bool
     - role: t3_code
       tags: t3_code
       when: install_t3_code | bool

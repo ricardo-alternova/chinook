@@ -13,6 +13,7 @@ install_mangohud: false
 install_opencode_cli: true
 install_opencode_desktop: true
 install_codex_cli: false
+install_grok_bot: false
 install_helium: false
 install_zed: true
 install_balena_etcher: false
@@ -83,3 +84,9 @@ teams_pwa_policy_file: "{{ teams_pwa_policy_dir }}/teams-pwa.json"
 teams_pwa_icon_name: "chrome-{{ teams_pwa_app_id }}-{{ teams_pwa_profile_directory }}"
 teams_pwa_desktop_file: "{{ workstation_home }}/.local/share/applications/{{ teams_pwa_icon_name }}.desktop"
 teams_pwa_desktop_shortcut_file: "{{ workstation_home }}/Desktop/{{ teams_pwa_icon_name }}.desktop"
+
+# Optional Grok Bot settings. By default the role resolves the current release
+# from the download map on https://x.ai/bot; pin an artifact here only when
+# that resolution stops working.
+# grok_bot_deb_url: ""
+# grok_bot_rpm_url: ""

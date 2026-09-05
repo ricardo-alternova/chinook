@@ -220,7 +220,7 @@ The configurator writes these values for you.
 - MangoHud overlay and Zed with `~/.local/bin` on the Zsh path
 - OpenCode CLI and Desktop
 
-Optional modules: OneDrive, SSH snippets, Keychron udev rules, OBS Studio, Balena Etcher, Teams PWA, Helium browser, desktop shortcuts, T3 Code, tmux, and Tailscale. Enable them in `local.yml` or through `tools/configure.py`.
+Optional modules: OneDrive, SSH snippets, Keychron udev rules, OBS Studio, Balena Etcher, Teams PWA, Helium browser, desktop shortcuts, Grok Bot, T3 Code, tmux, and Tailscale. Enable them in `local.yml` or through `tools/configure.py`.
 
 ## Ubuntu Server Profile
 
@@ -291,6 +291,7 @@ Hardware KVMs and out-of-band power buttons are useful for this kind of box, but
 - Zed with `~/.local/bin` on the Zsh path
 - OpenCode CLI and Desktop
 - Helium browser (optional)
+- Grok Bot desktop agent (optional)
 - Removal of the default Fedora games, maps, weather, and welcome apps when present
 
 Google Chrome is not installed here because official Linux builds don't exist for Apple Silicon — Chromium is used instead. The terminal UI includes a step to keep any removed default apps if you want them.
@@ -310,6 +311,12 @@ The `opencode_cli` role runs the official installer (`curl -fsSL https://opencod
 ### Codex CLI
 
 The `codex_cli` role installs the official Codex CLI via the installer script (`curl -fsSL https://chatgpt.com/codex/install.sh | sh`), landing the `codex` binary in `~/.local/bin`. It's idempotent: the installer only re-downloads when a newer release is available, and the role runs it non-interactively.
+
+### Grok Bot
+
+The `grok_bot` role installs xAI's Grok Bot desktop agent on the desktop profiles only (it is hidden from the Ubuntu Server selector). Sign in after install with your Cursor account.
+
+Linux builds are distributed through Cursor's release CDN rather than a package repository, and the download links embed a per-release artifact hash. The role therefore resolves the current release at runtime from the download map published on [x.ai/bot](https://x.ai/bot): Ubuntu installs the `.deb` through APT, Fedora Asahi installs the `.rpm` through DNF. Nothing is version-pinned — each run fetches the latest published release, compares it with the installed version, and re-downloads only when the release changed. If the page structure ever changes and resolution fails, pin a direct link in `local.yml` with `grok_bot_deb_url` or `grok_bot_rpm_url`.
 
 ### Helium Browser
 
@@ -351,7 +358,7 @@ Available tags match role names:
 
 ```bash
 packages snaps flatpaks timeshift tmux tailscale ufw fail2ban ssh_client
-onedrive gnome kde mangohud opencode_cli opencode_desktop codex_cli t3_code
+onedrive gnome kde mangohud opencode_cli opencode_desktop codex_cli grok_bot t3_code
 helium keychron zed balena_etcher teams_pwa desktop_shortcuts
 ```
 
