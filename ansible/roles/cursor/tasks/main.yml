@@ -1,0 +1,192 @@
+---
+- name: Ensure Cursor install dependencies are present
+  ansible.builtin.package:
+    name:
+      - ca-certificates
+      - curl
+    state: present
+  become: true
+
+- name: Map machine architecture to Cursor artifact name
+  ansible.builtin.set_fact:
+    cursor_arch_sub: >-
+      {{ 'x64' if ansible_facts.architecture == 'x86_64'
+         else 'arm64' if ansible_facts.architecture == 'aarch64'
+         else '' }}
+
+- name: Fail when no Cursor build exists for this architecture
+  ansible.builtin.fail:
+    msg: "Cursor publishes no Linux build for {{ ansible_facts.architecture }}."
+  when: cursor_arch_sub | length == 0
+
+- name: Render the Cursor URL resolver
+  ansible.builtin.template:
+    src: resolve-latest.sh.j2
+    dest: /tmp/cursor-resolve-latest.sh
+    mode: "0755"
+  changed_when: false
+
+- name: Resolve the current Cursor download URLs
+  ansible.builtin.command: /tmp/cursor-resolve-latest.sh
+  register: cursor_resolution
+  changed_when: false
+  failed_when: false
+
+- name: Parse the resolved Cursor deb URL
+  ansible.builtin.set_fact:
+    cursor_resolved_deb_url: >-
+      {{ (cursor_resolution.stdout_lines
+          | select('match', '^deb_url=')
+          | list | first | default('deb_url=')
+          | regex_replace('^deb_url=', '')) | trim }}
+
+- name: Parse the resolved Cursor rpm URL
+  ansible.builtin.set_fact:
+    cursor_resolved_rpm_url: >-
+      {{ (cursor_resolution.stdout_lines
+          | select('match', '^rpm_url=')
+          | list | first | default('rpm_url=')
+          | regex_replace('^rpm_url=', '')) | trim }}
+
+- name: Clean up the Cursor URL resolver
+  ansible.builtin.file:
+    path: /tmp/cursor-resolve-latest.sh
+    state: absent
+  changed_when: false
+
+# apt path (Ubuntu desktop)
+- name: Choose the Cursor deb source
+  ansible.builtin.set_fact:
+    cursor_deb_source: >-
+      {{ cursor_deb_url
+         or cursor_resolved_deb_url
+         or cursor_fallback_deb_urls[cursor_arch_sub] }}
+  when: ansible_facts.pkg_mgr == 'apt'
+
+- name: Discover the current Cursor deb version
+  ansible.builtin.command: >-
+    curl -fsIL --max-time 30 -A {{ cursor_user_agent | quote }} {{ cursor_deb_source | quote }}
+  register: cursor_deb_probe
+  changed_when: false
+  failed_when: false
+  when:
+    - ansible_facts.pkg_mgr == 'apt'
+    - cursor_deb_source | length > 0
+
+- name: Parse the current Cursor deb version
+  ansible.builtin.set_fact:
+    cursor_deb_version: >-
+      {{ (cursor_deb_probe.stdout
+          | regex_search('cursor_[0-9.]+_(?:amd64|arm64)\.deb')
+          | default('', true)
+          | regex_replace('^cursor_', '')
+          | regex_replace('_(?:amd64|arm64)\.deb$', '')) }}
+  when:
+    - ansible_facts.pkg_mgr == 'apt'
+    - cursor_deb_probe is not skipped
+
+- name: Fail when the Cursor deb could not be resolved
+  ansible.builtin.fail:
+    msg: >-
+      Could not determine the current Cursor deb URL. Set cursor_deb_url in
+      local.yml to a direct download link (for example the one published on
+      https://cursor.com/downloads) and re-run.
+  when:
+    - ansible_facts.pkg_mgr == 'apt'
+    - cursor_deb_version | default('') | length == 0
+
+- name: Check the installed Cursor version
+  ansible.builtin.command: dpkg-query -W -f='${Version}' cursor
+  register: cursor_installed_version
+  changed_when: false
+  failed_when: false
+  when: ansible_facts.pkg_mgr == 'apt'
+
+- name: Install or update Cursor
+  when:
+    - ansible_facts.pkg_mgr == 'apt'
+    - cursor_deb_version | length > 0
+    - cursor_installed_version.stdout | default('') | regex_replace('-[^-]*$', '') != cursor_deb_version
+  block:
+    - name: Download the Cursor deb
+      ansible.builtin.get_url:
+        url: "{{ cursor_deb_source }}"
+        dest: "/tmp/cursor_{{ cursor_deb_version }}_{{ 'amd64' if cursor_arch_sub == 'x64' else 'arm64' }}.deb"
+        mode: "0644"
+        timeout: 600
+
+    - name: Install the Cursor package
+      ansible.builtin.apt:
+        deb: "/tmp/cursor_{{ cursor_deb_version }}_{{ 'amd64' if cursor_arch_sub == 'x64' else 'arm64' }}.deb"
+        state: present
+      become: true
+
+    - name: Remove the downloaded Cursor deb
+      ansible.builtin.file:
+        path: "/tmp/cursor_{{ cursor_deb_version }}_{{ 'amd64' if cursor_arch_sub == 'x64' else 'arm64' }}.deb"
+        state: absent
+
+# dnf path (Fedora Asahi)
+- name: Choose the Cursor rpm source
+  ansible.builtin.set_fact:
+    cursor_rpm_source: >-
+      {{ cursor_rpm_url or cursor_resolved_rpm_url }}
+  when: ansible_facts.pkg_mgr == 'dnf'
+
+- name: Fail when the Cursor rpm could not be resolved
+  ansible.builtin.fail:
+    msg: >-
+      Could not determine the current Cursor rpm URL. Set cursor_rpm_url in
+      local.yml to a direct download link (for example the one published on
+      https://cursor.com/downloads) and re-run.
+  when:
+    - ansible_facts.pkg_mgr == 'dnf'
+    - cursor_rpm_source | default('') | length == 0
+
+- name: Parse the current Cursor rpm version
+  ansible.builtin.set_fact:
+    cursor_rpm_version: >-
+      {{ (cursor_rpm_source
+          | regex_search('cursor-[0-9]+\.[0-9]+\.[0-9]+')
+          | default('', true)
+          | regex_replace('^cursor-', '')) }}
+  when: ansible_facts.pkg_mgr == 'dnf'
+
+- name: Fail when the Cursor rpm version could not be parsed
+  ansible.builtin.fail:
+    msg: >-
+      Could not determine the current Cursor rpm version from
+      {{ cursor_rpm_source }}. Set cursor_rpm_url in local.yml to a direct
+      download link and re-run.
+  when:
+    - ansible_facts.pkg_mgr == 'dnf'
+    - cursor_rpm_version | length == 0
+
+- name: Check the installed Cursor rpm version
+  ansible.builtin.command: rpm -q --qf '%{VERSION}' cursor
+  register: cursor_installed_rpm_version
+  changed_when: false
+  failed_when: false
+  when: ansible_facts.pkg_mgr == 'dnf'
+
+- name: Install or update the Cursor rpm
+  ansible.builtin.dnf:
+    name: "{{ cursor_rpm_source }}"
+    state: present
+  become: true
+  when:
+    - ansible_facts.pkg_mgr == 'dnf'
+    - cursor_rpm_version | length > 0
+    - cursor_installed_rpm_version.stdout | default('') != cursor_rpm_version
+
+- name: Verify the Cursor binary is on PATH
+  ansible.builtin.stat:
+    path: /usr/bin/cursor
+  register: cursor_binary
+
+- name: Assert the Cursor binary is present
+  ansible.builtin.assert:
+    that:
+      - cursor_binary.stat.exists
+    success_msg: "Cursor is installed."
+    fail_msg: "Cursor was installed but /usr/bin/cursor is missing."

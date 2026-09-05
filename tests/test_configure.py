@@ -91,6 +91,18 @@ class TestCatalog(unittest.TestCase):
         self.assertNotIn("install_grok_bot", server)
         self.assertTrue((ROOT / "ansible" / "roles" / "grok_bot" / "tasks" / "main.yml").is_file())
 
+    def test_cursor_is_desktop_only(self):
+        for profile in ("ubuntu", "fedora_asahi"):
+            self.assertIn("cursor", {app["key"] for app in configure.visible_apps(profile)})
+        playbook_dir = ROOT / "ansible" / "playbooks"
+        ubuntu = (playbook_dir / "ubuntu.yml").read_text(encoding="utf-8")
+        fedora = (playbook_dir / "fedora_asahi.yml").read_text(encoding="utf-8")
+        server = (playbook_dir / "ubuntu_server.yml").read_text(encoding="utf-8")
+        self.assertIn("install_cursor", ubuntu)
+        self.assertIn("install_cursor", fedora)
+        self.assertNotIn("install_cursor", server)
+        self.assertTrue((ROOT / "ansible" / "roles" / "cursor" / "tasks" / "main.yml").is_file())
+
     def test_desktop_hides_server_defaults_as_optional(self):
         ubuntu_defaults = configure.default_selection("ubuntu")
         server_defaults = configure.default_selection("ubuntu_server")
@@ -158,6 +170,7 @@ class TestBuildConfig(unittest.TestCase):
         self.assertTrue(config["install_opencode_cli"])
         self.assertTrue(config["install_opencode_desktop"])
         self.assertFalse(config["install_grok_bot"])
+        self.assertFalse(config["install_cursor"])
         self.assertFalse(config["configure_tmux"])
         self.assertIn("google-chrome-stable", config["apt_packages"])
         self.assertIn("onlyoffice-desktopeditors", config["snap_packages"])

@@ -127,6 +127,7 @@ APPS = [
     {"key": "opencode_desktop", "label": "OpenCode Desktop", "default": True, "profiles": DESKTOP_PROFILES, "flag": "install_opencode_desktop"},
     {"key": "codex_cli", "label": "Codex CLI", "default": False, "flag": "install_codex_cli"},
     {"key": "grok_bot", "label": "Grok Bot (xAI desktop agent)", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_grok_bot"},
+    {"key": "cursor", "label": "Cursor editor", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_cursor"},
     {"key": "t3_code", "label": "T3 Code (remote agent control surface)", "default": False, "flag": "install_t3_code"},
     {"key": "steam", "label": "Steam", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["steam-installer"], "foreign_arch": ["i386"]},
     {"key": "discord", "label": "Discord", "default": False, "profiles": DESKTOP_PROFILES, "snap": ["discord"], "flatpak": ["com.discordapp.Discord"]},

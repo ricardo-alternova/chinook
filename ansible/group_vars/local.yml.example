@@ -14,6 +14,7 @@ install_opencode_cli: true
 install_opencode_desktop: true
 install_codex_cli: false
 install_grok_bot: false
+install_cursor: false
 install_helium: false
 install_zed: true
 install_balena_etcher: false
@@ -90,3 +91,9 @@ teams_pwa_desktop_shortcut_file: "{{ workstation_home }}/Desktop/{{ teams_pwa_ic
 # that resolution stops working.
 # grok_bot_deb_url: ""
 # grok_bot_rpm_url: ""
+
+# Optional Cursor settings. By default the role resolves the current release
+# from https://cursor.com/downloads; pin an artifact here only when that
+# resolution stops working.
+# cursor_deb_url: ""
+# cursor_rpm_url: ""

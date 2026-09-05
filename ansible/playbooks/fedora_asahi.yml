@@ -56,6 +56,9 @@
     - role: grok_bot
       tags: grok_bot
       when: install_grok_bot | bool
+    - role: cursor
+      tags: cursor
+      when: install_cursor | bool
     - role: t3_code
       tags: t3_code
       when: install_t3_code | bool
