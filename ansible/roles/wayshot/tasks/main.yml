@@ -1,0 +1,162 @@
+---
+- name: Determine whether WayShot is selected
+  ansible.builtin.set_fact:
+    wayshot_selected: "{{ wayshot_flatpak in flatpak_packages }}"
+
+- name: Ensure the KDE applications directory exists
+  ansible.builtin.file:
+    path: "{{ kde_wayshot_desktop_file | dirname }}"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0755"
+  when: wayshot_selected
+
+- name: Install the WayShot KDE launcher
+  ansible.builtin.copy:
+    dest: "{{ kde_wayshot_desktop_file }}"
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0644"
+    content: |
+      [Desktop Entry]
+      Type=Application
+      Name={{ wayshot_keybinding_name }}
+      Exec={{ wayshot_command }}
+      Icon={{ wayshot_flatpak }}
+      X-KDE-Shortcuts={{ wayshot_keybinding_binding }}
+  register: kde_wayshot_launcher
+  when: wayshot_selected
+
+- name: Free the Spectacle Print key
+  ansible.builtin.shell: |
+    if command -v kwriteconfig6 >/dev/null 2>&1; then
+      writer=kwriteconfig6
+      reader=kreadconfig6
+    elif command -v kwriteconfig5 >/dev/null 2>&1; then
+      writer=kwriteconfig5
+      reader=kreadconfig5
+    else
+      printf 'KDE config tools are not installed\n'
+      exit 0
+    fi
+
+    current="$($reader --file kglobalshortcutsrc --group org.kde.spectacle.desktop --key _launch 2>/dev/null || true)"
+    case "$current" in
+      *Print*)
+        "$writer" --file kglobalshortcutsrc --group org.kde.spectacle.desktop --key _launch "none,none,Launch Spectacle"
+        printf 'changed\n'
+        ;;
+      none,*|"")
+        printf 'unchanged\n'
+        ;;
+    esac
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ workstation_user }}"
+  environment:
+    HOME: "{{ workstation_home }}"
+  register: kde_wayshot_spectacle_result
+  changed_when: "'changed' in kde_wayshot_spectacle_result.stdout"
+  failed_when: false
+  when: wayshot_selected
+
+- name: Refresh the KDE service cache
+  ansible.builtin.shell: |
+    if command -v kbuildsycoca6 >/dev/null 2>&1; then
+      kbuildsycoca6
+    elif command -v kbuildsycoca5 >/dev/null 2>&1; then
+      kbuildsycoca5
+    fi
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ workstation_user }}"
+  environment:
+    HOME: "{{ workstation_home }}"
+  changed_when: false
+  when:
+    - wayshot_selected
+    - kde_wayshot_launcher is not skipped
+    - kde_wayshot_launcher.changed
+
+- name: Ask KDE to reload global shortcuts
+  ansible.builtin.shell: |
+    if command -v qdbus6 >/dev/null 2>&1; then
+      qdbus6 org.kde.kglobalaccel /kglobalaccel org.kde.KGlobalAccel.reloadConfig
+    elif command -v qdbus >/dev/null 2>&1; then
+      qdbus org.kde.kglobalaccel /kglobalaccel org.kde.KGlobalAccel.reloadConfig
+    fi
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ workstation_user }}"
+  environment:
+    HOME: "{{ workstation_home }}"
+  changed_when: false
+  failed_when: false
+  when:
+    - wayshot_selected
+    - kde_wayshot_spectacle_result is not skipped
+    - kde_wayshot_spectacle_result.changed
+
+# Cleanup when WayShot is deselected
+- name: Remove the WayShot KDE launcher
+  ansible.builtin.file:
+    path: "{{ kde_wayshot_desktop_file }}"
+    state: absent
+  when: not wayshot_selected
+
+- name: Restore the Spectacle Print key
+  ansible.builtin.shell: |
+    if command -v kwriteconfig6 >/dev/null 2>&1; then
+      writer=kwriteconfig6
+      reader=kreadconfig6
+    elif command -v kwriteconfig5 >/dev/null 2>&1; then
+      writer=kwriteconfig5
+      reader=kreadconfig5
+    else
+      printf 'KDE config tools are not installed\n'
+      exit 0
+    fi
+
+    current="$($reader --file kglobalshortcutsrc --group org.kde.spectacle.desktop --key _launch 2>/dev/null || true)"
+    case "$current" in
+      none,*)
+        "$writer" --file kglobalshortcutsrc --group org.kde.spectacle.desktop --key _launch --delete
+        printf 'changed\n'
+        ;;
+      *)
+        printf 'unchanged\n'
+        ;;
+    esac
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ workstation_user }}"
+  environment:
+    HOME: "{{ workstation_home }}"
+  register: kde_wayshot_restore_result
+  changed_when: "'changed' in kde_wayshot_restore_result.stdout"
+  failed_when: false
+  when: not wayshot_selected
+
+- name: Refresh the KDE service cache after cleanup
+  ansible.builtin.shell: |
+    if command -v kbuildsycoca6 >/dev/null 2>&1; then
+      kbuildsycoca6
+    elif command -v kbuildsycoca5 >/dev/null 2>&1; then
+      kbuildsycoca5
+    fi
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ workstation_user }}"
+  environment:
+    HOME: "{{ workstation_home }}"
+  changed_when: false
+  when:
+    - not wayshot_selected
+    - kde_wayshot_restore_result is not skipped
+    - kde_wayshot_restore_result.changed
