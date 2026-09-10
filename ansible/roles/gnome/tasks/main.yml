@@ -18,15 +18,21 @@
   ansible.builtin.command: "gsettings set org.gnome.desktop.interface gtk-theme '{{ gnome_gtk_theme }}'"
   when: gnome_current_gtk_theme.stdout != "'" + gnome_gtk_theme + "'"
 
-- name: Read GNOME default screenshot UI binding
+- name: Read GNOME screenshot UI binding
   ansible.builtin.command: gsettings get org.gnome.shell.keybindings show-screenshot-ui
   register: gnome_current_screenshot_ui
   changed_when: false
   check_mode: false
 
-- name: Disable GNOME default Print screenshot UI
+- name: Free the Print key from the GNOME screenshot UI
   ansible.builtin.command: gsettings set org.gnome.shell.keybindings show-screenshot-ui "[]"
-  when: gnome_current_screenshot_ui.stdout != "@as []" and gnome_current_screenshot_ui.stdout != "[]"
+  when: gnome_current_screenshot_ui.stdout not in ["@as []", "[]"]
+
+- name: Remove the Flameshot package
+  ansible.builtin.package:
+    name: flameshot
+    state: absent
+  become: true
 
 - name: Read custom keybinding paths
   ansible.builtin.command: gsettings get org.gnome.settings-daemon.plugins.media-keys custom-keybindings
@@ -39,11 +45,48 @@
     gnome_custom_keybinding_paths: >-
       {{ [] if gnome_current_custom_keybindings.stdout in ['@as []', '[]'] else (gnome_current_custom_keybindings.stdout | from_yaml) }}
 
+- name: Find leftover Flameshot custom keybindings
+  ansible.builtin.shell: |
+    for path in {{ gnome_custom_keybinding_paths | join(' ') }}; do
+      command="$(gsettings get org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:$path command 2>/dev/null || true)"
+      name="$(gsettings get org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:$path name 2>/dev/null || true)"
+      case "$command$name" in
+        *flameshot*|*Flameshot*) printf '%s\n' "$path" ;;
+      esac
+    done
+  args:
+    executable: /bin/bash
+  register: gnome_flameshot_keybinding_paths
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: gnome_custom_keybinding_paths | length > 0
+
+- name: Unregister leftover Flameshot custom keybindings
+  ansible.builtin.command: >-
+    gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings
+    "{{ (gnome_custom_keybinding_paths | difference(gnome_flameshot_keybinding_paths.stdout_lines)) | to_json }}"
+  when:
+    - gnome_custom_keybinding_paths | length > 0
+    - gnome_flameshot_keybinding_paths is not skipped
+    - gnome_flameshot_keybinding_paths.stdout_lines | length > 0
+
+- name: Re-read custom keybinding paths
+  ansible.builtin.command: gsettings get org.gnome.settings-daemon.plugins.media-keys custom-keybindings
+  register: gnome_registered_custom_keybindings
+  changed_when: false
+  check_mode: false
+
+- name: Parse registered custom keybinding paths
+  ansible.builtin.set_fact:
+    gnome_custom_keybinding_paths: >-
+      {{ [] if gnome_registered_custom_keybindings.stdout in ['@as []', '[]'] else (gnome_registered_custom_keybindings.stdout | from_yaml) }}
+
 - name: Build desired custom keybinding paths
   ansible.builtin.set_fact:
-    gnome_desired_custom_keybinding_paths: "{{ (gnome_custom_keybinding_paths + [flameshot_keybinding_path]) | unique | list }}"
+    gnome_desired_custom_keybinding_paths: "{{ (gnome_custom_keybinding_paths + [gnome_screenshot_keybinding_path]) | unique | list }}"
 
-- name: Register Flameshot custom keybinding path
+- name: Register the screenshot custom keybinding path
   ansible.builtin.command:
     argv:
       - gsettings
@@ -53,47 +96,72 @@
       - "{{ gnome_desired_custom_keybinding_paths | to_json }}"
   when: gnome_custom_keybinding_paths != gnome_desired_custom_keybinding_paths
 
-- name: Read Flameshot keybinding name
+- name: Read screenshot keybinding name
   ansible.builtin.command: >
-    gsettings get org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:{{ flameshot_keybinding_path }}
+    gsettings get org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:{{ gnome_screenshot_keybinding_path }}
     name
-  register: flameshot_current_name
+  register: gnome_screenshot_current_name
   changed_when: false
   failed_when: false
   check_mode: false
 
-- name: Set Flameshot keybinding name
+- name: Set screenshot keybinding name
   ansible.builtin.command: >
-    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:{{ flameshot_keybinding_path }}
-    name '{{ flameshot_keybinding_name }}'
-  when: flameshot_current_name.stdout != "'" + flameshot_keybinding_name + "'"
+    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:{{ gnome_screenshot_keybinding_path }}
+    name '{{ gnome_screenshot_keybinding_name }}'
+  when: gnome_screenshot_current_name.stdout != "'" + gnome_screenshot_keybinding_name + "'"
 
-- name: Read Flameshot keybinding command
+- name: Read screenshot keybinding command
   ansible.builtin.command: >
-    gsettings get org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:{{ flameshot_keybinding_path }}
+    gsettings get org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:{{ gnome_screenshot_keybinding_path }}
     command
-  register: flameshot_current_command
+  register: gnome_screenshot_current_command
   changed_when: false
   failed_when: false
   check_mode: false
 
-- name: Set Flameshot keybinding command
+- name: Set screenshot keybinding command
   ansible.builtin.command: >
-    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:{{ flameshot_keybinding_path }}
-    command '{{ flameshot_keybinding_command }}'
-  when: flameshot_current_command.stdout != "'" + flameshot_keybinding_command + "'"
+    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:{{ gnome_screenshot_keybinding_path }}
+    command '{{ gnome_screenshot_command }}'
+  when: gnome_screenshot_current_command.stdout != "'" + gnome_screenshot_command + "'"
 
-- name: Read Flameshot keybinding binding
+- name: Read screenshot keybinding binding
   ansible.builtin.command: >
-    gsettings get org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:{{ flameshot_keybinding_path }}
+    gsettings get org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:{{ gnome_screenshot_keybinding_path }}
     binding
-  register: flameshot_current_binding
+  register: gnome_screenshot_current_binding
   changed_when: false
   failed_when: false
   check_mode: false
 
-- name: Bind configured shortcut to Flameshot
+- name: Bind Print to the screenshot script
   ansible.builtin.command: >
-    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:{{ flameshot_keybinding_path }}
-    binding '{{ flameshot_keybinding_binding }}'
-  when: flameshot_current_binding.stdout != "'" + flameshot_keybinding_binding + "'"
+    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:{{ gnome_screenshot_keybinding_path }}
+    binding '{{ gnome_screenshot_keybinding_binding }}'
+  when: gnome_screenshot_current_binding.stdout != "'" + gnome_screenshot_keybinding_binding + "'"
+
+- name: Check for an existing ksnip config
+  ansible.builtin.stat:
+    path: "{{ gnome_screenshot_config }}"
+  register: gnome_ksnip_config_stat
+
+- name: Ensure the ksnip config directory exists
+  ansible.builtin.file:
+    path: "{{ gnome_screenshot_config | dirname }}"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0755"
+  when: not gnome_ksnip_config_stat.stat.exists
+
+- name: Create the ksnip config with portal capture
+  ansible.builtin.copy:
+    dest: "{{ gnome_screenshot_config }}"
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0644"
+    content: |
+      [Main]
+      ForceGenericWaylandEnabled=true
+  when: not gnome_ksnip_config_stat.stat.exists

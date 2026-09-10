@@ -1,26 +1,56 @@
-- name: Ensure user application directory exists
-  ansible.builtin.file:
-    path: "{{ workstation_home }}/.local/share/applications"
-    state: directory
-    owner: "{{ workstation_user }}"
-    group: "{{ workstation_user }}"
-    mode: "0755"
+- name: Remove the Flameshot package
+  ansible.builtin.package:
+    name: flameshot
+    state: absent
+  become: true
 
-- name: Install Flameshot KDE launcher
-  ansible.builtin.copy:
-    dest: "{{ kde_flameshot_desktop_file }}"
-    owner: "{{ workstation_user }}"
-    group: "{{ workstation_user }}"
-    mode: "0644"
-    content: |
-      [Desktop Entry]
-      Type=Application
-      Name={{ kde_flameshot_name }}
-      Exec={{ kde_flameshot_command }}
-      Icon=flameshot
-      Categories=Utility;
-      X-KDE-Shortcuts={{ kde_flameshot_shortcut }}
-  register: kde_flameshot_launcher
+- name: Remove the Flameshot KDE launcher
+  ansible.builtin.file:
+    path: "{{ workstation_home }}/.local/share/applications/flameshot-gui.desktop"
+    state: absent
+
+- name: Remove the Flameshot KDE global shortcut
+  ansible.builtin.shell: |
+    if command -v kwriteconfig6 >/dev/null 2>&1; then
+      writer=kwriteconfig6
+    elif command -v kwriteconfig5 >/dev/null 2>&1; then
+      writer=kwriteconfig5
+    else
+      printf 'KDE config tools are not installed\n'
+      exit 0
+    fi
+
+    current="$("$writer" --file kglobalshortcutsrc --group flameshot-gui.desktop --key _launch 2>/dev/null || true)"
+    if [ -n "$current" ]; then
+      "$writer" --file kglobalshortcutsrc --group flameshot-gui.desktop --key _launch --delete
+      printf 'changed\n'
+    else
+      printf 'unchanged\n'
+    fi
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ workstation_user }}"
+  environment:
+    HOME: "{{ workstation_home }}"
+  register: kde_flameshot_shortcut_result
+  changed_when: "'changed' in kde_flameshot_shortcut_result.stdout"
+
+- name: Refresh KDE service cache
+  ansible.builtin.shell: |
+    if command -v kbuildsycoca6 >/dev/null 2>&1; then
+      kbuildsycoca6
+    elif command -v kbuildsycoca5 >/dev/null 2>&1; then
+      kbuildsycoca5
+    fi
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ workstation_user }}"
+  environment:
+    HOME: "{{ workstation_home }}"
+  changed_when: false
+  when: kde_flameshot_shortcut_result.changed
 
 - name: Configure KDE dark theme
   ansible.builtin.shell: |

@@ -15,7 +15,6 @@ dnf_packages:
   - curl
   - ffmpeg
   - ffmpegthumbnailer
-  - flameshot
   - git
   - gstreamer1-libav
   - gstreamer1-plugin-openh264
@@ -95,7 +94,3 @@ flatpak_packages:
 
 kde_color_scheme: BreezeDark
 kde_look_and_feel_package: org.kde.breezedark.desktop
-kde_flameshot_name: Flameshot Screenshot
-kde_flameshot_command: flameshot gui
-kde_flameshot_shortcut: Meta+Shift+4
-kde_flameshot_desktop_file: "{{ workstation_home }}/.local/share/applications/flameshot-gui.desktop"

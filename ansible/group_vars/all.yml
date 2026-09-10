@@ -89,17 +89,14 @@ ssh_hosts: []
 
 gnome_color_scheme: prefer-dark
 gnome_gtk_theme: Yaru-dark
-flameshot_keybinding_path: /org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/
-flameshot_keybinding_name: Flameshot
-flameshot_keybinding_command: flameshot gui
-flameshot_keybinding_binding: Print
+gnome_screenshot_command: "ksnip -r"
+gnome_screenshot_config: "{{ workstation_home }}/.config/ksnip/ksnip.conf"
+gnome_screenshot_keybinding_path: /org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/
+gnome_screenshot_keybinding_name: Screenshot
+gnome_screenshot_keybinding_binding: Print
 
 kde_color_scheme: BreezeDark
 kde_look_and_feel_package: org.kde.breezedark.desktop
-kde_flameshot_name: Flameshot Screenshot
-kde_flameshot_command: flameshot gui
-kde_flameshot_shortcut: Meta+Shift+4
-kde_flameshot_desktop_file: "{{ workstation_home }}/.local/share/applications/flameshot-gui.desktop"
 
 keychron_vendor_id: ""
 keychron_product_id: ""
