@@ -34,6 +34,9 @@
     - role: snaps
       tags: snaps
       when: install_snap_apps | bool
+    - role: flatpaks
+      tags: flatpaks
+      when: install_flatpak_apps | bool
     - role: timeshift
       tags: timeshift
       when: configure_timeshift | bool

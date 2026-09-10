@@ -116,6 +116,7 @@ APPS = [
         "apt": ["heif-gdk-pixbuf", "heif-thumbnailer", "libheif-examples", "libheif-plugins-all"],
     },
     {"key": "chrome", "label": "Google Chrome on Ubuntu / Chromium on Fedora Asahi", "default": True, "profiles": DESKTOP_PROFILES, "apt": ["google-chrome-stable"], "dnf": ["chromium"]},
+    {"key": "wayshot", "label": "WayShot (screenshot annotate)", "default": True, "profiles": DESKTOP_PROFILES, "flatpak": ["io.github.gutopardini.wayshot"]},
     {"key": "helium", "label": "Helium browser (privacy-first Chromium fork)", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_helium"},
     {"key": "gimp", "label": "GIMP", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["gimp"], "dnf": ["gimp"]},
     {"key": "xournalpp", "label": "Xournal++", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["xournalpp"], "dnf": ["xournalpp"]},
@@ -408,11 +409,15 @@ def build_config(profile, selected):
         apt_foreign_architectures += app.get("foreign_arch", [])
         rpmfusion = rpmfusion or app.get("rpmfusion", False)
 
+    config["install_flatpak_apps"] = profile == "fedora_asahi" or bool(flatpak_packages)
+
     if profile in APT_PROFILES:
         if profile == "ubuntu_server":
             apt_packages += ["openssh-server"]
         config["apt_packages"] = unique(apt_packages)
         config["apt_foreign_architectures"] = unique(apt_foreign_architectures)
+        if flatpak_packages:
+            config["flatpak_packages"] = unique(flatpak_packages)
         if profile == "ubuntu":
             config["snap_packages"] = unique(snap_packages)
     else:

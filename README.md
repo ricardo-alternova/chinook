@@ -201,9 +201,8 @@ The configurator writes these values for you.
 
 | Category | Packages |
 | --- | --- |
-| Core tools | `ansible` `git` `jq` |
+| Core tools | `ansible` `git` `jq` `flatpak` |
 | Shell & terminal | `zsh` `zsh-autosuggestions` `zsh-syntax-highlighting` `starship` `kitty` |
-| Screenshots | `ksnip` |
 | Media & codecs | `ffmpeg` `gstreamer1.0-libav` `gstreamer1.0-plugins-bad` `gstreamer1.0-plugins-good` `gstreamer1.0-plugins-ugly` `gstreamer1.0-vaapi` |
 | HEIC/HEIF | `heif-gdk-pixbuf` `heif-thumbnailer` `libheif-examples` `libheif-plugins-all` |
 | Desktop apps | `gimp` `xournalpp` `google-chrome-stable` `onedrive` |
@@ -211,12 +210,15 @@ The configurator writes these values for you.
 
 **Snap apps:** `discord` `onlyoffice-desktopeditors` `spotify` `localsend` `zapzap`
 
+**Flatpak apps:** `io.github.gutopardini.wayshot`
+
 **Also configures:**
 
 - Google Chrome APT repository and signing key, plus `i386` foreign architecture for Steam
 - Timeshift daily snapshots with 7-day retention
 - GNOME dark mode and GTK theme
-- Screenshots on the `Print` key: region capture through ksnip (via the xdg-desktop-portal), which opens its built-in annotation editor — no daemon, nothing runs in the background
+- GNOME's built-in screenshot UI is unbound from keys (still available from Quick Settings); its captures land in `~/Downloads` via a `Pictures/Screenshots` symlink
+- WayShot on the `Print` key: portal region capture with an annotation editor and copy-to-clipboard on `Ctrl+C`
 - FFmpeg/GStreamer codecs and HEIC/HEIF image support
 - MangoHud overlay and Zed with `~/.local/bin` on the Zsh path
 - OpenCode CLI and Desktop
@@ -287,7 +289,7 @@ Hardware KVMs and out-of-band power buttons are useful for this kind of box, but
 - RPM Fusion free and nonfree repositories for codecs
 - Timeshift daily snapshots with 7-day retention
 - KDE Breeze Dark theme
-- Spectacle (preinstalled with Plasma) on the `Print` key
+- Spectacle (preinstalled with Plasma) handles screenshots on the `Print` key, with built-in annotation
 - Zed with `~/.local/bin` on the Zsh path
 - OpenCode CLI and Desktop
 - Helium browser (optional)

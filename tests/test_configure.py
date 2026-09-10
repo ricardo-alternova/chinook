@@ -78,6 +78,7 @@ class TestCatalog(unittest.TestCase):
         self.assertNotIn("opencode_desktop", keys)
         self.assertNotIn("steam", keys)
         self.assertNotIn("grok_bot", keys)
+        self.assertNotIn("wayshot", keys)
 
     def test_grok_bot_is_desktop_only(self):
         for profile in ("ubuntu", "fedora_asahi"):
@@ -119,16 +120,27 @@ class TestCatalog(unittest.TestCase):
     def test_screenshot_tooling(self):
         ubuntu = (ROOT / "ansible/group_vars/ubuntu.yml").read_text(encoding="utf-8")
         fedora = (ROOT / "ansible/group_vars/fedora_asahi.yml").read_text(encoding="utf-8")
-        self.assertIn("ksnip", ubuntu)
-        self.assertNotIn("flameshot", ubuntu)
-        self.assertNotIn("flameshot", fedora)
-        self.assertNotIn("grim", ubuntu)
-        self.assertNotIn("swappy", ubuntu)
+        for tool in ("flameshot", "ksnip", "grim", "slurp", "swappy"):
+            self.assertNotIn(f"{tool}", ubuntu)
+            self.assertNotIn("flameshot", fedora)
         gnome_role = (ROOT / "ansible/roles/gnome/tasks/main.yml").read_text(encoding="utf-8")
-        self.assertIn("gnome_screenshot_command", gnome_role)
-        self.assertIn("ForceGenericWaylandEnabled", gnome_role)
-        all_vars = (ROOT / "ansible/group_vars/all.yml").read_text(encoding="utf-8")
-        self.assertIn("ksnip -r", all_vars)
+        self.assertIn("show-screenshot-ui", gnome_role)
+        self.assertIn("Free the Print key", gnome_role)
+        self.assertIn("wayshot_keybinding_path", gnome_role)
+        self.assertIn("Bind Print to WayShot", gnome_role)
+        self.assertIn("gnome_screenshots_redirect_target", gnome_role)
+        ubuntu_playbook = (ROOT / "ansible/playbooks/ubuntu.yml").read_text(encoding="utf-8")
+        self.assertIn("flatpaks", ubuntu_playbook)
+        self.assertNotIn("ksnip -r", gnome_role)
+
+    def test_wayshot_selection(self):
+        selected = configure.default_selection("ubuntu")
+        self.assertIn("wayshot", selected)
+        config = configure.build_config("ubuntu", selected)
+        self.assertTrue(config["install_flatpak_apps"])
+        self.assertIn("io.github.gutopardini.wayshot", config["flatpak_packages"])
+        server_selected = configure.default_selection("ubuntu_server")
+        self.assertNotIn("wayshot", server_selected)
 
     def test_profile_vars_enable_opencode(self):
         ubuntu = (ROOT / "ansible/group_vars/ubuntu.yml").read_text(encoding="utf-8")
@@ -180,11 +192,12 @@ class TestBuildConfig(unittest.TestCase):
         self.assertTrue(config["configure_gnome"])
         self.assertFalse(config["configure_kde"])
         self.assertTrue(config["install_snap_apps"])
-        self.assertFalse(config["install_flatpak_apps"])
         self.assertTrue(config["install_opencode_cli"])
         self.assertTrue(config["install_opencode_desktop"])
         self.assertFalse(config["install_grok_bot"])
         self.assertFalse(config["install_cursor"])
+        self.assertTrue(config["install_flatpak_apps"])
+        self.assertIn("io.github.gutopardini.wayshot", config["flatpak_packages"])
         self.assertFalse(config["configure_tmux"])
         self.assertIn("google-chrome-stable", config["apt_packages"])
         self.assertIn("onlyoffice-desktopeditors", config["snap_packages"])

@@ -89,11 +89,14 @@ ssh_hosts: []
 
 gnome_color_scheme: prefer-dark
 gnome_gtk_theme: Yaru-dark
-gnome_screenshot_command: "ksnip -r"
-gnome_screenshot_config: "{{ workstation_home }}/.config/ksnip/ksnip.conf"
-gnome_screenshot_keybinding_path: /org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/
-gnome_screenshot_keybinding_name: Screenshot
-gnome_screenshot_keybinding_binding: Print
+gnome_screenshots_dir: "{{ workstation_home }}/Pictures/Screenshots"
+gnome_screenshots_redirect_target: "{{ workstation_home }}/Downloads"
+
+wayshot_flatpak: io.github.gutopardini.wayshot
+wayshot_command: "flatpak run --env=WAYSHOT_CAPTURE=1 io.github.gutopardini.wayshot"
+wayshot_keybinding_path: /org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/
+wayshot_keybinding_name: WayShot
+wayshot_keybinding_binding: Print
 
 kde_color_scheme: BreezeDark
 kde_look_and_feel_package: org.kde.breezedark.desktop
