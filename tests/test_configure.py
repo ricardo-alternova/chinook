@@ -132,6 +132,11 @@ class TestCatalog(unittest.TestCase):
         ubuntu_playbook = (ROOT / "ansible/playbooks/ubuntu.yml").read_text(encoding="utf-8")
         self.assertIn("flatpaks", ubuntu_playbook)
         self.assertNotIn("ksnip -r", gnome_role)
+        fedora_playbook = (ROOT / "ansible/playbooks/fedora_asahi.yml").read_text(encoding="utf-8")
+        self.assertIn("role: wayshot", fedora_playbook)
+        wayshot_role = (ROOT / "ansible/roles/wayshot/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertIn("X-KDE-Shortcuts", wayshot_role)
+        self.assertIn("org.kde.spectacle.desktop", wayshot_role)
 
     def test_wayshot_selection(self):
         selected = configure.default_selection("ubuntu")

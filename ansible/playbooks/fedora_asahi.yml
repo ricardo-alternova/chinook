@@ -41,6 +41,9 @@
     - role: kde
       tags: kde
       when: configure_kde | bool
+    - role: wayshot
+      tags: wayshot
+      when: configure_kde | bool
     - role: mangohud
       tags: mangohud
       when: install_mangohud | bool

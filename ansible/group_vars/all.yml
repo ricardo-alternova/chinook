@@ -97,6 +97,7 @@ wayshot_command: "flatpak run --env=WAYSHOT_CAPTURE=1 io.github.gutopardini.ways
 wayshot_keybinding_path: /org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/
 wayshot_keybinding_name: WayShot
 wayshot_keybinding_binding: Print
+kde_wayshot_desktop_file: "{{ workstation_home }}/.local/share/applications/wayshot-capture.desktop"
 
 kde_color_scheme: BreezeDark
 kde_look_and_feel_package: org.kde.breezedark.desktop

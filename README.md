@@ -290,6 +290,7 @@ Hardware KVMs and out-of-band power buttons are useful for this kind of box, but
 - Timeshift daily snapshots with 7-day retention
 - KDE Breeze Dark theme
 - Spectacle (preinstalled with Plasma) handles screenshots on the `Print` key, with built-in annotation
+- WayShot (optional, flatpak): takes over the `Print` key with portal capture and annotation when selected in the configurator
 - Zed with `~/.local/bin` on the Zsh path
 - OpenCode CLI and Desktop
 - Helium browser (optional)
@@ -367,7 +368,7 @@ Available tags match role names:
 
 ```bash
 packages snaps flatpaks timeshift tmux tailscale ufw fail2ban ssh_client
-onedrive gnome kde mangohud opencode_cli opencode_desktop codex_cli grok_bot cursor t3_code
+onedrive gnome kde mangohud opencode_cli opencode_desktop codex_cli grok_bot cursor wayshot t3_code
 helium keychron zed balena_etcher teams_pwa desktop_shortcuts
 ```
 
