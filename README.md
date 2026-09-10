@@ -203,9 +203,10 @@ The configurator writes these values for you.
 | --- | --- |
 | Core tools | `ansible` `git` `jq` |
 | Shell & terminal | `zsh` `zsh-autosuggestions` `zsh-syntax-highlighting` `starship` `kitty` |
+| Screenshots | `ksnip` |
 | Media & codecs | `ffmpeg` `gstreamer1.0-libav` `gstreamer1.0-plugins-bad` `gstreamer1.0-plugins-good` `gstreamer1.0-plugins-ugly` `gstreamer1.0-vaapi` |
 | HEIC/HEIF | `heif-gdk-pixbuf` `heif-thumbnailer` `libheif-examples` `libheif-plugins-all` |
-| Desktop apps | `flameshot` `gimp` `xournalpp` `google-chrome-stable` `onedrive` |
+| Desktop apps | `gimp` `xournalpp` `google-chrome-stable` `onedrive` |
 | Gaming | `steam-installer` `mangohud` |
 
 **Snap apps:** `discord` `onlyoffice-desktopeditors` `spotify` `localsend` `zapzap`
@@ -215,7 +216,7 @@ The configurator writes these values for you.
 - Google Chrome APT repository and signing key, plus `i386` foreign architecture for Steam
 - Timeshift daily snapshots with 7-day retention
 - GNOME dark mode and GTK theme
-- Flameshot on the `Print` key
+- Screenshots on the `Print` key: region capture through ksnip (via the xdg-desktop-portal), which opens its built-in annotation editor — no daemon, nothing runs in the background
 - FFmpeg/GStreamer codecs and HEIC/HEIF image support
 - MangoHud overlay and Zed with `~/.local/bin` on the Zsh path
 - OpenCode CLI and Desktop
@@ -278,7 +279,6 @@ Hardware KVMs and out-of-band power buttons are useful for this kind of box, but
 | Shell & terminal | `zsh` `zsh-autosuggestions` `zsh-syntax-highlighting` `starship` `kitty` |
 | Browser | `chromium` |
 | Media & codecs | `ffmpeg` `ffmpegthumbnailer` `gstreamer1-libav` `gstreamer1-plugin-openh264` `gstreamer1-plugins-bad-free` `gstreamer1-plugins-bad-free-extras` `gstreamer1-plugins-bad-freeworld` `gstreamer1-plugins-good` `gstreamer1-plugins-good-extras` `gstreamer1-plugins-ugly` `lame` `lame-libs` `libavcodec-freeworld` `mozilla-openh264` `openh264` `pipewire-codec-aptx` |
-| Desktop apps | `flameshot` |
 
 **Flatpak apps:** `org.onlyoffice.desktopeditors` `org.localsend.localsend_app`
 
@@ -287,7 +287,7 @@ Hardware KVMs and out-of-band power buttons are useful for this kind of box, but
 - RPM Fusion free and nonfree repositories for codecs
 - Timeshift daily snapshots with 7-day retention
 - KDE Breeze Dark theme
-- Flameshot on `Meta+Shift+4`
+- Spectacle (preinstalled with Plasma) on the `Print` key
 - Zed with `~/.local/bin` on the Zsh path
 - OpenCode CLI and Desktop
 - Helium browser (optional)

@@ -115,7 +115,6 @@ APPS = [
         "profiles": DESKTOP_PROFILES,
         "apt": ["heif-gdk-pixbuf", "heif-thumbnailer", "libheif-examples", "libheif-plugins-all"],
     },
-    {"key": "flameshot", "label": "Flameshot", "default": True, "profiles": DESKTOP_PROFILES, "apt": ["flameshot"], "dnf": ["flameshot"]},
     {"key": "chrome", "label": "Google Chrome on Ubuntu / Chromium on Fedora Asahi", "default": True, "profiles": DESKTOP_PROFILES, "apt": ["google-chrome-stable"], "dnf": ["chromium"]},
     {"key": "helium", "label": "Helium browser (privacy-first Chromium fork)", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_helium"},
     {"key": "gimp", "label": "GIMP", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["gimp"], "dnf": ["gimp"]},

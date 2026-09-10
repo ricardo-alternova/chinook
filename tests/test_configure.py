@@ -116,6 +116,20 @@ class TestCatalog(unittest.TestCase):
         self.assertIn("opencode_cli", fedora_defaults)
         self.assertIn("opencode_desktop", fedora_defaults)
 
+    def test_screenshot_tooling(self):
+        ubuntu = (ROOT / "ansible/group_vars/ubuntu.yml").read_text(encoding="utf-8")
+        fedora = (ROOT / "ansible/group_vars/fedora_asahi.yml").read_text(encoding="utf-8")
+        self.assertIn("ksnip", ubuntu)
+        self.assertNotIn("flameshot", ubuntu)
+        self.assertNotIn("flameshot", fedora)
+        self.assertNotIn("grim", ubuntu)
+        self.assertNotIn("swappy", ubuntu)
+        gnome_role = (ROOT / "ansible/roles/gnome/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertIn("gnome_screenshot_command", gnome_role)
+        self.assertIn("ForceGenericWaylandEnabled", gnome_role)
+        all_vars = (ROOT / "ansible/group_vars/all.yml").read_text(encoding="utf-8")
+        self.assertIn("ksnip -r", all_vars)
+
     def test_profile_vars_enable_opencode(self):
         ubuntu = (ROOT / "ansible/group_vars/ubuntu.yml").read_text(encoding="utf-8")
         fedora = (ROOT / "ansible/group_vars/fedora_asahi.yml").read_text(encoding="utf-8")

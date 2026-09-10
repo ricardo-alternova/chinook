@@ -25,7 +25,6 @@ apt_packages:
   - libheif-examples
   - libheif-plugins-all
   - onedrive
-  - flameshot
   - ffmpeg
   - kitty
   - gstreamer1.0-libav
@@ -35,6 +34,7 @@ apt_packages:
   - gstreamer1.0-vaapi
   - mangohud
   - google-chrome-stable
+  - ksnip
   - starship
   - steam-installer
   - wl-clipboard
