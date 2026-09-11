@@ -79,6 +79,17 @@ class TestCatalog(unittest.TestCase):
         self.assertNotIn("steam", keys)
         self.assertNotIn("grok_bot", keys)
         self.assertNotIn("wayshot", keys)
+        self.assertNotIn("input_remapper", keys)
+
+    def test_input_remapper_is_desktop_only(self):
+        for profile in ("ubuntu", "fedora_asahi"):
+            self.assertIn("input_remapper", {app["key"] for app in configure.visible_apps(profile)})
+        selected = configure.default_selection("ubuntu")
+        selected.add("input_remapper")
+        config = configure.build_config("ubuntu", selected)
+        self.assertIn("input-remapper", config["apt_packages"])
+        fedora_config = configure.build_config("fedora_asahi", configure.default_selection("fedora_asahi") | {"input_remapper"})
+        self.assertIn("input-remapper", fedora_config["dnf_packages"])
 
     def test_grok_bot_is_desktop_only(self):
         for profile in ("ubuntu", "fedora_asahi"):

@@ -223,7 +223,7 @@ The configurator writes these values for you.
 - MangoHud overlay and Zed with `~/.local/bin` on the Zsh path
 - OpenCode CLI and Desktop
 
-Optional modules: OneDrive, SSH snippets, Keychron udev rules, OBS Studio, Balena Etcher, Teams PWA, Helium browser, desktop shortcuts, Grok Bot, Cursor, T3 Code, tmux, and Tailscale. Enable them in `local.yml` or through `tools/configure.py`.
+Optional modules: OneDrive, SSH snippets, Keychron udev rules, OBS Studio, Balena Etcher, Teams PWA, Helium browser, desktop shortcuts, Grok Bot, Cursor, input-remapper, T3 Code, tmux, and Tailscale. Enable them in `local.yml` or through `tools/configure.py`.
 
 ## Ubuntu Server Profile
 
@@ -327,6 +327,14 @@ Linux builds are distributed through Cursor's release CDN rather than a package 
 The `cursor` role installs the Cursor editor on the desktop profiles only (it is hidden from the Ubuntu Server selector). Sign in after install with your Cursor account.
 
 Like Grok Bot, Cursor publishes Linux builds through its release CDN with version-stamped links, so the role resolves the current release at runtime from the download map on [cursor.com/downloads](https://cursor.com/downloads): the `.deb` through APT on Ubuntu and the `.rpm` through DNF on Fedora Asahi, for both x64 and arm64. Each run compares the installed version with the latest published release and re-downloads only when it changed. If resolution fails, pin a direct link in `local.yml` with `cursor_deb_url` or `cursor_rpm_url`.
+
+### input-remapper
+
+The `input_remapper` app installs [input-remapper](https://github.com/sezanzeb/input-remapper) on the desktop profiles (`input-remapper` in the APT and DNF repos, so it works on Fedora Asahi too). It remaps keyboard, mouse, and wheel events at the kernel level, independent of vendor drivers — which makes it the tool of choice when a vendor utility (Logitech Options+/OpenLogi, etc.) can't configure a device on Linux.
+
+A common recipe: **hold a mouse button and scroll the wheel horizontally.** Create a preset for your mouse, add a mapping whose input is a side button and whose output is `Shift_L`, then Apply. Because input-remapper holds the output while the button is held, the wheel becomes `Shift`+wheel, which scrolls horizontally in browsers, editors, and most apps. For a truly horizontal wheel (works everywhere, including apps that ignore `Shift`+wheel), record the input as *side button + scroll up* and set the output macro to `wheel(right, 1)`, then add the matching `wheel(left, 1)` mapping for scroll down.
+
+Mappings are stored per device under `~/.config/input-remapper-2/presets/`, so they survive re-provisioning — the role only installs the tool; configure the mappings once in its GUI.
 
 ### Helium Browser
 
