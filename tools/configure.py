@@ -117,6 +117,7 @@ APPS = [
     },
     {"key": "chrome", "label": "Google Chrome on Ubuntu / Chromium on Fedora Asahi", "default": True, "profiles": DESKTOP_PROFILES, "apt": ["google-chrome-stable"], "dnf": ["chromium"]},
     {"key": "wayshot", "label": "WayShot (screenshot annotate)", "default": True, "profiles": DESKTOP_PROFILES, "flatpak": ["io.github.gutopardini.wayshot"]},
+    {"key": "input_remapper", "label": "input-remapper (remap mouse buttons and wheel)", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["input-remapper"], "dnf": ["input-remapper"]},
     {"key": "helium", "label": "Helium browser (privacy-first Chromium fork)", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_helium"},
     {"key": "gimp", "label": "GIMP", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["gimp"], "dnf": ["gimp"]},
     {"key": "xournalpp", "label": "Xournal++", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["xournalpp"], "dnf": ["xournalpp"]},
