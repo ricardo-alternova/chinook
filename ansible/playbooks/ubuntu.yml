@@ -31,6 +31,9 @@
     - role: packages
       tags: packages
       when: install_packages | bool
+    - role: starship
+      tags: starship
+      when: install_starship | bool
     - role: snaps
       tags: snaps
       when: install_snap_apps | bool
@@ -73,6 +76,15 @@
     - role: codex_cli
       tags: codex_cli
       when: install_codex_cli | bool
+    - role: claude_code
+      tags: claude_code
+      when: install_claude_code | bool
+    - role: cursor_cli
+      tags: cursor_cli
+      when: install_cursor_cli | bool
+    - role: glab
+      tags: glab
+      when: install_glab | bool
     - role: grok_bot
       tags: grok_bot
       when: install_grok_bot | bool
@@ -85,6 +97,9 @@
     - role: helium
       tags: helium
       when: install_helium | bool
+    - role: unity_hub
+      tags: unity_hub
+      when: install_unity_hub | bool
     - role: keychron
       tags: keychron
       when: configure_keychron | bool

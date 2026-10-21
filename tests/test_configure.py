@@ -112,8 +112,47 @@ class TestCatalog(unittest.TestCase):
         server = (playbook_dir / "ubuntu_server.yml").read_text(encoding="utf-8")
         self.assertIn("install_cursor", ubuntu)
         self.assertIn("install_cursor", fedora)
-        self.assertNotIn("install_cursor", server)
+        self.assertNotIn("install_cursor |", server)
         self.assertTrue((ROOT / "ansible" / "roles" / "cursor" / "tasks" / "main.yml").is_file())
+
+    def test_agent_and_git_clis_on_every_profile(self):
+        playbook_dir = ROOT / "ansible" / "playbooks"
+        for profile, playbook in configure.PLAYBOOKS.items():
+            selected = configure.default_selection(profile)
+            config = configure.build_config(profile, selected)
+            playbook_text = (ROOT / playbook).read_text(encoding="utf-8")
+            for key in ("claude_code", "cursor_cli", "glab"):
+                self.assertIn(key, selected, profile)
+                self.assertTrue(config[f"install_{key}"], profile)
+                self.assertIn(f"role: {key}", playbook_text, profile)
+                self.assertTrue((ROOT / "ansible" / "roles" / key / "tasks" / "main.yml").is_file())
+            profile_vars = parse_yaml((ROOT / "ansible/group_vars" / f"{profile}.yml").read_text(encoding="utf-8"))
+            for flag in ("install_claude_code", "install_cursor_cli", "install_glab", "install_starship"):
+                self.assertTrue(profile_vars[flag], f"{profile} {flag}")
+
+    def test_starship_uses_installer_not_distro_packages(self):
+        # Ubuntu LTS has no starship APT package; one missing package fails the whole apt task.
+        for profile in configure.PLAYBOOKS:
+            config = configure.build_config(profile, configure.default_selection(profile))
+            self.assertTrue(config["install_starship"], profile)
+            self.assertNotIn("starship", config.get("apt_packages", []), profile)
+            self.assertNotIn("starship", config.get("dnf_packages", []), profile)
+            profile_vars = parse_yaml((ROOT / "ansible/group_vars" / f"{profile}.yml").read_text(encoding="utf-8"))
+            self.assertNotIn("starship", profile_vars.get("apt_packages", []), profile)
+            self.assertNotIn("starship", profile_vars.get("dnf_packages", []), profile)
+        self.assertTrue((ROOT / "ansible/roles/starship/tasks/main.yml").is_file())
+
+    def test_unity_hub_is_ubuntu_desktop_only(self):
+        self.assertIn("unity_hub", {app["key"] for app in configure.visible_apps("ubuntu")})
+        for profile in ("ubuntu_server", "fedora_asahi"):
+            self.assertNotIn("unity_hub", {app["key"] for app in configure.visible_apps(profile)})
+        config = configure.build_config("ubuntu", configure.default_selection("ubuntu") | {"unity_hub"})
+        self.assertTrue(config["install_unity_hub"])
+        playbook_dir = ROOT / "ansible" / "playbooks"
+        self.assertIn("install_unity_hub", (playbook_dir / "ubuntu.yml").read_text(encoding="utf-8"))
+        self.assertNotIn("install_unity_hub", (playbook_dir / "ubuntu_server.yml").read_text(encoding="utf-8"))
+        self.assertNotIn("install_unity_hub", (playbook_dir / "fedora_asahi.yml").read_text(encoding="utf-8"))
+        self.assertTrue((ROOT / "ansible/roles/unity_hub/tasks/main.yml").is_file())
 
     def test_desktop_hides_server_defaults_as_optional(self):
         ubuntu_defaults = configure.default_selection("ubuntu")

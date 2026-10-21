@@ -1,0 +1,27 @@
+- name: Ensure Cursor CLI install dependencies are present
+  ansible.builtin.package:
+    name:
+      - curl
+      - tar
+    state: present
+  become: true
+
+# The Cursor CLI updates itself (`agent update`), so only run the installer when it is missing.
+- name: Install Cursor CLI with official installer
+  ansible.builtin.shell: curl -fsSL https://cursor.com/install | bash
+  args:
+    executable: /bin/bash
+    creates: "{{ cursor_cli_bin_path }}"
+  become: true
+  become_user: "{{ workstation_user }}"
+  environment:
+    HOME: "{{ workstation_home }}"
+
+- name: Ensure local bin is in zsh PATH
+  ansible.builtin.lineinfile:
+    path: "{{ workstation_home }}/.zshrc"
+    create: true
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0644"
+    line: 'export PATH="$HOME/.local/bin:$PATH"'

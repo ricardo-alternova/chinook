@@ -2,6 +2,10 @@ install_packages: true
 install_t3_code: false
 install_tailscale: true
 install_opencode_cli: true
+install_claude_code: true
+install_cursor_cli: true
+install_glab: true
+install_starship: true
 
 configure_timeshift: true
 configure_tmux: true
@@ -16,7 +20,6 @@ apt_packages:
   - git
   - jq
   - openssh-server
-  - starship
   - tmux
   - zsh
   - zsh-autosuggestions
