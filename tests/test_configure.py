@@ -154,6 +154,14 @@ class TestCatalog(unittest.TestCase):
         self.assertNotIn("install_unity_hub", (playbook_dir / "fedora_asahi.yml").read_text(encoding="utf-8"))
         self.assertTrue((ROOT / "ansible/roles/unity_hub/tasks/main.yml").is_file())
 
+    def test_ansible_yaml_has_no_bare_boolean_words_in_lists(self):
+        # A bare `on` in an argv list is parsed as True (ufw allow in True tailscale0).
+        import re
+        bare = re.compile(r"^\s*-\s+(on|off|yes|no|y|n)\s*$", re.IGNORECASE)
+        for path in (ROOT / "ansible").rglob("*.yml"):
+            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+                self.assertIsNone(bare.match(line), f"{path.relative_to(ROOT)}:{number} quote this list item")
+
     def test_desktop_hides_server_defaults_as_optional(self):
         ubuntu_defaults = configure.default_selection("ubuntu")
         server_defaults = configure.default_selection("ubuntu_server")
@@ -397,6 +405,7 @@ class TestTuiProcess(unittest.TestCase):
                 "devbox",
                 "green",
                 "",
+                "192.168.8.0/24, 10.0.0.0/24",
             ],
         )
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
@@ -406,6 +415,7 @@ class TestTuiProcess(unittest.TestCase):
         self.assertEqual(data["tmux_session_name"], "devbox")
         self.assertEqual(data["tmux_status_bg"], "green")
         self.assertNotIn("tailscale_auth_key", data)
+        self.assertEqual(data["ufw_trusted_subnets"], ["192.168.8.0/24", "10.0.0.0/24"])
         self.assertIn("openssh-server", data["apt_packages"])
         self.assertNotIn("snap_packages", data)
 

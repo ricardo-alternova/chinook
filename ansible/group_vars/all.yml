@@ -46,6 +46,7 @@ ufw_default_routed: deny
 ufw_allow_openssh: true
 ufw_allow_tailscale: "{{ install_tailscale }}"
 ufw_allowed_ports: []
+ufw_trusted_subnets: []
 
 fail2ban_packages:
   - fail2ban

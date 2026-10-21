@@ -267,6 +267,13 @@ ufw_allowed_ports:
   - 443/tcp
 ```
 
+Trust a whole LAN subnet with `ufw_trusted_subnets` (the configurator asks for it when UFW is selected). Use this when you reach the box through a router-level VPN, such as a GL.iNet router running Tailscale or WireGuard: that traffic arrives from the router's LAN, not `tailscale0`, so without this only SSH gets through. GL.iNet's default LAN is `192.168.8.0/24`:
+
+```yaml
+ufw_trusted_subnets:
+  - 192.168.8.0/24
+```
+
 ### Remote agent workflow
 
 The Server profile is meant to be a box you leave running and connect to from a laptop:
@@ -418,6 +425,7 @@ helium unity_hub keychron zed balena_etcher teams_pwa desktop_shortcuts
 - **tmux did not start and you still have a shell** — Chinook no longer `exec`s tmux. If tmux fails, the login shell stays up. If tmux starts and you detach, the SSH session exits.
 - **Tailscale is installed but not connected** — run `sudo tailscale up`. Storing `tailscale_auth_key` in `local.yml` is optional; use a single-use key. The playbook and configurator keep `local.yml` mode `0600`.
 - **fail2ban banned your Tailscale IP** — the default ignore list is localhost only. Add your admin tailnet address to `fail2ban_ignoreip` rather than the whole `100.64.0.0/10` range.
+- **`ufw allow in True tailscale0` / `Need 'to' or 'from' clause`** — fixed: an unquoted `on` in the UFW role was read by YAML as `True`. Update Chinook and re-run.
 - **Locked out after enabling UFW** — use console or a local session and run `sudo ufw allow OpenSSH` or `sudo ufw disable`. The Server profile allows OpenSSH before enabling UFW; this usually means SSH is on a non-standard port — add it to `ufw_allowed_ports`.
 - **fail2ban is not banning** — confirm `sudo fail2ban-client status sshd` and that `python3-systemd` is installed so the jail can read the journal.
 - **T3 Code won't start on Fedora Asahi** — the x86_64 AppImage may not mount FUSE through the emulation layer even with `fuse-libs` installed. Fall back to extraction, which needs no FUSE:
