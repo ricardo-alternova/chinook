@@ -209,7 +209,7 @@ The configurator writes these values for you.
 | Core tools | `ansible` `git` `jq` `flatpak` |
 | Shell & terminal | `zsh` `zsh-autosuggestions` `zsh-syntax-highlighting` `kitty` |
 | Media & codecs | `ffmpeg` `gstreamer1.0-libav` `gstreamer1.0-plugins-bad` `gstreamer1.0-plugins-good` `gstreamer1.0-plugins-ugly` `gstreamer1.0-vaapi` |
-| HEIC/HEIF | `heif-gdk-pixbuf` `heif-thumbnailer` `libheif-examples` `libheif-plugins-all` |
+| HEIC/HEIF | `heif-gdk-pixbuf` `heif-thumbnailer` `libheif-examples` `libheif-plugin-libde265` `libheif-plugin-aomdec` |
 | Desktop apps | `gimp` `xournalpp` `google-chrome-stable` `onedrive` |
 | Gaming | `steam-installer` `mangohud` |
 
