@@ -18,3 +18,5 @@ jobs:
         run: bash -n install
       - name: Run configurator tests
         run: python3 -m unittest discover -s tests -v
+        env:
+          CHINOOK_CHECK_APT: "1"
