@@ -2,6 +2,10 @@ install_packages: true
 install_flatpak_apps: true
 install_zed: true
 install_opencode_cli: true
+install_claude_code: true
+install_cursor_cli: true
+install_glab: true
+install_starship: true
 install_opencode_desktop: true
 
 configure_timeshift: true
@@ -32,7 +36,6 @@ dnf_packages:
   - mozilla-openh264
   - openh264
   - pipewire-codec-aptx
-  - starship
   - zsh
   - zsh-autosuggestions
   - zsh-syntax-highlighting

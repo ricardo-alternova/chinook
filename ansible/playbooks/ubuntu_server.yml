@@ -14,6 +14,9 @@
     - role: packages
       tags: packages
       when: install_packages | bool
+    - role: starship
+      tags: starship
+      when: install_starship | bool
     - role: timeshift
       tags: timeshift
       when: configure_timeshift | bool
@@ -41,6 +44,15 @@
     - role: codex_cli
       tags: codex_cli
       when: install_codex_cli | bool
+    - role: claude_code
+      tags: claude_code
+      when: install_claude_code | bool
+    - role: cursor_cli
+      tags: cursor_cli
+      when: install_cursor_cli | bool
+    - role: glab
+      tags: glab
+      when: install_glab | bool
     - role: t3_code
       tags: t3_code
       when: install_t3_code | bool

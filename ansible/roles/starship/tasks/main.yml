@@ -1,0 +1,21 @@
+- name: Ensure Starship install dependencies are present
+  ansible.builtin.package:
+    name:
+      - curl
+      - tar
+    state: present
+  become: true
+
+- name: Check for an existing Starship install
+  ansible.builtin.command: sh -c 'command -v starship'
+  register: starship_existing
+  changed_when: false
+  failed_when: false
+
+# Ubuntu LTS releases do not ship starship in APT, so use the official installer everywhere.
+- name: Install Starship with official installer
+  ansible.builtin.shell: curl -fsSL https://starship.rs/install.sh | sh -s -- --yes --bin-dir {{ starship_bin_dir }}
+  args:
+    executable: /bin/sh
+  become: true
+  when: starship_existing.rc != 0

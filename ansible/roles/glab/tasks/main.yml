@@ -1,0 +1,53 @@
+- name: Fail when GitLab CLI is not available for this architecture
+  ansible.builtin.fail:
+    msg: "GitLab CLI Linux packages are installed for x86_64 and arm64/aarch64. This machine reports {{ ansible_facts['architecture'] }}."
+  when: ansible_facts['architecture'] not in ['x86_64', 'amd64', 'aarch64', 'arm64']
+
+- name: Gather installed package facts
+  ansible.builtin.package_facts:
+    manager: auto
+
+- name: Resolve latest GitLab CLI release
+  ansible.builtin.uri:
+    url: "{{ glab_latest_release_api }}"
+    return_content: true
+  register: glab_latest_release
+
+- name: Build GitLab CLI package URLs
+  ansible.builtin.set_fact:
+    glab_version: "{{ glab_latest_release.json.tag_name | regex_replace('^v', '') }}"
+    glab_arch: "{{ 'amd64' if ansible_facts['architecture'] in ['x86_64', 'amd64'] else 'arm64' }}"
+    glab_package_ext: "{{ 'deb' if ansible_facts['pkg_mgr'] == 'apt' else 'rpm' }}"
+
+- name: Build GitLab CLI package path
+  ansible.builtin.set_fact:
+    glab_package_url: "{{ glab_releases_base_url }}/v{{ glab_version }}/downloads/glab_{{ glab_version }}_linux_{{ glab_arch }}.{{ glab_package_ext }}"
+    glab_package_path: "/tmp/glab_{{ glab_version }}_linux_{{ glab_arch }}.{{ glab_package_ext }}"
+    glab_installed_versions: "{{ ansible_facts.packages['glab'] | default([]) | map(attribute='version') | list }}"
+
+- name: Download GitLab CLI package
+  ansible.builtin.get_url:
+    url: "{{ glab_package_url }}"
+    dest: "{{ glab_package_path }}"
+    mode: "0644"
+  become: true
+  when: glab_version not in glab_installed_versions
+
+- name: Install GitLab CLI deb package
+  ansible.builtin.apt:
+    deb: "{{ glab_package_path }}"
+    state: present
+  become: true
+  when:
+    - ansible_facts['pkg_mgr'] == 'apt'
+    - glab_version not in glab_installed_versions
+
+- name: Install GitLab CLI rpm package
+  ansible.builtin.dnf:
+    name: "{{ glab_package_path }}"
+    state: present
+    disable_gpg_check: true
+  become: true
+  when:
+    - ansible_facts['pkg_mgr'] in ['dnf', 'dnf5']
+    - glab_version not in glab_installed_versions

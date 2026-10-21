@@ -4,6 +4,10 @@ install_onedrive: true
 install_mangohud: true
 install_zed: true
 install_opencode_cli: true
+install_claude_code: true
+install_cursor_cli: true
+install_glab: true
+install_starship: true
 install_opencode_desktop: true
 install_balena_etcher: false
 
@@ -34,7 +38,6 @@ apt_packages:
   - gstreamer1.0-vaapi
   - mangohud
   - google-chrome-stable
-  - starship
   - steam-installer
   - wl-clipboard
   - wtype

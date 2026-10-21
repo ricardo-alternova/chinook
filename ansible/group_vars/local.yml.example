@@ -13,9 +13,14 @@ install_mangohud: false
 install_opencode_cli: true
 install_opencode_desktop: true
 install_codex_cli: false
+install_claude_code: true
+install_cursor_cli: true
+install_glab: true
+install_starship: true
 install_grok_bot: false
 install_cursor: false
 install_helium: false
+install_unity_hub: false
 install_zed: true
 install_balena_etcher: false
 install_t3_code: false

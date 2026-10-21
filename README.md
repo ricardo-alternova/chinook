@@ -175,9 +175,14 @@ install_onedrive: false
 install_mangohud: false
 install_opencode_cli: true
 install_opencode_desktop: true
+install_claude_code: true
+install_cursor_cli: true
+install_glab: true
+install_starship: true
 install_zed: true
 install_balena_etcher: false
 install_helium: false
+install_unity_hub: false
 install_t3_code: false
 install_tailscale: false
 
@@ -202,7 +207,7 @@ The configurator writes these values for you.
 | Category | Packages |
 | --- | --- |
 | Core tools | `ansible` `git` `jq` `flatpak` |
-| Shell & terminal | `zsh` `zsh-autosuggestions` `zsh-syntax-highlighting` `starship` `kitty` |
+| Shell & terminal | `zsh` `zsh-autosuggestions` `zsh-syntax-highlighting` `kitty` |
 | Media & codecs | `ffmpeg` `gstreamer1.0-libav` `gstreamer1.0-plugins-bad` `gstreamer1.0-plugins-good` `gstreamer1.0-plugins-ugly` `gstreamer1.0-vaapi` |
 | HEIC/HEIF | `heif-gdk-pixbuf` `heif-thumbnailer` `libheif-examples` `libheif-plugins-all` |
 | Desktop apps | `gimp` `xournalpp` `google-chrome-stable` `onedrive` |
@@ -222,8 +227,9 @@ The configurator writes these values for you.
 - FFmpeg/GStreamer codecs and HEIC/HEIF image support
 - MangoHud overlay and Zed with `~/.local/bin` on the Zsh path
 - OpenCode CLI and Desktop
+- Claude Code, Cursor CLI, GitLab CLI (`glab`), and Starship
 
-Optional modules: OneDrive, SSH snippets, Keychron udev rules, OBS Studio, Balena Etcher, Teams PWA, Helium browser, desktop shortcuts, Grok Bot, Cursor, input-remapper, T3 Code, tmux, and Tailscale. Enable them in `local.yml` or through `tools/configure.py`.
+Optional modules: OneDrive, SSH snippets, Keychron udev rules, OBS Studio, Unity Hub, Balena Etcher, Teams PWA, Helium browser, desktop shortcuts, Grok Bot, Cursor, input-remapper, T3 Code, tmux, and Tailscale. Enable them in `local.yml` or through `tools/configure.py`.
 
 ## Ubuntu Server Profile
 
@@ -234,7 +240,7 @@ This profile is for a headless Ubuntu box you SSH into — a remote agent machin
 | Category | Packages |
 | --- | --- |
 | Core tools | `ansible` `curl` `git` `jq` `openssh-server` |
-| Shell & terminal | `zsh` `zsh-autosuggestions` `zsh-syntax-highlighting` `starship` `tmux` |
+| Shell & terminal | `zsh` `zsh-autosuggestions` `zsh-syntax-highlighting` `tmux` |
 | Ops | `btop` `gh` |
 | Security | `ufw` `fail2ban` (installed by their roles) |
 
@@ -247,6 +253,7 @@ This profile is for a headless Ubuntu box you SSH into — a remote agent machin
 - UFW with default-deny inbound, allow outbound, OpenSSH allowed before the firewall is turned on, and `tailscale0` allowed when Tailscale is enabled so tailnet traffic is not blocked
 - fail2ban SSH jail (`jail.d/sshd.local` only — package `jail.conf` is left alone) using the systemd journal, 5 retries / 10 minutes / 1 hour ban. Localhost is ignored; Tailscale/CGNAT addresses are not, so a compromised tailnet peer can still be banned
 - OpenCode CLI
+- Claude Code, Cursor CLI, GitLab CLI (`glab`), and Starship
 
 Optional modules: SSH snippets, OneDrive, Codex CLI, T3 Code, and Keychron udev rules. Desktop apps (Kitty, Chrome, Steam, Zed, snaps, GNOME settings) are not offered in the Server configurator.
 
@@ -265,7 +272,7 @@ The Server profile is meant to be a box you leave running and connect to from a 
 1. **SSH + tmux.** Interactive SSH drops you into a named tmux session. Work survives laptop sleep, network changes, and closing the lid. Give each machine a different `tmux_status_bg` (for example `green`, `red`, `colour24`) so you can tell them apart.
 2. **Tailscale.** Reach the box from outside the LAN without exposing extra ports to the public internet. After `sudo tailscale up`, use the MagicDNS name from any device on the tailnet. Optional: set `tailscale_ssh: true` (with an auth key) if you want Tailscale SSH. UFW still allows OpenSSH so a local or tailnet SSH session is not locked out.
 3. **UFW + fail2ban.** Inbound traffic is denied except SSH (and Tailscale). fail2ban bans IPs that hammer SSH. This is the baseline before you put the box on a network.
-4. **Agent CLIs on the box, not the laptop.** OpenCode CLI is on by default. Enable Codex CLI and/or T3 Code in `local.yml` if you want them too. Long-running agent jobs then keep going after you disconnect. Authenticate on the server (`opencode auth login`, `gh auth login`, `codex login`).
+4. **Agent CLIs on the box, not the laptop.** OpenCode CLI is on by default. Enable Codex CLI and/or T3 Code in `local.yml` if you want them too. Long-running agent jobs then keep going after you disconnect. Claude Code and Cursor CLI are on by default too. Authenticate on the server (`opencode auth login`, `claude`, `agent login`, `gh auth login`, `glab auth login`, `codex login`).
 5. **T3 Code for screenshots and a GUI.** Pasting images over raw SSH is unreliable. Install T3 Code on the server and connect to it from the T3 desktop/mobile app over Tailscale. The AppImage role is headless-safe: missing `update-desktop-database` / `gtk-update-icon-cache` is ignored.
 6. **Passwordless SSH between machines.** Chinook never writes private keys. Generate them, register the public key, and add `ssh_hosts` entries so your laptop (or an agent on it) can hop to the server without a password.
 
@@ -278,7 +285,7 @@ Hardware KVMs and out-of-band power buttons are useful for this kind of box, but
 | Category | Packages |
 | --- | --- |
 | Core tools | `ansible` `git` `jq` `curl` |
-| Shell & terminal | `zsh` `zsh-autosuggestions` `zsh-syntax-highlighting` `starship` `kitty` |
+| Shell & terminal | `zsh` `zsh-autosuggestions` `zsh-syntax-highlighting` `kitty` |
 | Browser | `chromium` |
 | Media & codecs | `ffmpeg` `ffmpegthumbnailer` `gstreamer1-libav` `gstreamer1-plugin-openh264` `gstreamer1-plugins-bad-free` `gstreamer1-plugins-bad-free-extras` `gstreamer1-plugins-bad-freeworld` `gstreamer1-plugins-good` `gstreamer1-plugins-good-extras` `gstreamer1-plugins-ugly` `lame` `lame-libs` `libavcodec-freeworld` `mozilla-openh264` `openh264` `pipewire-codec-aptx` |
 
@@ -293,6 +300,7 @@ Hardware KVMs and out-of-band power buttons are useful for this kind of box, but
 - WayShot (optional, flatpak): takes over the `Print` key with portal capture and annotation when selected in the configurator
 - Zed with `~/.local/bin` on the Zsh path
 - OpenCode CLI and Desktop
+- Claude Code, Cursor CLI, GitLab CLI (`glab`), and Starship
 - Helium browser (optional)
 - Grok Bot desktop agent (optional)
 - Cursor editor (optional)
@@ -315,6 +323,18 @@ The `opencode_cli` role runs the official installer (`curl -fsSL https://opencod
 ### Codex CLI
 
 The `codex_cli` role installs the official Codex CLI via the installer script (`curl -fsSL https://chatgpt.com/codex/install.sh | sh`), landing the `codex` binary in `~/.local/bin`. It's idempotent: the installer only re-downloads when a newer release is available, and the role runs it non-interactively.
+
+### Claude Code / Cursor CLI
+
+The `claude_code` role runs the official installer (`curl -fsSL https://claude.ai/install.sh | bash`) and the `cursor_cli` role runs Cursor's (`curl -fsSL https://cursor.com/install | bash`). Both land in `~/.local/bin` (`claude`, and `agent` / `cursor-agent`), which the roles put on the Zsh PATH. Both tools update themselves, so the roles only run the installer when the binary is missing. Enabled on every profile, including Ubuntu Server. Sign in with `claude` and `agent login`.
+
+### GitLab CLI
+
+The `glab` role resolves the latest release from the GitLab API and installs the official `.deb` (Ubuntu) or `.rpm` (Fedora Asahi) for x64 or arm64. Each run compares the installed version with the latest release and only downloads when it changed. The distro `glab` packages lag far behind upstream, so they are not used. Sign in with `glab auth login`.
+
+### Starship
+
+The `starship` role installs the prompt with the official installer (`https://starship.rs/install.sh`) into `/usr/local/bin`, skipping the install when `starship` is already on the PATH. Ubuntu LTS releases do not ship a `starship` APT package, so it is not installed through APT or DNF.
 
 ### Grok Bot
 
@@ -339,6 +359,10 @@ Mappings are stored per device under `~/.config/input-remapper-2/presets/`, so t
 ### Helium Browser
 
 The `helium` role installs `helium-bin` from Helium's official repositories: the signed APT repo (`pkg.helium.computer/deb`) on Ubuntu and the `imput/helium` COPR on Fedora. The repo supports both amd64 and arm64, so it works on Fedora Asahi too. Helium is a Chromium fork with ads, trackers, and fingerprinting blocked by default — a good companion or replacement for the default Chrome/Chromium option.
+
+### Unity Hub
+
+The `unity_hub` role adds Unity's signed APT repository (`hub.unity3d.com/linux/repos/deb`) and installs `unityhub` on the Ubuntu GNOME profile only. It's off by default. The Hub is the official way to get the engine on Linux: after provisioning, open Unity Hub, sign in with your Unity ID, activate a license (Personal is free), and install an Editor version from the **Installs** tab. Editors are large and tied to your account, so the role doesn't install one.
 
 ### Zed Defaults
 
@@ -376,8 +400,9 @@ Available tags match role names:
 
 ```bash
 packages snaps flatpaks timeshift tmux tailscale ufw fail2ban ssh_client
-onedrive gnome kde mangohud opencode_cli opencode_desktop codex_cli grok_bot cursor wayshot t3_code
-helium keychron zed balena_etcher teams_pwa desktop_shortcuts
+onedrive gnome kde mangohud opencode_cli opencode_desktop codex_cli claude_code cursor_cli glab starship
+grok_bot cursor wayshot t3_code
+helium unity_hub keychron zed balena_etcher teams_pwa desktop_shortcuts
 ```
 
 ## Troubleshooting
@@ -405,6 +430,7 @@ helium keychron zed balena_etcher teams_pwa desktop_shortcuts
   ```
 
 - **AppImage errors about `libfuse.so.2`** — the FUSE 2 library is installed automatically by the role (`libfuse2t64` on Ubuntu, `fuse-libs` on Fedora); install it manually if it's still missing.
+- **`No package matching 'starship' is available`** — your `local.yml` was generated before Starship moved to its own installer. Re-run the installer and answer `y` to re-run the app selector, or delete `starship` from `apt_packages` in `ansible/group_vars/local.yml`.
 - **Want a module not in the terminal UI** — add the role to the profile's playbook gated by a toggle from `all.yml`, or keep it simple with the `*_extra` package lists.
 
 ## Notes

@@ -1,0 +1,48 @@
+- name: Ensure Unity Hub install dependencies are present
+  ansible.builtin.package:
+    name:
+      - curl
+      - gpg
+    state: present
+  become: true
+
+- name: Ensure APT key directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Download Unity Hub signing key
+  ansible.builtin.get_url:
+    url: "{{ unity_hub_apt_key_url }}"
+    dest: "{{ unity_hub_apt_key_path }}.asc"
+    mode: "0644"
+  become: true
+  register: unity_hub_apt_key
+
+- name: Convert Unity Hub signing key to keyring format
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --dearmor
+      - --yes
+      - --output
+      - "{{ unity_hub_apt_key_path }}"
+      - "{{ unity_hub_apt_key_path }}.asc"
+  become: true
+  when: unity_hub_apt_key.changed
+
+- name: Configure Unity Hub apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by={{ unity_hub_apt_key_path }}] {{ unity_hub_apt_repo_url }} stable main"
+    filename: unityhub
+    state: present
+    update_cache: true
+  become: true
+
+- name: Install Unity Hub package
+  ansible.builtin.apt:
+    name: "{{ unity_hub_package_name }}"
+    state: present
+  become: true
