@@ -23,11 +23,13 @@ Your username, SSH hosts, sync paths, and device IDs stay in a git-ignored `loca
 
 | System | Desktop | Playbook | Profile Vars |
 | --- | --- | --- | --- |
-| Ubuntu | GNOME | `ansible/playbooks/ubuntu.yml` | `ansible/group_vars/ubuntu.yml` |
-| Ubuntu Server | none (headless) | `ansible/playbooks/ubuntu_server.yml` | `ansible/group_vars/ubuntu_server.yml` |
+| Ubuntu 24.04 LTS | GNOME | `ansible/playbooks/ubuntu.yml` | `ansible/group_vars/ubuntu.yml` |
+| Ubuntu Server 24.04 LTS | none (headless) | `ansible/playbooks/ubuntu_server.yml` | `ansible/group_vars/ubuntu_server.yml` |
 | Fedora Asahi Remix | KDE Plasma | `ansible/playbooks/fedora_asahi.yml` | `ansible/group_vars/fedora_asahi.yml` |
 
 Public defaults live in the profile files; your private choices live in `ansible/group_vars/local.yml`.
+
+The Ubuntu profiles target **Ubuntu 24.04 LTS** (desktop and server). On another Ubuntu release the installer warns and carries on: any APT package that doesn't exist on that release is skipped with a warning instead of failing the run. CI checks every APT package name against the official 24.04 package indexes (`tests/test_apt_packages.py`); supporting a new release means adding its codename to `UBUNTU_RELEASES` there and fixing anything it reports.
 
 ## Contents
 
@@ -386,7 +388,8 @@ The Zed role only creates `settings.json` when one doesn't already exist. The te
 | `ansible/roles/` | One role per workstation concern |
 | `tools/configure.py` | Terminal UI that generates `local.yml` |
 | `tests/test_configure.py` | Automated coverage of the configurator TUI |
-| `.github/workflows/test.yml` | CI: installer `bash -n` + configurator tests |
+| `tests/test_apt_packages.py` | Checks every APT package exists on the supported Ubuntu releases (`CHINOOK_CHECK_APT=1`) |
+| `.github/workflows/test.yml` | CI: installer `bash -n`, configurator tests, APT package check |
 
 ## Tags
 

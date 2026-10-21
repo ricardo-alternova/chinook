@@ -6,6 +6,7 @@ set -euo pipefail
 CHINOOK_REPO="${CHINOOK_REPO:-https://github.com/ricardo-alternova/chinook.git}"
 CHINOOK_DIR="${CHINOOK_DIR:-$HOME/chinook}"
 CHINOOK_REF="${CHINOOK_REF:-main}"
+CHINOOK_UBUNTU_VERSION="24.04"
 
 banner() {
   cat <<'EOF'
@@ -42,6 +43,9 @@ detect_os() {
   case "${ID:-}" in
     ubuntu)
       CHINOOK_OS_LABEL="Ubuntu ${VERSION_ID:-}"
+      if [[ "${VERSION_ID:-}" != "$CHINOOK_UBUNTU_VERSION" ]]; then
+        echo "warning: Chinook's Ubuntu profiles are built and tested for Ubuntu $CHINOOK_UBUNTU_VERSION LTS. Ubuntu ${VERSION_ID:-unknown} may work, but packages that don't exist on it are skipped."
+      fi
       choose_ubuntu_profile
       ;;
     fedora)
