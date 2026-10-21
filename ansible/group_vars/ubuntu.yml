@@ -27,7 +27,8 @@ apt_packages:
   - heif-thumbnailer
   - jq
   - libheif-examples
-  - libheif-plugins-all
+  - libheif-plugin-aomdec
+  - libheif-plugin-libde265
   - onedrive
   - ffmpeg
   - kitty

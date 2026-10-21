@@ -45,11 +45,37 @@
     - ansible_facts['pkg_mgr'] == 'apt'
     - item not in enabled_foreign_architectures.stdout_lines
 
+- name: Update APT cache
+  ansible.builtin.apt:
+    update_cache: true
+  become: true
+  when:
+    - ansible_facts['pkg_mgr'] == 'apt'
+    - (apt_packages + apt_packages_extra) | length > 0
+
+# Package names drift between Ubuntu releases. One missing name fails the whole
+# apt task, so skip unavailable packages with a warning instead.
+- name: Find APT packages not available on this release
+  ansible.builtin.command:
+    argv: "{{ ['sh', '-c', 'for p do apt-cache show \"$p\" >/dev/null 2>&1 || echo \"$p\"; done', 'sh'] + ((apt_packages + apt_packages_extra) | unique | list) }}"
+  register: apt_unavailable_packages
+  changed_when: false
+  when:
+    - ansible_facts['pkg_mgr'] == 'apt'
+    - (apt_packages + apt_packages_extra) | length > 0
+
+- name: Warn about skipped APT packages
+  ansible.builtin.debug:
+    msg: "Skipping APT packages not available on {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}: {{ apt_unavailable_packages.stdout_lines | join(', ') }}"
+  when:
+    - ansible_facts['pkg_mgr'] == 'apt'
+    - (apt_packages + apt_packages_extra) | length > 0
+    - apt_unavailable_packages.stdout_lines | length > 0
+
 - name: Install APT packages
   ansible.builtin.apt:
-    name: "{{ (apt_packages + apt_packages_extra) | unique | list }}"
+    name: "{{ (apt_packages + apt_packages_extra) | unique | difference(apt_unavailable_packages.stdout_lines) | list }}"
     state: present
-    update_cache: true
   become: true
   when:
     - ansible_facts['pkg_mgr'] == 'apt'
