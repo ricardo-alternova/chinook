@@ -553,6 +553,9 @@ class TestInstallScript(unittest.TestCase):
         self.assertIn("opencode auth login", text)
         self.assertIn("GitHub / GitLab accounts", text)
         self.assertNotIn("after-provisioning-manual-steps", text)
+        # Backticks in an unquoted heredoc would run `opencode auth login` and hang.
+        self.assertIn("cat <<'EOF'\n\nChinook is ready.", text)
+        self.assertNotIn("cat <<EOF", text)
 
     def test_ubuntu_profile_override_rejects_fedora(self):
         text = (ROOT / "install").read_text(encoding="utf-8")
