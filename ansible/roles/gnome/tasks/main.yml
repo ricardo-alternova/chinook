@@ -28,6 +28,18 @@
   ansible.builtin.command: gsettings set org.gnome.shell.keybindings show-screenshot-ui "[]"
   when: gnome_current_screenshot_ui.stdout not in ["@as []", "[]"]
 
+# A fresh account may not have its XDG folders yet, and the link needs both ends.
+- name: Ensure the screenshots redirect target and its link parent exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0755"
+  loop:
+    - "{{ gnome_screenshots_redirect_target }}"
+    - "{{ gnome_screenshots_dir | dirname }}"
+
 - name: Check the GNOME screenshots directory
   ansible.builtin.stat:
     path: "{{ gnome_screenshots_dir }}"
