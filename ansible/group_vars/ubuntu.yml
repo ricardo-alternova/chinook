@@ -11,6 +11,8 @@ install_starship: true
 install_opencode_desktop: true
 install_balena_etcher: false
 
+configure_shell: true
+configure_kitty: true
 configure_timeshift: true
 configure_ssh: false
 configure_gnome: true

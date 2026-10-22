@@ -14,6 +14,7 @@ install_claude_code: false
 install_cursor_cli: false
 install_glab: false
 install_starship: false
+install_unity_cli: false
 install_grok_bot: false
 install_cursor: false
 install_helium: false
@@ -23,6 +24,8 @@ install_balena_etcher: false
 install_t3_code: false
 install_tailscale: false
 
+configure_shell: false
+configure_kitty: false
 configure_timeshift: false
 configure_ssh: false
 configure_gnome: false
@@ -125,6 +128,18 @@ claude_code_bin_path: "{{ workstation_home }}/.local/bin/claude"
 cursor_cli_bin_path: "{{ workstation_home }}/.local/bin/cursor-agent"
 
 starship_bin_dir: /usr/local/bin
+
+shell_zsh_path: /usr/bin/zsh
+shell_install_nerd_font_symbols: true
+shell_nerd_font_symbols_url: https://github.com/ryanoasis/nerd-fonts/releases/latest/download/NerdFontsSymbolsOnly.tar.xz
+shell_nerd_font_symbols_dir: "{{ workstation_home }}/.local/share/fonts/NerdFontsSymbolsOnly"
+
+kitty_config_dir: "{{ workstation_home }}/.config/kitty"
+
+unity_cli_install_url: https://public-cdn.cloud.unity3d.com/hub/prod/cli/install.sh
+# No stable Unity CLI release yet; set to "" once one ships.
+unity_cli_channel: beta
+unity_cli_bin_path: "{{ workstation_home }}/.local/bin/unity"
 
 glab_latest_release_api: https://gitlab.com/api/v4/projects/gitlab-org%2Fcli/releases/permalink/latest
 glab_releases_base_url: https://gitlab.com/gitlab-org/cli/-/releases

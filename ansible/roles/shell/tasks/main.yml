@@ -1,0 +1,107 @@
+- name: Ensure Zsh is installed
+  ansible.builtin.package:
+    name: zsh
+    state: present
+  become: true
+
+- name: Make Zsh the login shell
+  ansible.builtin.user:
+    name: "{{ workstation_user }}"
+    shell: "{{ shell_zsh_path }}"
+  become: true
+
+- name: Configure Zsh history, completion, plugins, and Starship
+  ansible.builtin.blockinfile:
+    path: "{{ workstation_home }}/.zshrc"
+    create: true
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0644"
+    marker: "# {mark} CHINOOK SHELL"
+    insertbefore: BOF
+    block: |
+      HISTFILE="$HOME/.zsh_history"
+      HISTSIZE=50000
+      SAVEHIST=50000
+      setopt share_history hist_ignore_dups hist_ignore_space
+      autoload -Uz compinit && compinit
+      export PATH="$HOME/.local/bin:$PATH"
+      [ -f /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh ] && source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+      command -v starship >/dev/null 2>&1 && eval "$(starship init zsh)"
+      # zsh-syntax-highlighting must be sourced last.
+      [ -f /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ] && source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+- name: Ensure the config directory exists
+  ansible.builtin.file:
+    path: "{{ workstation_home }}/.config"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0755"
+
+# Only written when missing, so local prompt tweaks survive re-runs.
+- name: Install the default Starship prompt config
+  ansible.builtin.copy:
+    src: starship.toml
+    dest: "{{ workstation_home }}/.config/starship.toml"
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0644"
+    force: false
+
+# The prompt uses Nerd Font icons for git status. Ubuntu 24.04 packages no Nerd
+# Font, so install the symbols-only font; terminals fall back to it for icons.
+- name: Install Nerd Font symbols for the prompt
+  when: shell_install_nerd_font_symbols | bool
+  block:
+    - name: Ensure Nerd Font symbols dependencies are present
+      ansible.builtin.package:
+        name:
+          - fontconfig
+          - xz-utils
+        state: present
+      become: true
+      when: ansible_facts['pkg_mgr'] == 'apt'
+
+    - name: Ensure Nerd Font symbols dependencies are present
+      ansible.builtin.package:
+        name:
+          - fontconfig
+          - xz
+        state: present
+      become: true
+      when: ansible_facts['pkg_mgr'] in ['dnf', 'dnf5']
+
+    - name: Ensure the Nerd Font symbols directories exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ workstation_user }}"
+        group: "{{ workstation_user }}"
+        mode: "0755"
+      loop:
+        - "{{ shell_nerd_font_symbols_dir }}"
+        - "{{ workstation_home }}/.config/fontconfig/conf.d"
+
+    - name: Download and extract Nerd Font symbols
+      ansible.builtin.unarchive:
+        src: "{{ shell_nerd_font_symbols_url }}"
+        dest: "{{ shell_nerd_font_symbols_dir }}"
+        remote_src: true
+        owner: "{{ workstation_user }}"
+        group: "{{ workstation_user }}"
+        creates: "{{ shell_nerd_font_symbols_dir }}/SymbolsNerdFontMono-Regular.ttf"
+      register: shell_nerd_font_symbols_extract
+
+    - name: Map Nerd Font icon ranges to the symbols font
+      ansible.builtin.copy:
+        src: "{{ shell_nerd_font_symbols_dir }}/10-nerd-font-symbols.conf"
+        dest: "{{ workstation_home }}/.config/fontconfig/conf.d/10-nerd-font-symbols.conf"
+        remote_src: true
+        owner: "{{ workstation_user }}"
+        group: "{{ workstation_user }}"
+        mode: "0644"
+
+    - name: Refresh the font cache
+      ansible.builtin.command: fc-cache -f "{{ shell_nerd_font_symbols_dir }}"
+      when: shell_nerd_font_symbols_extract.changed

@@ -1,0 +1,20 @@
+- name: Ensure the Kitty config directory exists
+  ansible.builtin.file:
+    path: "{{ kitty_config_dir }}"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0755"
+
+# Only written when missing, so local Kitty tweaks survive re-runs.
+- name: Install the default Kitty config and Catppuccin Mocha theme
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ kitty_config_dir }}/{{ item }}"
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0644"
+    force: false
+  loop:
+    - kitty.conf
+    - catppuccin-mocha.conf

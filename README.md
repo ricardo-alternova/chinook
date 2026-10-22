@@ -181,6 +181,7 @@ install_claude_code: true
 install_cursor_cli: true
 install_glab: true
 install_starship: true
+install_unity_cli: false
 install_zed: true
 install_balena_etcher: false
 install_helium: false
@@ -188,6 +189,8 @@ install_unity_hub: false
 install_t3_code: false
 install_tailscale: false
 
+configure_shell: true
+configure_kitty: true
 configure_timeshift: true
 configure_ssh: false
 configure_gnome: true
@@ -333,9 +336,19 @@ The `opencode_cli` role runs the official installer (`curl -fsSL https://opencod
 
 The `codex_cli` role installs the official Codex CLI via the installer script (`curl -fsSL https://chatgpt.com/codex/install.sh | sh`), landing the `codex` binary in `~/.local/bin`. It's idempotent: the installer only re-downloads when a newer release is available, and the role runs it non-interactively.
 
+### Zsh, Starship, and Kitty
+
+The `shell` role (on every profile) makes Zsh your login shell and adds a managed `# BEGIN/END CHINOOK SHELL` block to `~/.zshrc` with history settings, completion, `~/.local/bin` on the PATH, zsh-autosuggestions, Starship, and zsh-syntax-highlighting. It writes a Catppuccin Mocha `~/.config/starship.toml` (directory, git branch, git status) only when you don't already have one. Because the prompt uses Nerd Font icons and Ubuntu 24.04 packages no Nerd Font, desktop profiles also get the official symbols-only Nerd Font in `~/.local/share/fonts` plus its fontconfig mapping, so terminals fall back to it for icons without changing your main font. **Log out and back in once** after the first run so new terminals start Zsh.
+
+The `kitty` role (desktop profiles) writes `~/.config/kitty/kitty.conf` with the matching [Catppuccin Mocha](https://github.com/catppuccin/kitty) theme, padding, and no bell, again only when no `kitty.conf` exists. Edit either file freely; Chinook won't overwrite them.
+
 ### Claude Code / Cursor CLI
 
 The `claude_code` role runs the official installer (`curl -fsSL https://claude.ai/install.sh | bash`) and the `cursor_cli` role runs Cursor's (`curl -fsSL https://cursor.com/install | bash`). Both land in `~/.local/bin` (`claude`, and `agent` / `cursor-agent`), which the roles put on the Zsh PATH. Both tools update themselves, so the roles only run the installer when the binary is missing. Enabled on every profile, including Ubuntu Server. Sign in with `claude` and `agent login`.
+
+### Unity CLI
+
+The `unity_cli` role (optional, every profile) runs Unity's official installer (`https://public-cdn.cloud.unity3d.com/hub/prod/cli/install.sh`), which puts the `unity` binary in `~/.local/bin`. The CLI is still in beta with no stable release, so the role sets `UNITY_CLI_CHANNEL=beta`; change `unity_cli_channel` to `""` once a stable release ships. It updates itself with `unity upgrade`, so the role only installs when it's missing. Sign in with `unity auth login`. See [Meet the Unity CLI](https://unity.com/blog/meet-the-unity-cli).
 
 ### GitLab CLI
 
@@ -410,7 +423,7 @@ Available tags match role names:
 
 ```bash
 packages snaps flatpaks timeshift tmux tailscale ufw fail2ban ssh_client
-onedrive gnome kde mangohud opencode_cli opencode_desktop codex_cli claude_code cursor_cli glab starship
+onedrive gnome kde mangohud opencode_cli opencode_desktop codex_cli claude_code cursor_cli glab unity_cli starship shell kitty
 grok_bot cursor wayshot t3_code
 helium unity_hub keychron zed balena_etcher teams_pwa desktop_shortcuts
 ```
@@ -442,6 +455,7 @@ helium unity_hub keychron zed balena_etcher teams_pwa desktop_shortcuts
 
 - **AppImage errors about `libfuse.so.2`** — the FUSE 2 library is installed automatically by the role (`libfuse2t64` on Ubuntu, `fuse-libs` on Fedora); install it manually if it's still missing.
 - **`No package matching 'starship' is available`** — your `local.yml` was generated before Starship moved to its own installer. Re-run the installer and answer `y` to re-run the app selector, or delete `starship` from `apt_packages` in `ansible/group_vars/local.yml`.
+- **Terminals still open bash after provisioning** — the login shell changes at your next login. Log out and back in (no reboot needed), or run `zsh` to try it now.
 - **Want a module not in the terminal UI** — add the role to the profile's playbook gated by a toggle from `all.yml`, or keep it simple with the `*_extra` package lists.
 
 ## Notes

@@ -14,6 +14,7 @@ install_claude_code: true
 install_cursor_cli: true
 install_glab: true
 install_starship: true
+install_unity_cli: false
 install_grok_bot: false
 install_cursor: false
 install_helium: false
@@ -23,6 +24,8 @@ install_balena_etcher: false
 install_t3_code: false
 install_tailscale: false
 
+configure_shell: true
+configure_kitty: true
 configure_timeshift: true
 configure_ssh: false
 configure_gnome: false

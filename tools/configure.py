@@ -32,7 +32,7 @@ APPS = [
         "default": True,
         "apt": ["zsh", "zsh-autosuggestions", "zsh-syntax-highlighting"],
         "dnf": ["zsh", "zsh-autosuggestions", "zsh-syntax-highlighting"],
-        "flag": "install_starship",
+        "flags": ["install_starship", "configure_shell"],
     },
     {
         "key": "tmux",
@@ -74,7 +74,7 @@ APPS = [
         "default_profiles": ["ubuntu_server"],
         "flag": "configure_fail2ban",
     },
-    {"key": "kitty", "label": "Kitty terminal", "default": True, "profiles": DESKTOP_PROFILES, "apt": ["kitty"], "dnf": ["kitty"]},
+    {"key": "kitty", "label": "Kitty terminal (Catppuccin Mocha)", "default": True, "profiles": DESKTOP_PROFILES, "apt": ["kitty"], "dnf": ["kitty"], "flag": "configure_kitty"},
     {
         "key": "codecs",
         "label": "Audio/video codecs",
@@ -131,6 +131,7 @@ APPS = [
     {"key": "claude_code", "label": "Claude Code", "default": True, "flag": "install_claude_code"},
     {"key": "cursor_cli", "label": "Cursor CLI (agent)", "default": True, "flag": "install_cursor_cli"},
     {"key": "glab", "label": "GitLab CLI (glab)", "default": True, "flag": "install_glab"},
+    {"key": "unity_cli", "label": "Unity CLI (beta)", "default": False, "flag": "install_unity_cli"},
     {"key": "grok_bot", "label": "Grok Bot (xAI desktop agent)", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_grok_bot"},
     {"key": "cursor", "label": "Cursor editor", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_cursor"},
     {"key": "t3_code", "label": "T3 Code (remote agent control surface)", "default": False, "flag": "install_t3_code"},
@@ -304,6 +305,10 @@ def unique(values):
     return result
 
 
+def app_flags(app):
+    return app.get("flags", [app["flag"]] if "flag" in app else [])
+
+
 def app_visible(app, profile):
     profiles = app.get("profiles")
     return profiles is None or profile in profiles
@@ -393,8 +398,7 @@ def build_config(profile, selected):
         "dnf_install_allowerasing": profile == "fedora_asahi",
     }
     for app in APPS:
-        flag = app.get("flag")
-        if flag:
+        for flag in app_flags(app):
             config[flag] = app["key"] in selected
 
     apt_packages = []

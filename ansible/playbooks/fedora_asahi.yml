@@ -17,6 +17,12 @@
     - role: starship
       tags: starship
       when: install_starship | bool
+    - role: shell
+      tags: shell
+      when: configure_shell | bool
+    - role: kitty
+      tags: kitty
+      when: configure_kitty | bool
     - role: flatpaks
       tags: flatpaks
       when: install_flatpak_apps | bool
@@ -68,6 +74,9 @@
     - role: glab
       tags: glab
       when: install_glab | bool
+    - role: unity_cli
+      tags: unity_cli
+      when: install_unity_cli | bool
     - role: grok_bot
       tags: grok_bot
       when: install_grok_bot | bool
