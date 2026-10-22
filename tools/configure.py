@@ -346,7 +346,6 @@ def generate_local_yml(profile, config):
         "rpmfusion_release_packages",
         "flatpak_packages",
         "onedrive_sync_list",
-        "ufw_trusted_subnets",
     ]:
         if key in config:
             write_list(lines, key, config[key])
@@ -501,10 +500,6 @@ def main(argv=None):
             auth_key = ask("Tailscale auth key (optional, leave empty to join later)", "")
             if auth_key:
                 config["tailscale_auth_key"] = auth_key
-
-        if "ufw" in selected:
-            subnets = ask("Trusted LAN subnets to allow through UFW, comma separated (e.g. 192.168.8.0/24 for GL.iNet; empty for none)", "")
-            config["ufw_trusted_subnets"] = [item.strip() for item in subnets.split(",") if item.strip()]
 
         if "onedrive" in selected:
             sync_dir = ask("OneDrive sync dir", "~/OneDrive")
