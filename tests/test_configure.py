@@ -66,8 +66,7 @@ class TestCatalog(unittest.TestCase):
             (ROOT / path).read_text(encoding="utf-8") for path in configure.PLAYBOOKS.values()
         )
         for app in configure.APPS:
-            flag = app.get("flag")
-            if flag:
+            for flag in configure.app_flags(app):
                 self.assertIn(flag, playbook_text, f"{app['key']} flag {flag} missing from playbooks")
 
     def test_server_hides_desktop_apps(self):
@@ -175,6 +174,38 @@ class TestCatalog(unittest.TestCase):
         example = (ROOT / "ansible/group_vars/local.yml.example").read_text(encoding="utf-8")
         self.assertNotIn("workstation_user:", example)
         self.assertNotIn("workstation_home:", example)
+
+    def test_shell_and_kitty_are_configured(self):
+        for profile in configure.PLAYBOOKS:
+            config = configure.build_config(profile, configure.default_selection(profile))
+            self.assertTrue(config["install_starship"], profile)
+            self.assertTrue(config["configure_shell"], profile)
+            playbook = (ROOT / configure.PLAYBOOKS[profile]).read_text(encoding="utf-8")
+            self.assertIn("role: shell", playbook)
+            profile_vars = parse_yaml((ROOT / "ansible/group_vars" / f"{profile}.yml").read_text(encoding="utf-8"))
+            self.assertTrue(profile_vars["configure_shell"], profile)
+            if profile in configure.DESKTOP_PROFILES:
+                self.assertTrue(config["configure_kitty"], profile)
+                self.assertIn("role: kitty", playbook)
+                self.assertTrue(profile_vars["configure_kitty"], profile)
+            else:
+                self.assertNotIn("role: kitty", playbook)
+        shell_role = (ROOT / "ansible/roles/shell/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertIn("starship init zsh", shell_role)
+        self.assertIn("ansible.builtin.user", shell_role)
+        self.assertTrue((ROOT / "ansible/roles/shell/files/starship.toml").is_file())
+        kitty_conf = (ROOT / "ansible/roles/kitty/files/kitty.conf").read_text(encoding="utf-8")
+        self.assertIn("include catppuccin-mocha.conf", kitty_conf)
+        self.assertTrue((ROOT / "ansible/roles/kitty/files/catppuccin-mocha.conf").is_file())
+
+    def test_unity_cli_is_optional_everywhere(self):
+        for profile in configure.PLAYBOOKS:
+            self.assertIn("unity_cli", {app["key"] for app in configure.visible_apps(profile)})
+            self.assertNotIn("unity_cli", configure.default_selection(profile))
+            playbook = (ROOT / configure.PLAYBOOKS[profile]).read_text(encoding="utf-8")
+            self.assertIn("role: unity_cli", playbook)
+        config = configure.build_config("ubuntu", configure.default_selection("ubuntu") | {"unity_cli"})
+        self.assertTrue(config["install_unity_cli"])
 
     def test_desktop_hides_server_defaults_as_optional(self):
         ubuntu_defaults = configure.default_selection("ubuntu")

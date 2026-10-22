@@ -7,6 +7,8 @@ install_cursor_cli: true
 install_glab: true
 install_starship: true
 
+configure_shell: true
+shell_install_nerd_font_symbols: false
 configure_timeshift: true
 configure_tmux: true
 configure_ufw: true

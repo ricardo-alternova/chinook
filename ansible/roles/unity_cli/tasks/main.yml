@@ -1,0 +1,17 @@
+- name: Ensure Unity CLI install dependencies are present
+  ansible.builtin.package:
+    name: curl
+    state: present
+  become: true
+
+# The Unity CLI updates itself (`unity upgrade`), so only run the installer when it is missing.
+- name: Install Unity CLI with official installer
+  ansible.builtin.shell: curl -fsSL {{ unity_cli_install_url }} | bash
+  args:
+    executable: /bin/bash
+    creates: "{{ unity_cli_bin_path }}"
+  become: true
+  become_user: "{{ workstation_user }}"
+  environment:
+    HOME: "{{ workstation_home }}"
+    UNITY_CLI_CHANNEL: "{{ unity_cli_channel }}"
