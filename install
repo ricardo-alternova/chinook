@@ -220,6 +220,10 @@ run_from_repo() {
   echo
   echo "Running $CHINOOK_PLAYBOOK ..."
   local become=()
+  # The prerequisite step above leaves sudo credentials cached for this terminal,
+  # which would make `sudo -n` pass even without NOPASSWD. Ansible's sudo can't
+  # use that cache, so drop it and only skip the password prompt for real NOPASSWD.
+  sudo -k
   if sudo -n true 2>/dev/null; then
     echo "Passwordless sudo detected."
   else

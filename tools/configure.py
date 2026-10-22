@@ -432,8 +432,8 @@ def build_config(profile, selected):
         config["dnf_packages"] = unique(dnf_packages)
         config["flatpak_packages"] = unique(flatpak_packages)
         config["rpmfusion_release_packages"] = [
-            "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-{{ ansible_distribution_major_version }}.noarch.rpm",
-            "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-{{ ansible_distribution_major_version }}.noarch.rpm",
+            "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-{{ ansible_facts['distribution_major_version'] }}.noarch.rpm",
+            "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-{{ ansible_facts['distribution_major_version'] }}.noarch.rpm",
         ] if rpmfusion else []
 
     return config
