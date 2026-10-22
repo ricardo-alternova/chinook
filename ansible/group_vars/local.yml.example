@@ -24,8 +24,8 @@ install_balena_etcher: false
 install_t3_code: false
 install_tailscale: false
 install_docker: true
-install_fleet: true
-install_compai_agent: true
+install_fleet: false
+install_compai_agent: false
 
 configure_shell: true
 configure_kitty: true
