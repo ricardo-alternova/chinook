@@ -162,6 +162,20 @@ class TestCatalog(unittest.TestCase):
             for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
                 self.assertIsNone(bare.match(line), f"{path.relative_to(ROOT)}:{number} quote this list item")
 
+    def test_playbooks_always_configure_the_running_account(self):
+        loader = parse_yaml((ROOT / "ansible/playbooks/tasks/load_local_vars.yml").read_text(encoding="utf-8"))
+        include_index = next(i for i, task in enumerate(loader) if "ansible.builtin.include_vars" in task)
+        set_facts = [(i, task["ansible.builtin.set_fact"]) for i, task in enumerate(loader) if "ansible.builtin.set_fact" in task]
+        self.assertTrue(any(
+            i > include_index
+            and facts.get("workstation_user") == "{{ ansible_user_id }}"
+            and facts.get("workstation_home") == "{{ ansible_env.HOME }}"
+            for i, facts in set_facts
+        ))
+        example = (ROOT / "ansible/group_vars/local.yml.example").read_text(encoding="utf-8")
+        self.assertNotIn("workstation_user:", example)
+        self.assertNotIn("workstation_home:", example)
+
     def test_desktop_hides_server_defaults_as_optional(self):
         ubuntu_defaults = configure.default_selection("ubuntu")
         server_defaults = configure.default_selection("ubuntu_server")
@@ -300,11 +314,12 @@ class TestGenerateLocalYml(unittest.TestCase):
     def test_roundtrip_and_mode(self):
         selected = configure.default_selection("ubuntu")
         config = configure.build_config("ubuntu", selected)
-        text = configure.generate_local_yml("ubuntu", "yes", "/home/user/My Docs", config)
+        text = configure.generate_local_yml("ubuntu", config)
         data = parse_yaml(text)
         self.assertEqual(data["profile"], "ubuntu")
-        self.assertEqual(data["workstation_user"], "yes")
-        self.assertEqual(data["workstation_home"], "/home/user/My Docs")
+        # User and home come from the account running the playbook, never local.yml.
+        self.assertNotIn("workstation_user", data)
+        self.assertNotIn("workstation_home", data)
         self.assertTrue(data["install_opencode_cli"])
         with tempfile.TemporaryDirectory() as tmp:
             path = configure.write_local_yml(Path(tmp) / "local.yml", text)
@@ -322,7 +337,7 @@ class TestGenerateLocalYml(unittest.TestCase):
             }
         ]
         config["tailscale_auth_key"] = "tskey-auth-abc:def"
-        text = configure.generate_local_yml("ubuntu_server", "ricardo", "/home/ricardo", config)
+        text = configure.generate_local_yml("ubuntu_server", config)
         data = parse_yaml(text)
         self.assertEqual(data["ssh_hosts"][0]["identity_file"], "~/.ssh/id with spaces")
         self.assertEqual(data["tailscale_auth_key"], "tskey-auth-abc:def")
@@ -372,13 +387,13 @@ class TestTuiProcess(unittest.TestCase):
     def test_ubuntu_defaults_via_stdin(self):
         result, output = self.run_tui(
             ["--profile", "ubuntu"],
-            ["ricardo", "/home/ricardo", "", ""],
+            ["", ""],
         )
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
         self.assertTrue(output.exists())
         data = parse_yaml(output.read_text(encoding="utf-8"))
         self.assertEqual(data["profile"], "ubuntu")
-        self.assertEqual(data["workstation_user"], "ricardo")
+        self.assertNotIn("workstation_user", data)
         self.assertTrue(data["configure_gnome"])
         self.assertTrue(data["install_opencode_cli"])
         self.assertTrue(data["install_opencode_desktop"])
@@ -388,7 +403,7 @@ class TestTuiProcess(unittest.TestCase):
     def test_ubuntu_without_preset_profile_choice(self):
         result, output = self.run_tui(
             [],
-            ["1", "ricardo", "/home/ricardo", "", ""],
+            ["1", "", ""],
         )
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
         data = parse_yaml(output.read_text(encoding="utf-8"))
@@ -398,8 +413,6 @@ class TestTuiProcess(unittest.TestCase):
         result, output = self.run_tui(
             ["--profile", "ubuntu_server"],
             [
-                "agent",
-                "/home/agent",
                 "",
                 "",
                 "not a valid session",
@@ -423,7 +436,7 @@ class TestTuiProcess(unittest.TestCase):
     def test_fedora_removals_keep_one(self):
         result, output = self.run_tui(
             ["--profile", "fedora_asahi"],
-            ["ricardo", "/home/ricardo", "", "", "1", ""],
+            ["", "", "1", ""],
         )
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
         data = parse_yaml(output.read_text(encoding="utf-8"))
@@ -438,8 +451,6 @@ class TestTuiProcess(unittest.TestCase):
         result, output = self.run_tui(
             ["--profile", "ubuntu"],
             [
-                "ricardo",
-                "/home/ricardo",
                 onedrive,
                 "",
                 "y",
