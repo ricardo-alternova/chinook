@@ -145,6 +145,8 @@ Depending on the selected profile and local config, Chinook can:
 
 `tools/configure.py` writes `ansible/group_vars/local.yml` — the git-ignored file that holds your personal values: SSH hosts, sync choices, device IDs, and app selections. Chinook always configures the account that runs it, so your username and home directory are never asked for or stored.
 
+The app selector starts from what the machine already has. Apps it finds installed (through dpkg, rpm, snap, flatpak, or the paths Chinook's installers use) are ticked and marked `(installed)`, and the rest come from your existing `local.yml` (or the profile defaults on a first run). Your saved answers, like the tmux session name, the OneDrive folder, and the Fleet secret, become the prompt defaults. Unticking an installed app makes Chinook stop managing it; it doesn't uninstall it. Pass `--no-detect` to skip detection.
+
 **Add personal packages** without touching the public profile, using the `*_extra` lists:
 
 ```yaml
