@@ -180,6 +180,7 @@ install_opencode_desktop: true
 install_claude_code: true
 install_cursor_cli: true
 install_glab: true
+install_docker: true
 install_starship: true
 install_unity_cli: false
 install_zed: true
@@ -233,6 +234,7 @@ The configurator writes these values for you.
 - MangoHud overlay and Zed with `~/.local/bin` on the Zsh path
 - OpenCode CLI and Desktop
 - Claude Code, Cursor CLI, GitLab CLI (`glab`), and Starship
+- Docker Engine with Compose and Buildx
 
 Optional modules: OneDrive, SSH snippets, Keychron udev rules, OBS Studio, Unity Hub, Balena Etcher, Teams PWA, Helium browser, desktop shortcuts, Grok Bot, Cursor, input-remapper, T3 Code, tmux, and Tailscale. Enable them in `local.yml` or through `tools/configure.py`.
 
@@ -259,6 +261,7 @@ This profile is for a headless Ubuntu box you SSH into — a remote agent machin
 - fail2ban SSH jail (`jail.d/sshd.local` only — package `jail.conf` is left alone) using the systemd journal, 5 retries / 10 minutes / 1 hour ban. Localhost is ignored; Tailscale/CGNAT addresses are not, so a compromised tailnet peer can still be banned
 - OpenCode CLI
 - Claude Code, Cursor CLI, GitLab CLI (`glab`), and Starship
+- Docker Engine with Compose and Buildx
 
 Optional modules: SSH snippets, OneDrive, Codex CLI, T3 Code, and Keychron udev rules. Desktop apps (Kitty, Chrome, Steam, Zed, snaps, GNOME settings) are not offered in the Server configurator.
 
@@ -306,6 +309,7 @@ Hardware KVMs and out-of-band power buttons are useful for this kind of box, but
 - Zed with `~/.local/bin` on the Zsh path
 - OpenCode CLI and Desktop
 - Claude Code, Cursor CLI, GitLab CLI (`glab`), and Starship
+- Docker Engine with Compose and Buildx
 - Helium browser (optional)
 - Grok Bot desktop agent (optional)
 - Cursor editor (optional)
@@ -346,6 +350,12 @@ The `unity_cli` role (optional, every profile) runs Unity's official installer (
 ### GitLab CLI
 
 The `glab` role resolves the latest release from the GitLab API and installs the official `.deb` (Ubuntu) or `.rpm` (Fedora Asahi) for x64 or arm64. Each run compares the installed version with the latest release and only downloads when it changed. The distro `glab` packages lag far behind upstream, so they are not used. Sign in with `glab auth login`.
+
+### Docker
+
+The `docker` role installs Docker Engine, the `docker compose` plugin, and Buildx from Docker's official repositories (`download.docker.com`), for Ubuntu and for Fedora Asahi (aarch64). It removes the distro builds first (`docker.io`, `podman-docker`, and similar) because they conflict with Docker's packages. It enables the `docker` and `containerd` services and adds your account to the `docker` group. **Log out and back in once** before running `docker` without `sudo`, and check with `docker run --rm hello-world`.
+
+Docker runs natively, with no VM, so Colima isn't needed on Linux. Note that ports published with `docker run -p` bypass UFW, because Docker writes its own firewall rules. On a server, bind them to localhost (`-p 127.0.0.1:8080:80`) or reach them over Tailscale.
 
 ### Starship
 
@@ -416,7 +426,7 @@ Available tags match role names:
 
 ```bash
 packages snaps flatpaks timeshift tmux tailscale ufw fail2ban ssh_client
-onedrive gnome kde mangohud opencode_cli opencode_desktop codex_cli claude_code cursor_cli glab unity_cli starship shell kitty
+onedrive gnome kde mangohud opencode_cli opencode_desktop codex_cli claude_code cursor_cli glab docker unity_cli starship shell kitty
 grok_bot cursor wayshot t3_code
 helium unity_hub keychron zed balena_etcher teams_pwa desktop_shortcuts
 ```

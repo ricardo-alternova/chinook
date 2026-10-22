@@ -131,6 +131,7 @@ APPS = [
     {"key": "claude_code", "label": "Claude Code", "default": True, "flag": "install_claude_code"},
     {"key": "cursor_cli", "label": "Cursor CLI (agent)", "default": True, "flag": "install_cursor_cli"},
     {"key": "glab", "label": "GitLab CLI (glab)", "default": True, "flag": "install_glab"},
+    {"key": "docker", "label": "Docker Engine (with Compose and Buildx)", "default": True, "flag": "install_docker"},
     {"key": "unity_cli", "label": "Unity CLI (beta)", "default": False, "flag": "install_unity_cli"},
     {"key": "grok_bot", "label": "Grok Bot (xAI desktop agent)", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_grok_bot"},
     {"key": "cursor", "label": "Cursor editor", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_cursor"},

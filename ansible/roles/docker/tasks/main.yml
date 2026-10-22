@@ -1,0 +1,111 @@
+- name: Ensure Docker install dependencies are present
+  ansible.builtin.package:
+    name:
+      - ca-certificates
+      - curl
+    state: present
+  become: true
+
+# apt path (Ubuntu desktop and server)
+- name: Install Docker Engine from Docker's APT repository
+  when: ansible_facts['pkg_mgr'] == 'apt'
+  block:
+    # Distro builds of Docker conflict with Docker's own packages.
+    - name: Remove distro Docker packages
+      ansible.builtin.apt:
+        name: "{{ docker_conflicting_apt_packages }}"
+        state: absent
+      become: true
+
+    - name: Ensure the APT keyrings directory exists
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+      become: true
+
+    - name: Download Docker's APT signing key
+      ansible.builtin.get_url:
+        url: "{{ docker_apt_key_url }}"
+        dest: "{{ docker_apt_key_path }}"
+        mode: "0644"
+      become: true
+      register: docker_apt_key
+
+    - name: Configure Docker's APT repository
+      ansible.builtin.copy:
+        dest: "{{ docker_apt_sources_path }}"
+        mode: "0644"
+        content: |
+          Types: deb
+          URIs: {{ docker_apt_repo_url }}
+          Suites: {{ ansible_facts['distribution_release'] }}
+          Components: stable
+          Signed-By: {{ docker_apt_key_path }}
+      become: true
+      register: docker_apt_sources
+
+    - name: Update APT cache for Docker
+      ansible.builtin.apt:
+        update_cache: true
+      become: true
+      when: docker_apt_sources.changed or docker_apt_key.changed
+
+    - name: Install Docker Engine packages
+      ansible.builtin.apt:
+        name: "{{ docker_packages }}"
+        state: present
+      become: true
+
+# dnf path (Fedora Asahi)
+- name: Install Docker Engine from Docker's DNF repository
+  when: ansible_facts['pkg_mgr'] in ['dnf', 'dnf5']
+  block:
+    - name: Remove distro Docker packages
+      ansible.builtin.dnf:
+        name: "{{ docker_conflicting_dnf_packages }}"
+        state: absent
+      become: true
+
+    - name: Import Docker's RPM signing key
+      ansible.builtin.rpm_key:
+        key: "{{ docker_rpm_key_url }}"
+        state: present
+      become: true
+
+    - name: Configure Docker's DNF repository
+      ansible.builtin.get_url:
+        url: "{{ docker_dnf_repo_url }}"
+        dest: /etc/yum.repos.d/docker-ce.repo
+        mode: "0644"
+      become: true
+
+    - name: Install Docker Engine packages
+      ansible.builtin.dnf:
+        name: "{{ docker_packages }}"
+        state: present
+      become: true
+
+- name: Enable and start Docker
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  become: true
+  loop:
+    - containerd
+    - docker
+  when: not ansible_check_mode
+
+- name: Let the workstation user run Docker without sudo
+  ansible.builtin.user:
+    name: "{{ workstation_user }}"
+    groups: docker
+    append: true
+  become: true
+  register: docker_group
+
+- name: Remind to log out after joining the docker group
+  ansible.builtin.debug:
+    msg: "{{ workstation_user }} was added to the docker group. Log out and back in before running docker without sudo."
+  when: docker_group.changed
