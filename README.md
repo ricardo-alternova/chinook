@@ -377,7 +377,7 @@ The `helium` role installs `helium-bin` from Helium's official repositories: the
 
 ### Unity Hub
 
-The `unity_hub` role adds Unity's signed APT repository (`hub.unity3d.com/linux/repos/deb`) and installs `unityhub` on the Ubuntu GNOME profile only. It's off by default. The Hub is the official way to get the engine on Linux: after provisioning, open Unity Hub, sign in with your Unity ID, activate a license (Personal is free), and install an Editor version from the **Installs** tab. Editors are large and tied to your account, so the role doesn't install one.
+The `unity_hub` role adds Unity's signed APT repository (`hub.unity3d.com/linux/repos/deb`) exactly as the `unityhub` package's own installer does (`/etc/apt/sources.list.d/unityhub.sources` signed by `/usr/share/keyrings/Unity_Technologies_ApS.gpg`, so the two never conflict) and installs `unityhub` on the Ubuntu GNOME profile only. It's off by default. The Hub is the official way to get the engine on Linux: after provisioning, open Unity Hub, sign in with your Unity ID, activate a license (Personal is free), and install an Editor version from the **Installs** tab. Editors are large and tied to your account, so the role doesn't install one.
 
 ### Zed Defaults
 
@@ -449,6 +449,7 @@ helium unity_hub keychron zed balena_etcher teams_pwa desktop_shortcuts
 - **AppImage errors about `libfuse.so.2`** — the FUSE 2 library is installed automatically by the role (`libfuse2t64` on Ubuntu, `fuse-libs` on Fedora); install it manually if it's still missing.
 - **`No package matching 'starship' is available`** — your `local.yml` was generated before Starship moved to its own installer. Re-run the installer and answer `y` to re-run the app selector, or delete `starship` from `apt_packages` in `ansible/group_vars/local.yml`.
 - **Terminals still open bash after provisioning** — the login shell changes at your next login. Log out and back in (no reboot needed), or run `zsh` to try it now.
+- **`Conflicting values set for option Signed-By regarding source https://hub.unity3d.com/...`** — an older Chinook wrote its own Unity Hub repository file, and the `unityhub` package added another with a different key. This breaks every `apt` command, so remove the old file once, then re-run Chinook: `sudo rm -f /etc/apt/sources.list.d/unityhub.list /etc/apt/keyrings/unityhub.gpg /etc/apt/keyrings/unityhub.gpg.asc`.
 - **Want a module not in the terminal UI** — add the role to the profile's playbook gated by a toggle from `all.yml`, or keep it simple with the `*_extra` package lists.
 
 ## Notes

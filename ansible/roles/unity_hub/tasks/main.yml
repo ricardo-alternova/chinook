@@ -6,12 +6,18 @@
     state: present
   become: true
 
-- name: Ensure APT key directory exists
+# Earlier Chinook versions wrote their own unityhub.list and key. The unityhub
+# package's postinst then adds unityhub.sources with Unity's key, and apt refuses
+# to load two entries for one repo with different Signed-By values.
+- name: Remove the old Chinook Unity Hub repository and key
   ansible.builtin.file:
-    path: /etc/apt/keyrings
-    state: directory
-    mode: "0755"
+    path: "{{ item }}"
+    state: absent
   become: true
+  loop:
+    - /etc/apt/sources.list.d/unityhub.list
+    - /etc/apt/keyrings/unityhub.gpg
+    - /etc/apt/keyrings/unityhub.gpg.asc
 
 - name: Download Unity Hub signing key
   ansible.builtin.get_url:
@@ -33,13 +39,26 @@
   become: true
   when: unity_hub_apt_key.changed
 
+# Same file, key path, and contents the unityhub postinst writes, so the package
+# sees it already exists and leaves it alone.
 - name: Configure Unity Hub apt repository
-  ansible.builtin.apt_repository:
-    repo: "deb [signed-by={{ unity_hub_apt_key_path }}] {{ unity_hub_apt_repo_url }} stable main"
-    filename: unityhub
-    state: present
+  ansible.builtin.copy:
+    dest: "{{ unity_hub_apt_sources_path }}"
+    mode: "0644"
+    content: |
+      Types: deb
+      URIs: {{ unity_hub_apt_repo_url }}
+      Suites: stable
+      Components: main
+      Signed-By: {{ unity_hub_apt_key_path }}
+  become: true
+  register: unity_hub_apt_sources
+
+- name: Update APT cache for Unity Hub
+  ansible.builtin.apt:
     update_cache: true
   become: true
+  when: unity_hub_apt_sources.changed or unity_hub_apt_key.changed
 
 - name: Install Unity Hub package
   ansible.builtin.apt:
