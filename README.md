@@ -19,7 +19,7 @@ When it finishes:
 1. Open OpenCode and set up your credentials (`opencode auth login`) so you can tweak the OS using AI.
 2. Set up your GitHub / GitLab accounts.
 
-Your username, SSH hosts, sync paths, and device IDs stay in a git-ignored `local.yml`, so the public repo never carries personal data.
+Your SSH hosts, sync paths, and device IDs stay in a git-ignored `local.yml`, so the public repo never carries personal data.
 
 | System | Desktop | Playbook | Profile Vars |
 | --- | --- | --- | --- |
@@ -141,7 +141,7 @@ Depending on the selected profile and local config, Chinook can:
 
 ## Local Configuration
 
-`tools/configure.py` writes `ansible/group_vars/local.yml` — the git-ignored file that holds your personal values: username, home directory, SSH hosts, sync choices, device IDs, and app selections.
+`tools/configure.py` writes `ansible/group_vars/local.yml` — the git-ignored file that holds your personal values: SSH hosts, sync choices, device IDs, and app selections. Chinook always configures the account that runs it, so your username and home directory are never asked for or stored.
 
 **Add personal packages** without touching the public profile, using the `*_extra` lists:
 

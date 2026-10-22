@@ -1,9 +1,6 @@
 # Copy this file to ansible/group_vars/local.yml and edit it for your machine.
 # local.yml is ignored by git and is loaded after the selected distro profile.
 
-workstation_user: your-user
-workstation_home: /home/your-user
-
 # Feature toggles. Distro profiles provide opinionated defaults; local.yml can override them.
 install_packages: true
 install_snap_apps: false
