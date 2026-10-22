@@ -187,6 +187,7 @@ class TestCatalog(unittest.TestCase):
         self.assertIn("wayshot_keybinding_path", gnome_role)
         self.assertIn("Bind Print to WayShot", gnome_role)
         self.assertIn("gnome_screenshots_redirect_target", gnome_role)
+        self.assertIn("Ensure the screenshots redirect target and its link parent exist", gnome_role)
         ubuntu_playbook = (ROOT / "ansible/playbooks/ubuntu.yml").read_text(encoding="utf-8")
         self.assertIn("flatpaks", ubuntu_playbook)
         self.assertNotIn("ksnip -r", gnome_role)
