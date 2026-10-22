@@ -18,5 +18,5 @@
 # include_vars, so an old local.yml with a different user or home is ignored.
 - name: Configure the account running Chinook
   ansible.builtin.set_fact:
-    workstation_user: "{{ ansible_user_id }}"
-    workstation_home: "{{ ansible_env.HOME }}"
+    workstation_user: "{{ ansible_facts['user_id'] }}"
+    workstation_home: "{{ ansible_facts['env']['HOME'] }}"

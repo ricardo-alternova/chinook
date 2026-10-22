@@ -174,8 +174,8 @@ class TestCatalog(unittest.TestCase):
         set_facts = [(i, task["ansible.builtin.set_fact"]) for i, task in enumerate(loader) if "ansible.builtin.set_fact" in task]
         self.assertTrue(any(
             i > include_index
-            and facts.get("workstation_user") == "{{ ansible_user_id }}"
-            and facts.get("workstation_home") == "{{ ansible_env.HOME }}"
+            and facts.get("workstation_user") == "{{ ansible_facts['user_id'] }}"
+            and facts.get("workstation_home") == "{{ ansible_facts['env']['HOME'] }}"
             for i, facts in set_facts
         ))
         example = (ROOT / "ansible/group_vars/local.yml.example").read_text(encoding="utf-8")
@@ -213,6 +213,20 @@ class TestCatalog(unittest.TestCase):
             self.assertIn("role: unity_cli", playbook)
         config = configure.build_config("ubuntu", configure.default_selection("ubuntu") | {"unity_cli"})
         self.assertTrue(config["install_unity_cli"])
+
+    def test_no_deprecated_top_level_fact_variables(self):
+        # INJECT_FACTS_AS_VARS is deprecated; use ansible_facts['name'] instead.
+        import re
+        # Connection/behaviour variables are fine; only facts moved under ansible_facts.
+        allowed = {"ansible_facts", "ansible_check_mode", "ansible_connection", "ansible_python_interpreter"}
+        files = list((ROOT / "ansible").rglob("*.yml")) + [ROOT / "tools/configure.py"]
+        for path in files:
+            for name in re.findall(r"\bansible_[a-z_]+", path.read_text(encoding="utf-8")):
+                self.assertIn(name, allowed, f"{path.relative_to(ROOT)} uses {name}")
+
+    def test_installer_clears_cached_sudo_before_detecting_nopasswd(self):
+        text = (ROOT / "install").read_text(encoding="utf-8")
+        self.assertLess(text.index("sudo -k"), text.index("if sudo -n true"))
 
     def test_desktop_hides_server_defaults_as_optional(self):
         ubuntu_defaults = configure.default_selection("ubuntu")

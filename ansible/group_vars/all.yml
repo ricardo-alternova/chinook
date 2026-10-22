@@ -1,5 +1,5 @@
-workstation_user: "{{ ansible_user_id }}"
-workstation_home: "{{ ansible_env.HOME }}"
+workstation_user: "{{ ansible_facts['user_id'] }}"
+workstation_home: "{{ ansible_facts['env']['HOME'] }}"
 dev_dir: "{{ workstation_home }}/Documents/Dev"
 
 install_packages: false
