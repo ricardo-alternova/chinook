@@ -1,6 +1,16 @@
+- name: Check for an existing fleetd enrollment
+  ansible.builtin.stat:
+    path: /opt/orbit/secret-orbit-node-key.txt
+  become: true
+  register: fleet_existing_enrollment
+  when: fleet_enroll_secret | length == 0
+
 - name: Skip Fleet when no enroll secret is set
   ansible.builtin.debug:
-    msg: "Fleet is selected but fleet_enroll_secret is empty, so this device was not enrolled. Re-run the app selector and enter the secret from the Fleet admin."
+    msg: >-
+      {{ 'fleetd is already enrolled on this device; leaving it as is.'
+         if fleet_existing_enrollment.stat.exists
+         else 'Fleet is selected but fleet_enroll_secret is empty, so this device was not enrolled. Re-run the app selector and enter the secret from the Fleet admin.' }}
   when: fleet_enroll_secret | length == 0
 
 - name: Install fleetd and confirm enrollment

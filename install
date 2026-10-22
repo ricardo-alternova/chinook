@@ -247,6 +247,8 @@ Chinook is ready.
 Next steps:
   1. Open OpenCode and set up your credentials (`opencode auth login`) so you can tweak the OS using AI.
   2. Set up your GitHub / GitLab accounts.
+  3. Ubuntu desktop: open comp-ai-device-agent from the app menu and sign in with your work email.
+  4. If Chinook renamed this device, reboot so every app picks up the new name.
 
 That is it.
 EOF
