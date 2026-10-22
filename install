@@ -240,7 +240,7 @@ run_from_repo() {
   fi
   ansible-playbook "$CHINOOK_PLAYBOOK" "${become[@]}"
 
-  cat <<EOF
+  cat <<'EOF'
 
 Chinook is ready.
 
