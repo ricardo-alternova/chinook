@@ -220,6 +220,15 @@ run_from_repo() {
   echo
   echo "Running $CHINOOK_PLAYBOOK ..."
   local become=()
+  # Newer Ubuntu releases default to sudo-rs, whose password prompt Ansible
+  # doesn't recognize (it times out waiting for it). The classic sudo still ships
+  # as sudo.ws, so have Ansible use that.
+  if sudo --version 2>/dev/null | grep -qi 'sudo-rs'; then
+    command -v sudo.ws >/dev/null 2>&1 || sudo DEBIAN_FRONTEND=noninteractive apt-get install -y sudo
+    command -v sudo.ws >/dev/null 2>&1 || die "This system uses sudo-rs, and Ansible needs the classic sudo (sudo.ws)."
+    echo "sudo-rs detected; Ansible will use sudo.ws."
+    export ANSIBLE_BECOME_EXE=sudo.ws
+  fi
   # The prerequisite step above leaves sudo credentials cached for this terminal,
   # which would make `sudo -n` pass even without NOPASSWD. Ansible's sudo can't
   # use that cache, so drop it and only skip the password prompt for real NOPASSWD.

@@ -227,6 +227,8 @@ class TestCatalog(unittest.TestCase):
     def test_installer_clears_cached_sudo_before_detecting_nopasswd(self):
         text = (ROOT / "install").read_text(encoding="utf-8")
         self.assertLess(text.index("sudo -k"), text.index("if sudo -n true"))
+        # sudo-rs prompts aren't recognized by Ansible; the installer switches to sudo.ws.
+        self.assertIn("export ANSIBLE_BECOME_EXE=sudo.ws", text)
 
     def test_desktop_hides_server_defaults_as_optional(self):
         ubuntu_defaults = configure.default_selection("ubuntu")
