@@ -93,6 +93,9 @@ timeshift_create_initial_snapshot: true
 timeshift_exclude:
   - /home/*/**
   - /root/**
+  # Images and containers are large and can be pulled again.
+  - /var/lib/docker/**
+  - /var/lib/containerd/**
 
 ssh_hosts: []
 
