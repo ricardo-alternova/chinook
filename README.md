@@ -122,7 +122,7 @@ When the installer finishes, that is everything Chinook can do for you. Two thin
 
 1. **Open OpenCode and set up your credentials** (`opencode auth login`) so you can tweak the OS using AI.
 2. **Set up your GitHub / GitLab accounts.**
-3. **Ubuntu desktop: sign in to the Comp AI agent.** Open `comp-ai-device-agent` from the app menu and sign in with your work email.
+3. **If you picked the Comp AI agent, sign in to it.** Open `comp-ai-device-agent` from the app menu and sign in with your work email.
 4. **Reboot if Chinook renamed the device**, so every app picks up the new hostname.
 
 That is it. From here, edit `local.yml` or ask OpenCode, re-run `~/chinook/install` (or the profile playbook), and Chinook converges the machine to the new state.
@@ -183,8 +183,8 @@ install_claude_code: true
 install_cursor_cli: true
 install_glab: true
 install_docker: true
-install_fleet: true
-install_compai_agent: true
+install_fleet: false
+install_compai_agent: false
 install_starship: true
 install_unity_cli: false
 install_zed: true
@@ -239,9 +239,8 @@ The configurator writes these values for you.
 - OpenCode CLI and Desktop
 - Claude Code, Cursor CLI, GitLab CLI (`glab`), and Starship
 - Docker Engine with Compose and Buildx
-- Fleet (fleetd with Fleet Desktop) and the Comp AI device agent
 
-Optional modules: OneDrive, SSH snippets, Keychron udev rules, OBS Studio, Unity Hub, Balena Etcher, Teams PWA, Helium browser, desktop shortcuts, Grok Bot, Cursor, input-remapper, T3 Code, tmux, and Tailscale. Enable them in `local.yml` or through `tools/configure.py`.
+Optional modules: OneDrive, SSH snippets, Keychron udev rules, OBS Studio, Unity Hub, Balena Etcher, Teams PWA, Helium browser, desktop shortcuts, Grok Bot, Cursor, input-remapper, T3 Code, tmux, Tailscale, Fleet, and the Comp AI device agent. Enable them in `local.yml` or through `tools/configure.py`.
 
 ## Ubuntu Server Profile
 
@@ -267,9 +266,8 @@ This profile is for a headless Ubuntu box you SSH into — a remote agent machin
 - OpenCode CLI
 - Claude Code, Cursor CLI, GitLab CLI (`glab`), and Starship
 - Docker Engine with Compose and Buildx
-- Fleet (fleetd)
 
-Optional modules: SSH snippets, OneDrive, Codex CLI, T3 Code, and Keychron udev rules. Desktop apps (Kitty, Chrome, Steam, Zed, snaps, GNOME settings) are not offered in the Server configurator.
+Optional modules: SSH snippets, OneDrive, Codex CLI, T3 Code, Fleet, and Keychron udev rules. Desktop apps (Kitty, Chrome, Steam, Zed, snaps, GNOME settings) are not offered in the Server configurator.
 
 Open extra ports in `local.yml` without replacing the SSH rule:
 
@@ -316,7 +314,7 @@ Hardware KVMs and out-of-band power buttons are useful for this kind of box, but
 - OpenCode CLI and Desktop
 - Claude Code, Cursor CLI, GitLab CLI (`glab`), and Starship
 - Docker Engine with Compose and Buildx
-- Fleet (fleetd)
+- Fleet (fleetd, optional)
 - Helium browser (optional)
 - Grok Bot desktop agent (optional)
 - Cursor editor (optional)
@@ -360,7 +358,7 @@ The `glab` role resolves the latest release from the GitLab API and installs the
 
 ### Fleet
 
-The `fleet` role enrolls the device in Fleet (`fleet_url`, default `https://fleet.alternova.dev`) on every profile. It replaces the manual guide: no Node.js, npm, or Docker needed.
+Optional on every profile (off by default; tick it in the app selector or set `install_fleet: true`). The `fleet` role enrolls the device in Fleet (`fleet_url`, default `https://fleet.alternova.dev`). It replaces the manual guide: no Node.js, npm, or Docker needed.
 
 1. The configurator asks for the **device name** (Fleet lists devices by hostname, in the `nombre-apellido` format), the **enroll secret** from the Fleet admin, and optionally your **work email** (links the device to you in Fleet). They go into `local.yml`, which git ignores. Never commit the secret: this repo is public.
 2. The `hostname` role renames the machine and fixes `/etc/hosts` before enrolling.
@@ -379,7 +377,7 @@ Leave the secret empty to install everything else and enroll later: re-run the i
 
 ### Comp AI device agent
 
-Ubuntu desktop only (Comp AI publishes the Linux agent for amd64). The `compai_agent` role installs the latest production release from Comp AI's GitHub releases and keeps it updated on re-runs. It also prepares the machine for the agent's Linux checks:
+Optional, Ubuntu desktop only (off by default; tick it in the app selector or set `install_compai_agent: true`). Comp AI publishes the Linux agent for amd64. The `compai_agent` role installs the latest production release from Comp AI's GitHub releases and keeps it updated on re-runs. It also prepares the machine for the agent's Linux checks:
 
 - **Start at login:** the agent's own "Start at Login" doesn't work on Linux, so Chinook adds `~/.config/autostart/comp-ai-device-agent.desktop`; otherwise it stops reporting after a reboot.
 - **Password policy:** installs `libpam-pwquality` and sets `minlen = 8` in `/etc/security/pwquality.conf`.

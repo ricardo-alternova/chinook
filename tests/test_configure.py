@@ -149,7 +149,10 @@ class TestCatalog(unittest.TestCase):
         self.assertEqual(all_vars["fleet_url"], "https://fleet.alternova.dev")
         for profile, playbook in configure.PLAYBOOKS.items():
             config = configure.build_config(profile, configure.default_selection(profile))
-            self.assertTrue(config["install_fleet"], profile)
+            self.assertFalse(config["install_fleet"], profile)
+            self.assertIn("fleet", [app["key"] for app in configure.visible_apps(profile)], profile)
+            profile_vars = parse_yaml((ROOT / "ansible/group_vars" / f"{profile}.yml").read_text(encoding="utf-8"))
+            self.assertNotIn("install_fleet", profile_vars, profile)
             playbook_text = (ROOT / playbook).read_text(encoding="utf-8")
             self.assertIn("role: fleet", playbook_text, profile)
             self.assertLess(playbook_text.index("role: hostname"), playbook_text.index("role: fleet"), profile)
@@ -164,8 +167,9 @@ class TestCatalog(unittest.TestCase):
 
     def test_compai_agent_is_ubuntu_desktop_only_and_autostarts(self):
         for profile in configure.PLAYBOOKS:
-            selected = configure.default_selection(profile)
-            self.assertEqual("compai_agent" in selected, profile == "ubuntu", profile)
+            self.assertNotIn("compai_agent", configure.default_selection(profile), profile)
+            visible = [app["key"] for app in configure.visible_apps(profile)]
+            self.assertEqual("compai_agent" in visible, profile == "ubuntu", profile)
         self.assertIn("role: compai_agent", (ROOT / "ansible/playbooks/ubuntu.yml").read_text(encoding="utf-8"))
         role = (ROOT / "ansible/roles/compai_agent/tasks/main.yml").read_text(encoding="utf-8")
         self.assertIn(".config/autostart/comp-ai-device-agent.desktop", role)
@@ -483,7 +487,7 @@ class TestTuiProcess(unittest.TestCase):
     def test_ubuntu_defaults_via_stdin(self):
         result, output = self.run_tui(
             ["--profile", "ubuntu"],
-            ["", "", "", "", ""],
+            ["", ""],
         )
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
         self.assertTrue(output.exists())
@@ -492,8 +496,8 @@ class TestTuiProcess(unittest.TestCase):
         self.assertNotIn("workstation_user", data)
         self.assertNotIn("workstation_hostname", data)
         self.assertNotIn("fleet_enroll_secret", data)
-        self.assertTrue(data["install_fleet"])
-        self.assertTrue(data["install_compai_agent"])
+        self.assertFalse(data["install_fleet"])
+        self.assertFalse(data["install_compai_agent"])
         self.assertTrue(data["configure_gnome"])
         self.assertTrue(data["install_opencode_cli"])
         self.assertTrue(data["install_opencode_desktop"])
@@ -503,7 +507,7 @@ class TestTuiProcess(unittest.TestCase):
     def test_ubuntu_without_preset_profile_choice(self):
         result, output = self.run_tui(
             [],
-            ["1", "", "", "", "", ""],
+            ["1", "", ""],
         )
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
         data = parse_yaml(output.read_text(encoding="utf-8"))
@@ -518,9 +522,6 @@ class TestTuiProcess(unittest.TestCase):
                 "not a valid session",
                 "devbox",
                 "green",
-                "",
-                "",
-                "",
                 "",
             ],
         )
@@ -537,7 +538,7 @@ class TestTuiProcess(unittest.TestCase):
     def test_fedora_removals_keep_one(self):
         result, output = self.run_tui(
             ["--profile", "fedora_asahi"],
-            ["", "", "", "", "", "1", ""],
+            ["", "", "1", ""],
         )
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
         data = parse_yaml(output.read_text(encoding="utf-8"))
@@ -549,10 +550,12 @@ class TestTuiProcess(unittest.TestCase):
 
     def test_optional_prompts_onedrive_ssh_and_toggle(self):
         onedrive = app_index("ubuntu", "onedrive")
+        fleet = app_index("ubuntu", "fleet")
         result, output = self.run_tui(
             ["--profile", "ubuntu"],
             [
                 onedrive,
+                fleet,
                 "",
                 "y",
                 "gitlab.com",
@@ -569,6 +572,7 @@ class TestTuiProcess(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
         data = parse_yaml(output.read_text(encoding="utf-8"))
         self.assertTrue(data["install_onedrive"])
+        self.assertTrue(data["install_fleet"])
         self.assertTrue(data["configure_ssh"])
         self.assertEqual(data["ssh_hosts"][0]["host"], "gitlab.com")
         self.assertEqual(data["ssh_hosts"][0]["hostname"], "gitlab.com")
