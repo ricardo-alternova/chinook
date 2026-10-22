@@ -62,9 +62,6 @@
     - role: docker
       tags: docker
       when: install_docker | bool
-    - role: fleet
-      tags: fleet
-      when: install_fleet | bool
     - role: unity_cli
       tags: unity_cli
       when: install_unity_cli | bool
@@ -74,3 +71,6 @@
     - role: keychron
       tags: keychron
       when: configure_keychron | bool
+    - role: fleet
+      tags: fleet
+      when: install_fleet | bool

@@ -97,12 +97,6 @@
     - role: docker
       tags: docker
       when: install_docker | bool
-    - role: fleet
-      tags: fleet
-      when: install_fleet | bool
-    - role: compai_agent
-      tags: compai_agent
-      when: install_compai_agent | bool
     - role: unity_cli
       tags: unity_cli
       when: install_unity_cli | bool
@@ -136,3 +130,9 @@
     - role: desktop_shortcuts
       tags: desktop_shortcuts
       when: configure_desktop_shortcuts | bool
+    - role: fleet
+      tags: fleet
+      when: install_fleet | bool
+    - role: compai_agent
+      tags: compai_agent
+      when: install_compai_agent | bool
