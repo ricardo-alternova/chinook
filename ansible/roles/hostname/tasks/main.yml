@@ -1,0 +1,27 @@
+- name: Fail when the hostname is not a valid name
+  ansible.builtin.fail:
+    msg: "workstation_hostname '{{ workstation_hostname }}' must be lowercase letters, digits, and hyphens, like john-doe."
+  when: workstation_hostname is not match('^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$')
+
+- name: Set the hostname
+  ansible.builtin.hostname:
+    name: "{{ workstation_hostname }}"
+  become: true
+  register: hostname_result
+
+# Without this, sudo warns "unable to resolve host" after a rename.
+- name: Point 127.0.1.1 at the hostname
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^127\.0\.1\.1\s'
+    line: "127.0.1.1\t{{ workstation_hostname }}"
+    insertafter: '^127\.0\.0\.1\s'
+  become: true
+
+- name: Remind to reboot after renaming
+  ansible.builtin.debug:
+    msg: >-
+      The hostname is now {{ workstation_hostname }}. Reboot when Chinook finishes so every app
+      picks it up. If Chrome or Helium then says the profile is in use, close it and delete
+      ~/.config/<browser>/Singleton*.
+  when: hostname_result.changed

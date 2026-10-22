@@ -1,6 +1,8 @@
 workstation_user: "{{ ansible_facts['user_id'] }}"
 workstation_home: "{{ ansible_facts['env']['HOME'] }}"
 dev_dir: "{{ workstation_home }}/Documents/Dev"
+# Empty leaves the hostname alone. Fleet lists devices by hostname (nombre-apellido).
+workstation_hostname: ""
 
 install_packages: false
 install_snap_apps: false
@@ -24,6 +26,8 @@ install_balena_etcher: false
 install_t3_code: false
 install_tailscale: false
 install_docker: false
+install_fleet: false
+install_compai_agent: false
 
 configure_shell: false
 configure_kitty: false
@@ -215,6 +219,33 @@ docker_apt_sources_path: /etc/apt/sources.list.d/docker.sources
 docker_apt_repo_url: https://download.docker.com/linux/ubuntu
 docker_rpm_key_url: https://download.docker.com/linux/fedora/gpg
 docker_dnf_repo_url: https://download.docker.com/linux/fedora/docker-ce.repo
+
+fleet_url: https://fleet.alternova.dev
+# Set in local.yml (the configurator asks for it). Never commit it: this repo is public.
+fleet_enroll_secret: ""
+# Optional. Links the device to its owner in Fleet.
+fleet_end_user_email: ""
+fleet_desktop: false
+fleet_enable_scripts: true
+# auto picks 'uuid' (Fleet's default), or 'instance' when the hardware UUID is a
+# placeholder that many machines share, which would merge them into one Fleet host.
+fleet_host_identifier: auto
+fleet_placeholder_uuids:
+  - ""
+  - 00000000-0000-0000-0000-000000000000
+  - ffffffff-ffff-ffff-ffff-ffffffffffff
+  - 03000200-0400-0500-0006-000700080009
+fleet_enroll_timeout: 300
+fleetctl_latest_release_api: https://api.github.com/repos/fleetdm/fleet/releases/latest
+fleetctl_releases_base_url: https://github.com/fleetdm/fleet/releases/download
+
+compai_agent_repo_url: https://github.com/trycompai/comp
+compai_agent_package_name: comp-ai-device-agent
+compai_agent_desktop_file: /usr/share/applications/comp-ai-device-agent.desktop
+# What the agent's Linux checks require.
+compai_password_min_length: 8
+compai_screen_lock_max_seconds: 900
+compai_screen_lock_idle_seconds: 300
 
 t3_code_install_dir: /opt/t3-code
 t3_code_extract_dir: /tmp/t3-code-extract

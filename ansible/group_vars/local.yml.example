@@ -24,6 +24,8 @@ install_balena_etcher: false
 install_t3_code: false
 install_tailscale: false
 install_docker: true
+install_fleet: true
+install_compai_agent: true
 
 configure_shell: true
 configure_kitty: true
@@ -44,6 +46,12 @@ configure_desktop_shortcuts: false
 # Prefer `sudo tailscale up` over storing a key. If you must, use a single-use key.
 # tailscale_auth_key: ""
 # tailscale_ssh: false
+
+# Fleet enrollment. Get the enroll secret from the Fleet admin; local.yml is ignored by git.
+# fleet_enroll_secret: ""
+# fleet_end_user_email: you@example.com
+# Device name shown in Fleet (nombre-apellido). Empty leaves the hostname alone.
+# workstation_hostname: john-doe
 # ufw_allowed_ports:
 #   - 80/tcp
 #   - 443/tcp

@@ -143,6 +143,34 @@ class TestCatalog(unittest.TestCase):
         self.assertTrue(all_vars["docker_dnf_repo_url"].startswith("https://download.docker.com/"))
         self.assertIn("groups: docker", role_text)
 
+    def test_fleet_on_every_profile_without_a_committed_secret(self):
+        all_vars = parse_yaml((ROOT / "ansible/group_vars/all.yml").read_text(encoding="utf-8"))
+        self.assertEqual(all_vars["fleet_enroll_secret"], "")
+        self.assertEqual(all_vars["fleet_url"], "https://fleet.alternova.dev")
+        for profile, playbook in configure.PLAYBOOKS.items():
+            config = configure.build_config(profile, configure.default_selection(profile))
+            self.assertTrue(config["install_fleet"], profile)
+            playbook_text = (ROOT / playbook).read_text(encoding="utf-8")
+            self.assertIn("role: fleet", playbook_text, profile)
+            self.assertLess(playbook_text.index("role: hostname"), playbook_text.index("role: fleet"), profile)
+        tracked = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.split()
+        self.assertNotIn("ansible/group_vars/local.yml", tracked)
+        enroll = (ROOT / "ansible/roles/fleet/tasks/enroll.yml").read_text(encoding="utf-8")
+        # The secret is passed to fleetctl, so that task must not log, and the built package must be deleted.
+        build = enroll[enroll.index("- name: Build the fleetd package"):enroll.index("- name: Fail when the fleetd package build fails")]
+        self.assertIn("no_log: true", build)
+        self.assertIn("always:", enroll)
+        self.assertIn("secret-orbit-node-key.txt", enroll)
+
+    def test_compai_agent_is_ubuntu_desktop_only_and_autostarts(self):
+        for profile in configure.PLAYBOOKS:
+            selected = configure.default_selection(profile)
+            self.assertEqual("compai_agent" in selected, profile == "ubuntu", profile)
+        self.assertIn("role: compai_agent", (ROOT / "ansible/playbooks/ubuntu.yml").read_text(encoding="utf-8"))
+        role = (ROOT / "ansible/roles/compai_agent/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertIn(".config/autostart/comp-ai-device-agent.desktop", role)
+        self.assertIn("minlen", role)
+
     def test_starship_uses_installer_not_distro_packages(self):
         # Ubuntu LTS has no starship APT package; one missing package fails the whole apt task.
         for profile in configure.PLAYBOOKS:
@@ -455,13 +483,17 @@ class TestTuiProcess(unittest.TestCase):
     def test_ubuntu_defaults_via_stdin(self):
         result, output = self.run_tui(
             ["--profile", "ubuntu"],
-            ["", ""],
+            ["", "", "", "", ""],
         )
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
         self.assertTrue(output.exists())
         data = parse_yaml(output.read_text(encoding="utf-8"))
         self.assertEqual(data["profile"], "ubuntu")
         self.assertNotIn("workstation_user", data)
+        self.assertNotIn("workstation_hostname", data)
+        self.assertNotIn("fleet_enroll_secret", data)
+        self.assertTrue(data["install_fleet"])
+        self.assertTrue(data["install_compai_agent"])
         self.assertTrue(data["configure_gnome"])
         self.assertTrue(data["install_opencode_cli"])
         self.assertTrue(data["install_opencode_desktop"])
@@ -471,7 +503,7 @@ class TestTuiProcess(unittest.TestCase):
     def test_ubuntu_without_preset_profile_choice(self):
         result, output = self.run_tui(
             [],
-            ["1", "", ""],
+            ["1", "", "", "", "", ""],
         )
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
         data = parse_yaml(output.read_text(encoding="utf-8"))
@@ -486,6 +518,9 @@ class TestTuiProcess(unittest.TestCase):
                 "not a valid session",
                 "devbox",
                 "green",
+                "",
+                "",
+                "",
                 "",
             ],
         )
@@ -502,7 +537,7 @@ class TestTuiProcess(unittest.TestCase):
     def test_fedora_removals_keep_one(self):
         result, output = self.run_tui(
             ["--profile", "fedora_asahi"],
-            ["", "", "1", ""],
+            ["", "", "", "", "", "1", ""],
         )
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
         data = parse_yaml(output.read_text(encoding="utf-8"))
@@ -523,6 +558,10 @@ class TestTuiProcess(unittest.TestCase):
                 "gitlab.com",
                 "",
                 "~/.ssh/id_ed25519_gitlab",
+                "Not Valid!",
+                "John-Doe",
+                "s3cret+abc",
+                "john@example.com",
                 "~/OneDrive/Work",
                 "Documents, Photos",
             ],
@@ -535,6 +574,9 @@ class TestTuiProcess(unittest.TestCase):
         self.assertEqual(data["ssh_hosts"][0]["hostname"], "gitlab.com")
         self.assertEqual(data["onedrive_sync_dir"], "~/OneDrive/Work")
         self.assertEqual(data["onedrive_sync_list"], ["Documents", "Photos"])
+        self.assertEqual(data["workstation_hostname"], "john-doe")
+        self.assertEqual(data["fleet_enroll_secret"], "s3cret+abc")
+        self.assertEqual(data["fleet_end_user_email"], "john@example.com")
 
 
 class TestInstallScript(unittest.TestCase):

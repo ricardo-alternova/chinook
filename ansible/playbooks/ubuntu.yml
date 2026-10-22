@@ -28,6 +28,9 @@
       tags: always
 
   roles:
+    - role: hostname
+      tags: hostname
+      when: workstation_hostname | length > 0
     - role: packages
       tags: packages
       when: install_packages | bool
@@ -94,6 +97,12 @@
     - role: docker
       tags: docker
       when: install_docker | bool
+    - role: fleet
+      tags: fleet
+      when: install_fleet | bool
+    - role: compai_agent
+      tags: compai_agent
+      when: install_compai_agent | bool
     - role: unity_cli
       tags: unity_cli
       when: install_unity_cli | bool

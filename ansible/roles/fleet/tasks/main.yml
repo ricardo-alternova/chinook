@@ -1,0 +1,8 @@
+- name: Skip Fleet when no enroll secret is set
+  ansible.builtin.debug:
+    msg: "Fleet is selected but fleet_enroll_secret is empty, so this device was not enrolled. Re-run the app selector and enter the secret from the Fleet admin."
+  when: fleet_enroll_secret | length == 0
+
+- name: Install fleetd and confirm enrollment
+  ansible.builtin.include_tasks: enroll.yml
+  when: fleet_enroll_secret | length > 0

@@ -122,6 +122,8 @@ When the installer finishes, that is everything Chinook can do for you. Two thin
 
 1. **Open OpenCode and set up your credentials** (`opencode auth login`) so you can tweak the OS using AI.
 2. **Set up your GitHub / GitLab accounts.**
+3. **Ubuntu desktop: sign in to the Comp AI agent.** Open `comp-ai-device-agent` from the app menu and sign in with your work email.
+4. **Reboot if Chinook renamed the device**, so every app picks up the new hostname.
 
 That is it. From here, edit `local.yml` or ask OpenCode, re-run `~/chinook/install` (or the profile playbook), and Chinook converges the machine to the new state.
 
@@ -181,6 +183,8 @@ install_claude_code: true
 install_cursor_cli: true
 install_glab: true
 install_docker: true
+install_fleet: true
+install_compai_agent: true
 install_starship: true
 install_unity_cli: false
 install_zed: true
@@ -235,6 +239,7 @@ The configurator writes these values for you.
 - OpenCode CLI and Desktop
 - Claude Code, Cursor CLI, GitLab CLI (`glab`), and Starship
 - Docker Engine with Compose and Buildx
+- Fleet (fleetd with Fleet Desktop) and the Comp AI device agent
 
 Optional modules: OneDrive, SSH snippets, Keychron udev rules, OBS Studio, Unity Hub, Balena Etcher, Teams PWA, Helium browser, desktop shortcuts, Grok Bot, Cursor, input-remapper, T3 Code, tmux, and Tailscale. Enable them in `local.yml` or through `tools/configure.py`.
 
@@ -262,6 +267,7 @@ This profile is for a headless Ubuntu box you SSH into — a remote agent machin
 - OpenCode CLI
 - Claude Code, Cursor CLI, GitLab CLI (`glab`), and Starship
 - Docker Engine with Compose and Buildx
+- Fleet (fleetd)
 
 Optional modules: SSH snippets, OneDrive, Codex CLI, T3 Code, and Keychron udev rules. Desktop apps (Kitty, Chrome, Steam, Zed, snaps, GNOME settings) are not offered in the Server configurator.
 
@@ -310,6 +316,7 @@ Hardware KVMs and out-of-band power buttons are useful for this kind of box, but
 - OpenCode CLI and Desktop
 - Claude Code, Cursor CLI, GitLab CLI (`glab`), and Starship
 - Docker Engine with Compose and Buildx
+- Fleet (fleetd)
 - Helium browser (optional)
 - Grok Bot desktop agent (optional)
 - Cursor editor (optional)
@@ -350,6 +357,37 @@ The `unity_cli` role (optional, every profile) runs Unity's official installer (
 ### GitLab CLI
 
 The `glab` role resolves the latest release from the GitLab API and installs the official `.deb` (Ubuntu) or `.rpm` (Fedora Asahi) for x64 or arm64. Each run compares the installed version with the latest release and only downloads when it changed. The distro `glab` packages lag far behind upstream, so they are not used. Sign in with `glab auth login`.
+
+### Fleet
+
+The `fleet` role enrolls the device in Fleet (`fleet_url`, default `https://fleet.alternova.dev`) on every profile. It replaces the manual guide: no Node.js, npm, or Docker needed.
+
+1. The configurator asks for the **device name** (Fleet lists devices by hostname, in the `nombre-apellido` format), the **enroll secret** from the Fleet admin, and optionally your **work email** (links the device to you in Fleet). They go into `local.yml`, which git ignores. Never commit the secret: this repo is public.
+2. The `hostname` role renames the machine and fixes `/etc/hosts` before enrolling.
+3. The role downloads the latest `fleetctl` release, builds a `fleetd` `.deb` or `.rpm` for this machine's architecture (with Fleet Desktop on the desktop profiles and scripts enabled), installs it, and deletes the package, which contains the secret.
+4. It then **confirms enrollment** instead of assuming it worked: it waits for fleetd's enrollment key, restarts fleetd once if it doesn't appear, and fails with the fleetd log if it still doesn't. On desktops it then asks the Fleet server what it recorded and prints the name and platform Fleet shows for the device.
+
+Re-runs skip all of this when fleetd is already enrolled with the same server. A machine fleetd enrolled before (for example with the manual guide) is left alone.
+
+Why the manual's last step sometimes didn't register the device:
+
+- **Nothing checked the result.** `dpkg -i` only installs fleetd; enrollment happens afterward in the background and can fail quietly (wrong secret, no network yet). The role now waits for it and reports failures.
+- **Hardware UUID merges.** By default Fleet identifies a host by its hardware UUID. A laptop that was enrolled under another OS, or cheap boards that ship a placeholder UUID shared by many machines, get merged into an existing Fleet record instead of showing up as new. The role detects placeholder UUIDs and switches to a per-install identifier (`fleet_host_identifier: auto`). When a machine changes OS, ask the Fleet admin to delete its old record first; the device report above shows when this happened.
+- **Rename without reboot.** The guide renames the device and asks for a reboot; Fleet keeps the old name until fleetd reports again. Chinook renames the device before enrolling.
+
+Leave the secret empty to install everything else and enroll later: re-run the installer, pick the app selector, and enter it.
+
+### Comp AI device agent
+
+Ubuntu desktop only (Comp AI publishes the Linux agent for amd64). The `compai_agent` role installs the latest production release from Comp AI's GitHub releases and keeps it updated on re-runs. It also prepares the machine for the agent's Linux checks:
+
+- **Start at login:** the agent's own "Start at Login" doesn't work on Linux, so Chinook adds `~/.config/autostart/comp-ai-device-agent.desktop`; otherwise it stops reporting after a reboot.
+- **Password policy:** installs `libpam-pwquality` and sets `minlen = 8` in `/etc/security/pwquality.conf`.
+- **Screen lock:** turns on the GNOME screen lock and, if the idle delay is off or over 15 minutes, sets it to 5 minutes.
+- **Antivirus:** passes through AppArmor, which Ubuntu enables by default.
+- **Disk encryption:** needs LUKS, which Ubuntu can only set up at install time ("Encrypt the disk"). Chinook warns when the disk isn't encrypted.
+
+After the run, open `comp-ai-device-agent` from the app menu and sign in with your work email.
 
 ### Docker
 
@@ -426,7 +464,7 @@ Available tags match role names:
 
 ```bash
 packages snaps flatpaks timeshift tmux tailscale ufw fail2ban ssh_client
-onedrive gnome kde mangohud opencode_cli opencode_desktop codex_cli claude_code cursor_cli glab docker unity_cli starship shell kitty
+onedrive gnome kde mangohud opencode_cli opencode_desktop codex_cli claude_code cursor_cli glab docker fleet compai_agent hostname unity_cli starship shell kitty
 grok_bot cursor wayshot t3_code
 helium unity_hub keychron zed balena_etcher teams_pwa desktop_shortcuts
 ```
@@ -460,6 +498,8 @@ helium unity_hub keychron zed balena_etcher teams_pwa desktop_shortcuts
 - **`No package matching 'starship' is available`** — your `local.yml` was generated before Starship moved to its own installer. Re-run the installer and answer `y` to re-run the app selector, or delete `starship` from `apt_packages` in `ansible/group_vars/local.yml`.
 - **Terminals still open bash after provisioning** — the login shell changes at your next login. Log out and back in (no reboot needed), or run `zsh` to try it now.
 - **`Conflicting values set for option Signed-By regarding source https://hub.unity3d.com/...`** — an older Chinook wrote its own Unity Hub repository file, and the `unityhub` package added another with a different key. This breaks every `apt` command, so remove the old file once, then re-run Chinook: `sudo rm -f /etc/apt/sources.list.d/unityhub.list /etc/apt/keyrings/unityhub.gpg /etc/apt/keyrings/unityhub.gpg.asc`.
+- **`fleetd is installed but did not enroll`**: the output includes the last fleetd log lines. The usual causes are a wrong enroll secret (ask the Fleet admin for the current one and re-run the app selector) or no route to `fleet_url`. Check live with `sudo journalctl -u orbit -f`.
+- **Fleet shows the device with another name or OS**: Fleet merged it into an older record with the same hardware UUID. Ask the Fleet admin to delete that record. To enroll as a new host, set `fleet_host_identifier: instance` in `local.yml`, clear fleetd's identity once with `sudo systemctl stop orbit && sudo rm -rf /opt/orbit/secret-orbit-node-key.txt /opt/orbit/osquery.db`, then re-run Chinook.
 - **Stuck on `Create initial Timeshift daily snapshot`**: it's probably not stuck. The first snapshot copies the whole system (Docker's data and your home folder are excluded), which can take 5-30 minutes with no output. Watch it grow in another terminal with `sudo du -sh /timeshift/snapshots`. Later snapshots only copy what changed.
 - **`Timed out waiting for become success or become password prompt`** with `[sudo: [sudo via ansible, ...] password:] Password:`: the system uses sudo-rs, the default on Ubuntu releases newer than 24.04, and Ansible doesn't recognize its password prompt. The installer switches Ansible to the classic `sudo.ws` automatically. If you run `ansible-playbook` yourself, prefix it with `ANSIBLE_BECOME_EXE=sudo.ws`.
 - **Want a module not in the terminal UI** — add the role to the profile's playbook gated by a toggle from `all.yml`, or keep it simple with the `*_extra` package lists.

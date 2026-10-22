@@ -1,0 +1,126 @@
+- name: Report that the Comp AI agent has no build for this architecture
+  ansible.builtin.debug:
+    msg: "Comp AI publishes the Linux device agent for amd64 only; skipping it on {{ ansible_facts['architecture'] }}."
+  when: ansible_facts['architecture'] != 'x86_64'
+
+- name: Install the Comp AI device agent
+  when: ansible_facts['architecture'] == 'x86_64'
+  block:
+    # Production agent releases are tagged device-agent-vX.Y.Z; staging builds
+    # carry a suffix, and the repo's "latest" release is the web app.
+    - name: Resolve the latest Comp AI agent release
+      ansible.builtin.shell: >-
+        set -o pipefail;
+        git ls-remote --tags --refs {{ compai_agent_repo_url | quote }} 'device-agent-v*'
+        | sed 's#.*refs/tags/device-agent-v##'
+        | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$'
+        | sort -V | tail -n 1
+      args:
+        executable: /bin/bash
+      register: compai_agent_latest
+      changed_when: false
+      check_mode: false
+
+    - name: Fail when no Comp AI agent release is found
+      ansible.builtin.fail:
+        msg: "Could not find a Comp AI device agent release in {{ compai_agent_repo_url }}."
+      when: compai_agent_latest.stdout | trim | length == 0
+
+    - name: Gather installed packages for the Comp AI agent
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Set Comp AI agent versions
+      ansible.builtin.set_fact:
+        compai_agent_version: "{{ compai_agent_latest.stdout | trim }}"
+        compai_agent_installed_version: >-
+          {{ (ansible_facts['packages'][compai_agent_package_name] | default([{}]) | first).version | default('') }}
+
+    - name: Install or update the Comp AI agent
+      ansible.builtin.apt:
+        deb: "{{ compai_agent_repo_url }}/releases/download/device-agent-v{{ compai_agent_version }}/CompAI-Device-Agent-{{ compai_agent_version }}-amd64.deb"
+      become: true
+      when: compai_agent_installed_version != compai_agent_version
+
+    # The agent's "Start at Login" uses an Electron API that does nothing on
+    # Linux, so without this it stops reporting after the first reboot.
+    - name: Ensure the autostart directory exists
+      ansible.builtin.file:
+        path: "{{ workstation_home }}/.config/autostart"
+        state: directory
+        owner: "{{ workstation_user }}"
+        group: "{{ workstation_user }}"
+        mode: "0755"
+
+    - name: Start the Comp AI agent at login
+      ansible.builtin.copy:
+        src: "{{ compai_agent_desktop_file }}"
+        dest: "{{ workstation_home }}/.config/autostart/comp-ai-device-agent.desktop"
+        remote_src: true
+        owner: "{{ workstation_user }}"
+        group: "{{ workstation_user }}"
+        mode: "0644"
+      when: not ansible_check_mode
+
+# The agent's password policy check reads minlen from pwquality.
+- name: Install the password quality module
+  ansible.builtin.apt:
+    name: libpam-pwquality
+    state: present
+  become: true
+
+- name: Require a minimum password length
+  ansible.builtin.lineinfile:
+    path: /etc/security/pwquality.conf
+    regexp: '^#?\s*minlen\s*='
+    line: "minlen = {{ compai_password_min_length }}"
+    create: true
+    mode: "0644"
+  become: true
+
+# The agent's screen lock check wants GNOME to lock after at most 15 minutes idle.
+- name: Read the GNOME idle delay
+  ansible.builtin.command: gsettings get org.gnome.desktop.session idle-delay
+  register: compai_idle_delay
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Set the GNOME idle delay
+  ansible.builtin.command: "gsettings set org.gnome.desktop.session idle-delay {{ compai_screen_lock_idle_seconds }}"
+  when:
+    - compai_idle_delay.rc == 0
+    - ((compai_idle_delay.stdout | trim).split() | last | default('0', true) | int) not in range(1, compai_screen_lock_max_seconds + 1)
+
+- name: Read the GNOME screen lock setting
+  ansible.builtin.command: gsettings get org.gnome.desktop.screensaver lock-enabled
+  register: compai_lock_enabled
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Enable the GNOME screen lock
+  ansible.builtin.command: gsettings set org.gnome.desktop.screensaver lock-enabled true
+  when:
+    - compai_lock_enabled.rc == 0
+    - compai_lock_enabled.stdout | trim != 'true'
+
+# The disk encryption check wants LUKS, which can only be set up at install time.
+- name: Check for an encrypted disk
+  ansible.builtin.command: lsblk -rno TYPE
+  register: compai_block_types
+  changed_when: false
+  check_mode: false
+
+- name: Warn when the disk is not encrypted
+  ansible.builtin.debug:
+    msg: >-
+      This machine has no LUKS-encrypted disk, so Comp AI will flag disk encryption. Ubuntu can
+      only encrypt the disk at install time: reinstall and choose "Encrypt the disk" (LVM + LUKS).
+  when: "'crypt' not in compai_block_types.stdout_lines"
+
+- name: Remind to sign in to the Comp AI agent
+  ansible.builtin.debug:
+    msg: >-
+      Open "comp-ai-device-agent" from the app menu (it also starts at your next login) and sign
+      in with your work email to link this device to your organization.

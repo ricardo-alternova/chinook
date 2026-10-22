@@ -1,0 +1,237 @@
+- name: Map machine architecture and package type for fleetd
+  ansible.builtin.set_fact:
+    fleet_arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}.get(ansible_facts['architecture'], '') }}"
+    fleet_package_type: "{{ 'deb' if ansible_facts['pkg_mgr'] == 'apt' else 'rpm' }}"
+
+- name: Fail when fleetd has no build for this architecture
+  ansible.builtin.fail:
+    msg: "Fleet publishes no Linux fleetd for {{ ansible_facts['architecture'] }}."
+  when: fleet_arch | length == 0
+
+- name: Read the installed fleetd settings
+  ansible.builtin.slurp:
+    src: /etc/default/orbit
+  become: true
+  register: fleet_orbit_env
+  failed_when: false
+
+- name: Check for the fleetd enrollment key
+  ansible.builtin.stat:
+    path: /opt/orbit/secret-orbit-node-key.txt
+  become: true
+  register: fleet_node_key
+
+# Reinstall when fleetd is missing, points at another server, or never enrolled.
+- name: Decide whether fleetd needs installing
+  ansible.builtin.set_fact:
+    fleet_needs_install: >-
+      {{ ('ORBIT_FLEET_URL=' ~ fleet_url) not in ((fleet_orbit_env.content | default('')) | b64decode)
+         or not fleet_node_key.stat.exists }}
+
+- name: Build and install fleetd
+  when: fleet_needs_install | bool
+  block:
+    - name: Read the hardware UUID
+      ansible.builtin.command: cat /sys/class/dmi/id/product_uuid
+      become: true
+      register: fleet_hardware_uuid
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Choose the Fleet host identifier
+      ansible.builtin.set_fact:
+        fleet_resolved_host_identifier: >-
+          {{ fleet_host_identifier if fleet_host_identifier != 'auto'
+             else ('instance' if (fleet_hardware_uuid.stdout | default('') | trim | lower) in fleet_placeholder_uuids else 'uuid') }}
+
+    - name: Report a placeholder hardware UUID
+      ansible.builtin.debug:
+        msg: "This machine reports a placeholder hardware UUID, so fleetd enrolls with a per-install identifier to keep it from merging with other machines in Fleet."
+      when:
+        - fleet_host_identifier == 'auto'
+        - fleet_resolved_host_identifier == 'instance'
+
+    - name: Resolve the latest fleetctl release
+      ansible.builtin.uri:
+        url: "{{ fleetctl_latest_release_api }}"
+        return_content: true
+        headers:
+          Accept: application/vnd.github+json
+      register: fleetctl_release
+      check_mode: false
+
+    - name: Set the fleetctl version
+      ansible.builtin.set_fact:
+        fleetctl_version: "{{ fleetctl_release.json.tag_name | regex_replace('^fleet-v', '') }}"
+
+    - name: Create a fleetd build directory
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: chinook-fleet-
+      register: fleet_build_dir
+
+    - name: Download fleetctl
+      ansible.builtin.unarchive:
+        src: "{{ fleetctl_releases_base_url }}/fleet-v{{ fleetctl_version }}/fleetctl_v{{ fleetctl_version }}_linux_{{ fleet_arch }}.tar.gz"
+        dest: "{{ fleet_build_dir.path }}"
+        remote_src: true
+
+    - name: Build the fleetd package
+      ansible.builtin.command:
+        argv: >-
+          {{ [fleet_build_dir.path ~ '/fleetctl_v' ~ fleetctl_version ~ '_linux_' ~ fleet_arch ~ '/fleetctl',
+              'package',
+              '--type=' ~ fleet_package_type,
+              '--arch=' ~ fleet_arch,
+              '--fleet-url=' ~ fleet_url,
+              '--enroll-secret=' ~ fleet_enroll_secret,
+              '--host-identifier=' ~ fleet_resolved_host_identifier,
+              '--disable-open-folder',
+              '--outfile=' ~ fleet_build_dir.path ~ '/fleet-osquery.' ~ fleet_package_type]
+             + (['--enable-scripts'] if fleet_enable_scripts | bool else [])
+             + (['--fleet-desktop'] if fleet_desktop | bool else [])
+             + (['--end-user-email=' ~ fleet_end_user_email] if fleet_end_user_email | length > 0 else []) }}
+        chdir: "{{ fleet_build_dir.path }}"
+      register: fleet_package_build
+      no_log: true
+      failed_when: false
+
+    - name: Fail when the fleetd package build fails
+      ansible.builtin.fail:
+        msg: "fleetctl package failed: {{ (fleet_package_build.stderr | default('') ~ fleet_package_build.stdout | default('')) | replace(fleet_enroll_secret, '***') }}"
+      when: fleet_package_build.rc != 0
+
+    # dpkg/rpm reinstall even when the same version is already there, so new
+    # settings (URL, secret) always replace the old ones.
+    - name: Install the fleetd package
+      ansible.builtin.command:
+        argv: >-
+          {{ (['dpkg', '-i'] if fleet_package_type == 'deb' else ['rpm', '-U', '--replacepkgs', '--replacefiles'])
+             + [fleet_build_dir.path ~ '/fleet-osquery.' ~ fleet_package_type] }}
+      become: true
+
+  always:
+    # The package embeds the enroll secret.
+    - name: Remove the fleetd build directory
+      ansible.builtin.file:
+        path: "{{ fleet_build_dir.path }}"
+        state: absent
+      when: fleet_build_dir.path is defined
+
+- name: Enable and start fleetd
+  ansible.builtin.systemd:
+    name: orbit
+    enabled: true
+    state: started
+  become: true
+  when: not ansible_check_mode
+
+- name: Wait for fleetd to enroll with Fleet
+  ansible.builtin.wait_for:
+    path: /opt/orbit/secret-orbit-node-key.txt
+    timeout: "{{ fleet_enroll_timeout }}"
+  become: true
+  failed_when: false
+  when: not ansible_check_mode
+
+- name: Check whether fleetd enrolled
+  ansible.builtin.stat:
+    path: /opt/orbit/secret-orbit-node-key.txt
+  become: true
+  register: fleet_enrolled
+
+# A restart clears most first-boot hiccups (network not ready, update server slow).
+- name: Retry enrollment after restarting fleetd
+  when:
+    - not ansible_check_mode
+    - not fleet_enrolled.stat.exists
+  block:
+    - name: Restart fleetd
+      ansible.builtin.systemd:
+        name: orbit
+        state: restarted
+      become: true
+
+    - name: Wait again for fleetd to enroll
+      ansible.builtin.wait_for:
+        path: /opt/orbit/secret-orbit-node-key.txt
+        timeout: "{{ fleet_enroll_timeout }}"
+      become: true
+      failed_when: false
+
+    - name: Check again whether fleetd enrolled
+      ansible.builtin.stat:
+        path: /opt/orbit/secret-orbit-node-key.txt
+      become: true
+      register: fleet_enrolled_retry
+
+    - name: Read the fleetd log
+      ansible.builtin.command: journalctl -u orbit -n 40 --no-pager
+      become: true
+      register: fleet_orbit_log
+      changed_when: false
+      when: not fleet_enrolled_retry.stat.exists
+
+    - name: Fail when fleetd did not enroll
+      ansible.builtin.fail:
+        msg: |
+          fleetd is installed but did not enroll with {{ fleet_url }}. Check the enroll secret and
+          that this machine can reach the server. Last fleetd log lines:
+          {{ fleet_orbit_log.stdout | default('') | replace(fleet_enroll_secret, '***') }}
+      when: fleet_orbit_log is not skipped
+
+# Fleet Desktop's device token lets us ask the server what it recorded for this
+# machine, which catches merges into an old host record.
+- name: Confirm the device in Fleet
+  when:
+    - fleet_desktop | bool
+    - not ansible_check_mode
+  block:
+    - name: Wait for the Fleet Desktop device token
+      ansible.builtin.wait_for:
+        path: /opt/orbit/identifier
+        timeout: 120
+      become: true
+      failed_when: false
+
+    - name: Check for the Fleet Desktop device token
+      ansible.builtin.stat:
+        path: /opt/orbit/identifier
+      become: true
+      register: fleet_token_file
+
+    - name: Read the Fleet Desktop device token
+      ansible.builtin.slurp:
+        src: /opt/orbit/identifier
+      become: true
+      register: fleet_device_token
+      when: fleet_token_file.stat.exists
+
+    - name: Ask Fleet about this device
+      ansible.builtin.uri:
+        url: "{{ fleet_url }}/api/latest/fleet/device/{{ fleet_device_token.content | b64decode | trim }}"
+        return_content: true
+      register: fleet_device
+      until: fleet_device.status == 200
+      retries: 12
+      delay: 10
+      failed_when: false
+      no_log: true
+      when: fleet_device_token is not skipped
+
+    - name: Report how Fleet lists this device
+      ansible.builtin.debug:
+        msg: >-
+          Fleet registered this device as '{{ fleet_device.json.host.display_name }}'
+          ({{ fleet_device.json.host.platform }} {{ fleet_device.json.host.os_version | default('') }}).
+          If that isn't this machine's name, or the platform is another OS, Fleet merged it into an
+          old host record: ask the Fleet admin to delete that record, then re-run Chinook.
+      when:
+        - fleet_device is not skipped
+        - fleet_device.status | default(0) == 200
+
+    - name: Report that Fleet hasn't listed the device yet
+      ansible.builtin.debug:
+        msg: "fleetd enrolled, but Fleet doesn't list the device yet. It usually appears within a few minutes; check the Fleet Desktop tray icon."
+      when: fleet_device is skipped or fleet_device.status | default(0) != 200
