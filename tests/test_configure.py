@@ -152,6 +152,13 @@ class TestCatalog(unittest.TestCase):
         self.assertNotIn("install_unity_hub", (playbook_dir / "ubuntu_server.yml").read_text(encoding="utf-8"))
         self.assertNotIn("install_unity_hub", (playbook_dir / "fedora_asahi.yml").read_text(encoding="utf-8"))
         self.assertTrue((ROOT / "ansible/roles/unity_hub/tasks/main.yml").is_file())
+        # Must match the unityhub postinst, or apt fails with conflicting Signed-By values.
+        all_vars = parse_yaml((ROOT / "ansible/group_vars/all.yml").read_text(encoding="utf-8"))
+        self.assertEqual(all_vars["unity_hub_apt_key_path"], "/usr/share/keyrings/Unity_Technologies_ApS.gpg")
+        self.assertEqual(all_vars["unity_hub_apt_sources_path"], "/etc/apt/sources.list.d/unityhub.sources")
+        unity_role = (ROOT / "ansible/roles/unity_hub/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertIn("/etc/apt/sources.list.d/unityhub.list", unity_role)
+        self.assertNotIn("apt_repository", unity_role)
 
     def test_ansible_yaml_has_no_bare_boolean_words_in_lists(self):
         # A bare `on` in an argv list is parsed as True (ufw allow in True tailscale0).
