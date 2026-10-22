@@ -19,12 +19,6 @@
   when: item is not match('^[0-9]{1,5}(/(tcp|udp))?$') or (item.split('/')[0] | int) > 65535
   loop: "{{ ufw_allowed_ports }}"
 
-- name: Validate trusted UFW subnets
-  ansible.builtin.fail:
-    msg: "Invalid trusted subnet {{ item }}. Use an IPv4 CIDR such as 192.168.8.0/24."
-  when: item is not match('^([0-9]{1,3}\\.){3}[0-9]{1,3}/([0-9]|[12][0-9]|3[0-2])$')
-  loop: "{{ ufw_trusted_subnets }}"
-
 - name: Fail when UFW would enable without an SSH allow rule
   ansible.builtin.fail:
     msg: >-
@@ -68,20 +62,6 @@
   register: ufw_allow_tailscale_result
   changed_when: ufw_allow_tailscale_result.stdout is search('(?i)rule added|rules updated')
   when: ufw_allow_tailscale | bool
-
-# Devices behind a router-level VPN (for example a GL.iNet router running
-# Tailscale or WireGuard) reach this machine from the LAN, not tailscale0.
-- name: Allow traffic from trusted LAN subnets
-  ansible.builtin.command:
-    argv:
-      - ufw
-      - allow
-      - from
-      - "{{ item }}"
-  become: true
-  loop: "{{ ufw_trusted_subnets }}"
-  register: ufw_allow_subnet_result
-  changed_when: ufw_allow_subnet_result.stdout is defined and ufw_allow_subnet_result.stdout is search('(?i)rule added|rules updated')
 
 - name: Read added UFW rules
   ansible.builtin.command:

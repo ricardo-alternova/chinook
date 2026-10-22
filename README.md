@@ -270,13 +270,6 @@ ufw_allowed_ports:
   - 443/tcp
 ```
 
-Trust a whole LAN subnet with `ufw_trusted_subnets` (the configurator asks for it when UFW is selected). Use this when you reach the box through a router-level VPN, such as a GL.iNet router running Tailscale or WireGuard: that traffic arrives from the router's LAN, not `tailscale0`, so without this only SSH gets through. GL.iNet's default LAN is `192.168.8.0/24`:
-
-```yaml
-ufw_trusted_subnets:
-  - 192.168.8.0/24
-```
-
 ### Remote agent workflow
 
 The Server profile is meant to be a box you leave running and connect to from a laptop:

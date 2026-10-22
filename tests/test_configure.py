@@ -450,7 +450,6 @@ class TestTuiProcess(unittest.TestCase):
                 "devbox",
                 "green",
                 "",
-                "192.168.8.0/24, 10.0.0.0/24",
             ],
         )
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
@@ -460,7 +459,6 @@ class TestTuiProcess(unittest.TestCase):
         self.assertEqual(data["tmux_session_name"], "devbox")
         self.assertEqual(data["tmux_status_bg"], "green")
         self.assertNotIn("tailscale_auth_key", data)
-        self.assertEqual(data["ufw_trusted_subnets"], ["192.168.8.0/24", "10.0.0.0/24"])
         self.assertIn("openssh-server", data["apt_packages"])
         self.assertNotIn("snap_packages", data)
 
