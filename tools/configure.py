@@ -2,12 +2,14 @@
 from pathlib import Path
 import argparse
 import re
+import socket
 import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCAL_VARS = ROOT / "ansible" / "group_vars" / "local.yml"
 TMUX_SESSION_NAME_RE = re.compile(r"[A-Za-z0-9_-]+")
+HOSTNAME_RE = re.compile(r"[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?")
 
 
 DESKTOP_PROFILES = ("ubuntu", "fedora_asahi")
@@ -132,6 +134,8 @@ APPS = [
     {"key": "cursor_cli", "label": "Cursor CLI (agent)", "default": True, "flag": "install_cursor_cli"},
     {"key": "glab", "label": "GitLab CLI (glab)", "default": True, "flag": "install_glab"},
     {"key": "docker", "label": "Docker Engine (with Compose and Buildx)", "default": True, "flag": "install_docker"},
+    {"key": "fleet", "label": "Fleet (fleetd device management, needs the enroll secret)", "default": True, "flag": "install_fleet"},
+    {"key": "compai_agent", "label": "Comp AI device agent (compliance checks)", "default": True, "profiles": ["ubuntu"], "flag": "install_compai_agent"},
     {"key": "unity_cli", "label": "Unity CLI (beta)", "default": False, "flag": "install_unity_cli"},
     {"key": "grok_bot", "label": "Grok Bot (xAI desktop agent)", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_grok_bot"},
     {"key": "cursor", "label": "Cursor editor", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_cursor"},
@@ -196,6 +200,10 @@ FEDORA_REMOVALS = [
     "swell-foop",
     "tali",
 ]
+
+
+def current_hostname():
+    return socket.gethostname().split(".")[0].lower()
 
 
 def ask(prompt, default=""):
@@ -369,6 +377,9 @@ def generate_local_yml(profile, config):
         "tmux_session_name",
         "tmux_status_bg",
         "tailscale_auth_key",
+        "fleet_enroll_secret",
+        "fleet_end_user_email",
+        "workstation_hostname",
     ]:
         if key in config:
             write_scalar(lines, key, config[key])
@@ -501,6 +512,22 @@ def main(argv=None):
             auth_key = ask("Tailscale auth key (optional, leave empty to join later)", "")
             if auth_key:
                 config["tailscale_auth_key"] = auth_key
+
+        if "fleet" in selected:
+            print("\nFleet lists this device by its hostname, in the nombre-apellido format (for example john-doe).")
+            while True:
+                hostname = ask("Device name", current_hostname()).lower()
+                if HOSTNAME_RE.fullmatch(hostname):
+                    break
+                print("Use lowercase letters, numbers, and hyphens, like john-doe.")
+            if hostname != current_hostname():
+                config["workstation_hostname"] = hostname
+            secret = ask("Fleet enroll secret (from the Fleet admin; leave empty to enroll later)", "")
+            if secret:
+                config["fleet_enroll_secret"] = secret
+            email = ask("Your work email for Fleet (optional)", "")
+            if email:
+                config["fleet_end_user_email"] = email
 
         if "onedrive" in selected:
             sync_dir = ask("OneDrive sync dir", "~/OneDrive")

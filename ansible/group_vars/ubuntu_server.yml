@@ -6,6 +6,7 @@ install_claude_code: true
 install_cursor_cli: true
 install_glab: true
 install_docker: true
+install_fleet: true
 install_starship: true
 
 configure_shell: true

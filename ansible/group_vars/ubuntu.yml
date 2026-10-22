@@ -8,6 +8,9 @@ install_claude_code: true
 install_cursor_cli: true
 install_glab: true
 install_docker: true
+install_fleet: true
+install_compai_agent: true
+fleet_desktop: true
 install_starship: true
 install_opencode_desktop: true
 install_balena_etcher: false
