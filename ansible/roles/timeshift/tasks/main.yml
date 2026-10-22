@@ -94,7 +94,19 @@
     - timeshift_enabled | bool
     - timeshift_create_initial_snapshot | bool
 
-- name: Create initial Timeshift daily snapshot when none exist
+- name: Explain the first Timeshift snapshot
+  ansible.builtin.debug:
+    msg: >-
+      Creating the first Timeshift snapshot. It copies the whole system, so it can take
+      5-30 minutes with no output. Check progress in another terminal with
+      'sudo du -sh /timeshift/snapshots'.
+  when:
+    - timeshift_enabled | bool
+    - timeshift_create_initial_snapshot | bool
+    - not ansible_check_mode
+    - timeshift_snapshot_list.stdout is not search('[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}')
+
+- name: Create initial Timeshift daily snapshot when none exist (can take 5-30 minutes)
   ansible.builtin.command: timeshift --create --scripted --yes --snapshot-device {{ timeshift_resolved_backup_device_uuid }} --tags D --comments "Initial Ansible snapshot"
   become: true
   when:
