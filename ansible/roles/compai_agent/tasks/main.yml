@@ -105,7 +105,8 @@
     - compai_lock_enabled.rc == 0
     - compai_lock_enabled.stdout | trim != 'true'
 
-# The disk encryption check wants LUKS, which can only be set up at install time.
+# The agent passes its disk encryption check without LUKS too, but records an
+# exception that auditors see.
 - name: Check for an encrypted disk
   ansible.builtin.command: lsblk -rno TYPE
   register: compai_block_types
@@ -115,8 +116,9 @@
 - name: Warn when the disk is not encrypted
   ansible.builtin.debug:
     msg: >-
-      This machine has no LUKS-encrypted disk, so Comp AI will flag disk encryption. Ubuntu can
-      only encrypt the disk at install time: reinstall and choose "Encrypt the disk" (LVM + LUKS).
+      This machine has no LUKS-encrypted disk. Comp AI still passes the check, but records a
+      "LUKS not enabled" exception. Full-disk encryption needs a reinstall with "Encrypt the disk";
+      without one, keeping /home on a LUKS drive protects keys, tokens, and files.
   when: "'crypt' not in compai_block_types.stdout_lines"
 
 - name: Remind to sign in to the Comp AI agent

@@ -385,7 +385,7 @@ Ubuntu desktop only (Comp AI publishes the Linux agent for amd64). The `compai_a
 - **Password policy:** installs `libpam-pwquality` and sets `minlen = 8` in `/etc/security/pwquality.conf`.
 - **Screen lock:** turns on the GNOME screen lock and, if the idle delay is off or over 15 minutes, sets it to 5 minutes.
 - **Antivirus:** passes through AppArmor, which Ubuntu enables by default.
-- **Disk encryption:** needs LUKS, which Ubuntu can only set up at install time ("Encrypt the disk"). Chinook warns when the disk isn't encrypted.
+- **Disk encryption:** passes when any LUKS device, dm-crypt mapping, or `/etc/crypttab` entry exists. Without one it still passes, but records a "LUKS not enabled" exception that your Comp AI admin sees. Full-disk encryption needs a reinstall with "Encrypt the disk". Without reinstalling, moving `/home` onto a LUKS drive (plus encrypted swap) protects keys, tokens, and files. Chinook warns when no disk is encrypted.
 
 After the run, open `comp-ai-device-agent` from the app menu and sign in with your work email.
 
