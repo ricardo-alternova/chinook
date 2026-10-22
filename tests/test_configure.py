@@ -28,13 +28,15 @@ def app_index(profile, key):
     return str(keys.index(key) + 1)
 
 
-def run_tui(args, answers, timeout=8):
+def run_tui(args, answers, timeout=8, existing=None):
     tmp = tempfile.TemporaryDirectory()
     output = Path(tmp.name) / "local.yml"
+    if existing is not None:
+        output.write_text(existing, encoding="utf-8")
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
     result = subprocess.run(
-        [sys.executable, str(CONFIGURE_PATH), *args, "-o", str(output)],
+        [sys.executable, str(CONFIGURE_PATH), *args, "--no-detect", "-o", str(output)],
         input="\n".join(answers) + "\n",
         capture_output=True,
         text=True,
@@ -462,9 +464,66 @@ class TestPrompts(unittest.TestCase):
             self.assertTrue(configure.ask_yes_no("Continue", False))
 
 
+class TestDetection(unittest.TestCase):
+    def packages(self, **managers):
+        found = {name: set(managers.get(name, [])) for name in ("apt", "dnf", "snap", "flatpak")}
+        found["system"] = found["apt"] | found["dnf"]
+        return found
+
+    def app(self, key):
+        return next(app for app in configure.APPS if app["key"] == key)
+
+    def test_package_apps_need_every_package(self):
+        gimp = self.app("gimp")
+        self.assertTrue(configure.app_installed(gimp, "ubuntu", self.packages(apt=["gimp"])))
+        self.assertFalse(configure.app_installed(gimp, "ubuntu", self.packages()))
+        codecs = self.app("codecs")
+        self.assertFalse(configure.app_installed(codecs, "ubuntu", self.packages(apt=["ffmpeg"])))
+        self.assertTrue(configure.app_installed(codecs, "ubuntu", self.packages(apt=codecs["apt"])))
+
+    def test_snap_and_flatpak_apps_follow_the_profile(self):
+        discord = self.app("discord")
+        self.assertTrue(configure.app_installed(discord, "ubuntu", self.packages(snap=["discord"])))
+        self.assertFalse(configure.app_installed(discord, "fedora_asahi", self.packages(snap=["discord"])))
+        self.assertTrue(configure.app_installed(discord, "fedora_asahi", self.packages(flatpak=["com.discordapp.Discord"])))
+
+    def test_flag_apps_use_their_package_or_path(self):
+        self.assertTrue(configure.app_installed(self.app("docker"), "ubuntu", self.packages(apt=["docker-ce"])))
+        self.assertTrue(configure.app_installed(self.app("fleet"), "fedora_asahi", self.packages(dnf=["fleet-osquery"])))
+        self.assertFalse(configure.app_installed(self.app("compai_agent"), "ubuntu", self.packages()))
+        with tempfile.TemporaryDirectory() as home:
+            claude = Path(home) / ".local" / "bin" / "claude"
+            claude.parent.mkdir(parents=True)
+            with patch.dict(os.environ, {"HOME": home}):
+                self.assertFalse(configure.app_installed(self.app("claude_code"), "ubuntu", self.packages()))
+                claude.touch()
+                self.assertTrue(configure.app_installed(self.app("claude_code"), "ubuntu", self.packages()))
+
+    def test_every_app_can_be_detected(self):
+        for profile in configure.PLAYBOOKS:
+            managers = ["apt", "snap", "flatpak"] if profile in configure.APT_PROFILES else ["dnf", "flatpak"]
+            for app in configure.visible_apps(profile):
+                installs_something = configure.app_flags(app) or any(app.get(manager) for manager in managers)
+                if not installs_something:
+                    continue
+                detectable = (
+                    app.get("detect") or app.get("detect_paths") or app.get("detect_packages")
+                    or any(app.get(manager) for manager in managers)
+                )
+                self.assertTrue(detectable, f"{app['key']} on {profile}")
+
+    def test_previous_local_yml_round_trips(self):
+        selected = configure.default_selection("ubuntu") - {"zed"} | {"gimp", "fleet"}
+        config = configure.build_config("ubuntu", selected)
+        config["fleet_enroll_secret"] = "s3cret+abc"
+        data = configure.read_local_yml_text(configure.generate_local_yml("ubuntu", config))
+        self.assertEqual(configure.previous_selection("ubuntu", data), selected)
+        self.assertEqual(data["fleet_enroll_secret"], "s3cret+abc")
+
+
 class TestTuiProcess(unittest.TestCase):
-    def run_tui(self, args, answers, timeout=8):
-        result, output, tmp = run_tui(args, answers, timeout)
+    def run_tui(self, args, answers, timeout=8, existing=None):
+        result, output, tmp = run_tui(args, answers, timeout, existing)
         self.addCleanup(tmp.cleanup)
         return result, output
 
@@ -581,6 +640,25 @@ class TestTuiProcess(unittest.TestCase):
         self.assertEqual(data["workstation_hostname"], "john-doe")
         self.assertEqual(data["fleet_enroll_secret"], "s3cret+abc")
         self.assertEqual(data["fleet_end_user_email"], "john@example.com")
+
+
+    def test_rerun_keeps_previous_answers(self):
+        selected = configure.default_selection("ubuntu") - {"zed"} | {"fleet"}
+        config = configure.build_config("ubuntu", selected)
+        config["fleet_enroll_secret"] = "s3cret+abc"
+        config["fleet_end_user_email"] = "john@example.com"
+        result, output = self.run_tui(
+            ["--profile", "ubuntu"],
+            ["", "", "john-doe", "", "", ""],
+            existing=configure.generate_local_yml("ubuntu", config),
+        )
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        data = parse_yaml(output.read_text(encoding="utf-8"))
+        self.assertFalse(data["install_zed"])
+        self.assertTrue(data["install_fleet"])
+        self.assertEqual(data["fleet_enroll_secret"], "s3cret+abc")
+        self.assertEqual(data["fleet_end_user_email"], "john@example.com")
+        self.assertNotIn("s3cret", result.stdout)
 
 
 class TestInstallScript(unittest.TestCase):

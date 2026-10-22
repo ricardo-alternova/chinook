@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import argparse
+import glob
+import os
 import re
+import shutil
 import socket
+import subprocess
 import sys
 
 
@@ -61,18 +65,21 @@ APPS = [
     {
         "key": "tailscale",
         "label": "Tailscale (install only; join is manual)",
+        "detect_paths": ["/usr/bin/tailscale"],
         "default_profiles": ["ubuntu_server"],
         "flag": "install_tailscale",
     },
     {
         "key": "ufw",
         "label": "UFW firewall (deny inbound, allow SSH)",
+        "detect": "ufw_enabled",
         "default_profiles": ["ubuntu_server"],
         "flag": "configure_ufw",
     },
     {
         "key": "fail2ban",
         "label": "fail2ban (ban repeated SSH failures)",
+        "detect_packages": ["fail2ban"],
         "default_profiles": ["ubuntu_server"],
         "flag": "configure_fail2ban",
     },
@@ -120,36 +127,36 @@ APPS = [
     {"key": "chrome", "label": "Google Chrome on Ubuntu / Chromium on Fedora Asahi", "default": True, "profiles": DESKTOP_PROFILES, "apt": ["google-chrome-stable"], "dnf": ["chromium"]},
     {"key": "wayshot", "label": "WayShot (screenshot annotate)", "default": True, "profiles": DESKTOP_PROFILES, "flatpak": ["io.github.gutopardini.wayshot"]},
     {"key": "input_remapper", "label": "input-remapper (remap mouse buttons and wheel)", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["input-remapper"], "dnf": ["input-remapper"]},
-    {"key": "helium", "label": "Helium browser (privacy-first Chromium fork)", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_helium"},
-    {"key": "unity_hub", "label": "Unity Hub (Unity game engine)", "default": False, "profiles": ["ubuntu"], "flag": "install_unity_hub"},
+    {"key": "helium", "label": "Helium browser (privacy-first Chromium fork)", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_helium", "detect_packages": ["helium-bin"]},
+    {"key": "unity_hub", "label": "Unity Hub (Unity game engine)", "default": False, "profiles": ["ubuntu"], "flag": "install_unity_hub", "detect_packages": ["unityhub"]},
     {"key": "gimp", "label": "GIMP", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["gimp"], "dnf": ["gimp"]},
     {"key": "xournalpp", "label": "Xournal++", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["xournalpp"], "dnf": ["xournalpp"]},
     {"key": "onedrive", "label": "OneDrive", "default": False, "apt": ["onedrive"], "dnf": ["onedrive"], "flag": "install_onedrive"},
     {"key": "mangohud", "label": "MangoHud", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["mangohud"], "dnf": ["mangohud"], "flag": "install_mangohud"},
     {"key": "obs_studio", "label": "OBS Studio", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["obs-studio"], "dnf": ["obs-studio"]},
-    {"key": "opencode_cli", "label": "OpenCode CLI", "default": True, "flag": "install_opencode_cli"},
-    {"key": "opencode_desktop", "label": "OpenCode Desktop", "default": True, "profiles": DESKTOP_PROFILES, "flag": "install_opencode_desktop"},
-    {"key": "codex_cli", "label": "Codex CLI", "default": False, "flag": "install_codex_cli"},
-    {"key": "claude_code", "label": "Claude Code", "default": True, "flag": "install_claude_code"},
-    {"key": "cursor_cli", "label": "Cursor CLI (agent)", "default": True, "flag": "install_cursor_cli"},
-    {"key": "glab", "label": "GitLab CLI (glab)", "default": True, "flag": "install_glab"},
-    {"key": "docker", "label": "Docker Engine (with Compose and Buildx)", "default": True, "flag": "install_docker"},
-    {"key": "fleet", "label": "Fleet (fleetd device management, needs the enroll secret)", "default": False, "flag": "install_fleet"},
-    {"key": "compai_agent", "label": "Comp AI device agent (compliance checks)", "default": False, "profiles": ["ubuntu"], "flag": "install_compai_agent"},
-    {"key": "unity_cli", "label": "Unity CLI (beta)", "default": False, "flag": "install_unity_cli"},
-    {"key": "grok_bot", "label": "Grok Bot (xAI desktop agent)", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_grok_bot"},
-    {"key": "cursor", "label": "Cursor editor", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_cursor"},
-    {"key": "t3_code", "label": "T3 Code (remote agent control surface)", "default": False, "flag": "install_t3_code"},
+    {"key": "opencode_cli", "label": "OpenCode CLI", "default": True, "flag": "install_opencode_cli", "detect_paths": ["~/.opencode/bin/opencode"]},
+    {"key": "opencode_desktop", "label": "OpenCode Desktop", "default": True, "profiles": DESKTOP_PROFILES, "flag": "install_opencode_desktop", "detect_packages": ["opencode"]},
+    {"key": "codex_cli", "label": "Codex CLI", "default": False, "flag": "install_codex_cli", "detect_paths": ["~/.local/bin/codex"]},
+    {"key": "claude_code", "label": "Claude Code", "default": True, "flag": "install_claude_code", "detect_paths": ["~/.local/bin/claude"]},
+    {"key": "cursor_cli", "label": "Cursor CLI (agent)", "default": True, "flag": "install_cursor_cli", "detect_paths": ["~/.local/bin/cursor-agent"]},
+    {"key": "glab", "label": "GitLab CLI (glab)", "default": True, "flag": "install_glab", "detect_packages": ["glab"]},
+    {"key": "docker", "label": "Docker Engine (with Compose and Buildx)", "default": True, "flag": "install_docker", "detect_packages": ["docker-ce"]},
+    {"key": "fleet", "label": "Fleet (fleetd device management, needs the enroll secret)", "default": False, "flag": "install_fleet", "detect_packages": ["fleet-osquery"]},
+    {"key": "compai_agent", "label": "Comp AI device agent (compliance checks)", "default": False, "profiles": ["ubuntu"], "flag": "install_compai_agent", "detect_packages": ["comp-ai-device-agent"]},
+    {"key": "unity_cli", "label": "Unity CLI (beta)", "default": False, "flag": "install_unity_cli", "detect_paths": ["~/.local/bin/unity"]},
+    {"key": "grok_bot", "label": "Grok Bot (xAI desktop agent)", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_grok_bot", "detect_paths": ["/usr/bin/grok-bot"]},
+    {"key": "cursor", "label": "Cursor editor", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_cursor", "detect_paths": ["/usr/bin/cursor"]},
+    {"key": "t3_code", "label": "T3 Code (remote agent control surface)", "default": False, "flag": "install_t3_code", "detect_paths": ["/usr/local/bin/t3-code"]},
     {"key": "steam", "label": "Steam", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["steam-installer"], "foreign_arch": ["i386"]},
     {"key": "discord", "label": "Discord", "default": False, "profiles": DESKTOP_PROFILES, "snap": ["discord"], "flatpak": ["com.discordapp.Discord"]},
     {"key": "onlyoffice", "label": "OnlyOffice", "default": True, "profiles": DESKTOP_PROFILES, "snap": ["onlyoffice-desktopeditors"], "flatpak": ["org.onlyoffice.desktopeditors"]},
     {"key": "spotify", "label": "Spotify", "default": False, "profiles": DESKTOP_PROFILES, "snap": ["spotify"], "flatpak": ["com.spotify.Client"]},
     {"key": "localsend", "label": "LocalSend", "default": True, "profiles": DESKTOP_PROFILES, "snap": ["localsend"], "flatpak": ["org.localsend.localsend_app"]},
     {"key": "zapzap", "label": "ZapZap", "default": False, "profiles": DESKTOP_PROFILES, "snap": ["zapzap"]},
-    {"key": "zed", "label": "Zed editor", "default": True, "profiles": DESKTOP_PROFILES, "flag": "install_zed"},
-    {"key": "balena_etcher", "label": "Balena Etcher", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_balena_etcher"},
-    {"key": "teams_pwa", "label": "Microsoft Teams PWA", "default": False, "profiles": DESKTOP_PROFILES, "flag": "configure_teams_pwa"},
-    {"key": "keychron", "label": "Keychron udev rule", "default": False, "flag": "configure_keychron"},
+    {"key": "zed", "label": "Zed editor", "default": True, "profiles": DESKTOP_PROFILES, "flag": "install_zed", "detect_paths": ["~/.local/bin/zed"]},
+    {"key": "balena_etcher", "label": "Balena Etcher", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_balena_etcher", "detect_paths": ["/opt/balena-etcher-*/balenaEtcher-linux-x64/balena-etcher"]},
+    {"key": "teams_pwa", "label": "Microsoft Teams PWA", "default": False, "profiles": DESKTOP_PROFILES, "flag": "configure_teams_pwa", "detect_paths": ["/etc/opt/chrome/policies/managed/teams-pwa.json"]},
+    {"key": "keychron", "label": "Keychron udev rule", "default": False, "flag": "configure_keychron", "detect_paths": ["/etc/udev/rules.d/50-keychron-k4-pro.rules"]},
 ]
 
 
@@ -337,6 +344,118 @@ def default_selection(profile):
     return {app["key"] for app in visible_apps(profile) if app_default(app, profile)}
 
 
+def command_lines(argv):
+    if not shutil.which(argv[0]):
+        return []
+    try:
+        result = subprocess.run(argv, capture_output=True, text=True, timeout=30, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    return result.stdout.splitlines() if result.returncode == 0 else []
+
+
+def installed_packages():
+    """Return the names installed by each package manager on this machine."""
+    dpkg = {
+        line.split()[1]
+        for line in command_lines(["dpkg-query", "-W", "-f", "${db:Status-Abbrev} ${Package}\n"])
+        if line.startswith("ii") and len(line.split()) > 1
+    }
+    rpm = set(command_lines(["rpm", "-qa", "--qf", "%{NAME}\n"]))
+    snap = {line.split()[0] for line in command_lines(["snap", "list"])[1:] if line.split()}
+    flatpak = {line.strip() for line in command_lines(["flatpak", "list", "--app", "--columns=application"]) if line.strip()}
+    return {"apt": dpkg, "dnf": rpm, "snap": snap, "flatpak": flatpak, "system": dpkg | rpm}
+
+
+def ufw_enabled():
+    try:
+        text = Path("/etc/ufw/ufw.conf").read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return re.search(r"^ENABLED=yes\s*$", text, re.MULTILINE) is not None
+
+
+def app_installed(app, profile, packages):
+    if app.get("detect") == "ufw_enabled":
+        return ufw_enabled()
+    if any(glob.glob(os.path.expanduser(path)) for path in app.get("detect_paths", [])):
+        return True
+    if any(name in packages["system"] for name in app.get("detect_packages", [])):
+        return True
+    managers = ["apt", "snap", "flatpak"] if profile in APT_PROFILES else ["dnf", "flatpak"]
+    for manager in managers:
+        names = app.get(manager)
+        if names:
+            return all(name in packages[manager] for name in names)
+    return False
+
+
+def detect_installed(profile):
+    """Keys of the apps that are already on this machine."""
+    if not sys.platform.startswith("linux"):
+        return set()
+    packages = installed_packages()
+    return {app["key"] for app in visible_apps(profile) if app_installed(app, profile, packages)}
+
+
+def read_local_yml(path):
+    """Parse the scalars and lists of a local.yml written by this tool."""
+    try:
+        text = Path(path).read_text(encoding="utf-8")
+    except OSError:
+        return None
+    return read_local_yml_text(text)
+
+
+def read_local_yml_text(text):
+    data = {}
+    current = None
+    for line in text.splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        if line.startswith("  - ") and current is not None:
+            data[current].append(line[4:].strip().strip('"'))
+            continue
+        match = re.match(r"([A-Za-z0-9_]+):\s*(.*)$", line)
+        if not match:
+            current = None
+            continue
+        key, value = match.groups()
+        if value == "":
+            data[key] = []
+            current = key
+        else:
+            current = None
+            data[key] = {"true": True, "false": False, "[]": []}.get(value, value.strip('"'))
+    return data
+
+
+def previous_selection(profile, data):
+    """Keys of the apps a previous local.yml selected."""
+    selected = set()
+    for app in visible_apps(profile):
+        flags = app_flags(app)
+        if flags:
+            if all(data.get(flag) is True for flag in flags):
+                selected.add(app["key"])
+            continue
+        lists = {
+            "apt": "apt_packages",
+            "snap": "snap_packages",
+            "flatpak": "flatpak_packages",
+            "dnf": "dnf_packages",
+        }
+        managers = ["apt", "snap", "flatpak"] if profile in APT_PROFILES else ["dnf", "flatpak"]
+        for manager in managers:
+            names = app.get(manager)
+            if names:
+                chosen = data.get(lists[manager])
+                if isinstance(chosen, list) and all(name in chosen for name in names):
+                    selected.add(app["key"])
+                break
+    return selected
+
+
 def generate_local_yml(profile, config):
     # workstation_user and workstation_home are left to all.yml, which takes them
     # from the account running the playbook.
@@ -472,6 +591,11 @@ def parse_args(argv=None):
         default=LOCAL_VARS,
         help="Path to write local.yml (default: ansible/group_vars/local.yml)",
     )
+    parser.add_argument(
+        "--no-detect",
+        action="store_true",
+        help="Don't tick the apps already installed on this machine",
+    )
     return parser.parse_args(argv)
 
 
@@ -489,8 +613,28 @@ def main(argv=None):
             )
 
         apps = visible_apps(profile)
-        selected = choose_many("Select apps and modules", apps, default_selection(profile))
+        installed = set() if args.no_detect else detect_installed(profile)
+        previous = read_local_yml(args.output)
+        if previous is not None:
+            # A re-run starts from the last answers, so it doesn't bring back
+            # apps that were unticked before.
+            initial = previous_selection(profile, previous)
+        else:
+            initial = default_selection(profile)
+        if installed:
+            print("\nApps already on this machine are ticked and marked (installed).")
+            print("Unticking one makes Chinook stop managing it; it doesn't uninstall it.")
+        choices = [
+            dict(app, label=f"{app['label']} (installed)") if app["key"] in installed else app
+            for app in apps
+        ]
+        selected = choose_many("Select apps and modules", choices, initial | installed)
         config = build_config(profile, selected)
+        saved = previous or {}
+
+        def saved_text(key, default=""):
+            value = saved.get(key)
+            return value if isinstance(value, str) and value else default
 
         if ask_yes_no("Configure SSH snippets", False):
             config["configure_ssh"] = True
@@ -501,47 +645,50 @@ def main(argv=None):
 
         if "tmux" in selected:
             while True:
-                session_name = ask("tmux session name", "main")
+                session_name = ask("tmux session name", saved_text("tmux_session_name", "main"))
                 if TMUX_SESSION_NAME_RE.fullmatch(session_name):
                     config["tmux_session_name"] = session_name
                     break
                 print("Use only letters, numbers, underscores, or hyphens.")
-            config["tmux_status_bg"] = ask("tmux status bar color (colour24, green, red, blue)", "colour24")
+            config["tmux_status_bg"] = ask("tmux status bar color (colour24, green, red, blue)", saved_text("tmux_status_bg", "colour24"))
 
         if "tailscale" in selected:
-            auth_key = ask("Tailscale auth key (optional, leave empty to join later)", "")
+            auth_key = ask("Tailscale auth key (optional, leave empty to join later)", "") or saved_text("tailscale_auth_key")
             if auth_key:
                 config["tailscale_auth_key"] = auth_key
 
         if "fleet" in selected:
             print("\nFleet lists this device by its hostname, in the nombre-apellido format (for example john-doe).")
             while True:
-                hostname = ask("Device name", current_hostname()).lower()
+                hostname = ask("Device name", saved_text("workstation_hostname", current_hostname())).lower()
                 if HOSTNAME_RE.fullmatch(hostname):
                     break
                 print("Use lowercase letters, numbers, and hyphens, like john-doe.")
             if hostname != current_hostname():
                 config["workstation_hostname"] = hostname
-            secret = ask("Fleet enroll secret (from the Fleet admin; leave empty to enroll later)", "")
+            if saved_text("fleet_enroll_secret"):
+                secret = ask("Fleet enroll secret (leave empty to keep the saved one)", "") or saved_text("fleet_enroll_secret")
+            else:
+                secret = ask("Fleet enroll secret (from the Fleet admin; leave empty to enroll later)", "")
             if secret:
                 config["fleet_enroll_secret"] = secret
-            email = ask("Your work email for Fleet (optional)", "")
+            email = ask("Your work email for Fleet (optional)", saved_text("fleet_end_user_email"))
             if email:
                 config["fleet_end_user_email"] = email
 
         if "onedrive" in selected:
-            sync_dir = ask("OneDrive sync dir", "~/OneDrive")
-            sync_items = ask("OneDrive selective sync entries, comma separated", "")
+            sync_dir = ask("OneDrive sync dir", saved_text("onedrive_sync_dir", "~/OneDrive"))
+            sync_items = ask("OneDrive selective sync entries, comma separated", ", ".join(saved.get("onedrive_sync_list") or []))
             config["onedrive_sync_dir"] = sync_dir
             config["onedrive_sync_list"] = [item.strip() for item in sync_items.split(",") if item.strip()]
 
         if "keychron" in selected:
-            config["keychron_vendor_id"] = ask("Keychron vendor ID", "3434")
-            config["keychron_product_id"] = ask("Keychron product ID", "0240")
+            config["keychron_vendor_id"] = ask("Keychron vendor ID", saved_text("keychron_vendor_id", "3434"))
+            config["keychron_product_id"] = ask("Keychron product ID", saved_text("keychron_product_id", "0240"))
 
         if "teams_pwa" in selected:
-            config["teams_pwa_app_id"] = ask("Teams Chrome app ID")
-            config["teams_pwa_profile_directory"] = ask("Chrome profile directory", "Default")
+            config["teams_pwa_app_id"] = ask("Teams Chrome app ID", saved_text("teams_pwa_app_id"))
+            config["teams_pwa_profile_directory"] = ask("Chrome profile directory", saved_text("teams_pwa_profile_directory", "Default"))
 
         if profile == "fedora_asahi":
             keep = choose_many(
