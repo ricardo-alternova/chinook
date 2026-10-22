@@ -23,6 +23,7 @@ install_zed: false
 install_balena_etcher: false
 install_t3_code: false
 install_tailscale: false
+install_docker: false
 
 configure_shell: false
 configure_kitty: false
@@ -178,6 +179,39 @@ unity_hub_apt_key_url: https://hub.unity3d.com/linux/keys/public
 unity_hub_apt_key_path: /usr/share/keyrings/Unity_Technologies_ApS.gpg
 unity_hub_apt_sources_path: /etc/apt/sources.list.d/unityhub.sources
 unity_hub_apt_repo_url: https://hub.unity3d.com/linux/repos/deb
+
+docker_packages:
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin
+docker_conflicting_apt_packages:
+  - docker.io
+  - docker-compose
+  - docker-compose-v2
+  - docker-doc
+  - podman-docker
+  - containerd
+  - runc
+docker_conflicting_dnf_packages:
+  - docker
+  - docker-client
+  - docker-client-latest
+  - docker-common
+  - docker-latest
+  - docker-latest-logrotate
+  - docker-logrotate
+  - docker-selinux
+  - docker-engine-selinux
+  - docker-engine
+  - podman-docker
+docker_apt_key_url: https://download.docker.com/linux/ubuntu/gpg
+docker_apt_key_path: /etc/apt/keyrings/docker.asc
+docker_apt_sources_path: /etc/apt/sources.list.d/docker.sources
+docker_apt_repo_url: https://download.docker.com/linux/ubuntu
+docker_rpm_key_url: https://download.docker.com/linux/fedora/gpg
+docker_dnf_repo_url: https://download.docker.com/linux/fedora/docker-ce.repo
 
 t3_code_install_dir: /opt/t3-code
 t3_code_extract_dir: /tmp/t3-code-extract

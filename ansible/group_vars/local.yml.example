@@ -23,6 +23,7 @@ install_zed: true
 install_balena_etcher: false
 install_t3_code: false
 install_tailscale: false
+install_docker: true
 
 configure_shell: true
 configure_kitty: true

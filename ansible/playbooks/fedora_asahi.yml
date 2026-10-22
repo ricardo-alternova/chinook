@@ -74,6 +74,9 @@
     - role: glab
       tags: glab
       when: install_glab | bool
+    - role: docker
+      tags: docker
+      when: install_docker | bool
     - role: unity_cli
       tags: unity_cli
       when: install_unity_cli | bool

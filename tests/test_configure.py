@@ -129,6 +129,20 @@ class TestCatalog(unittest.TestCase):
             for flag in ("install_claude_code", "install_cursor_cli", "install_glab", "install_starship"):
                 self.assertTrue(profile_vars[flag], f"{profile} {flag}")
 
+    def test_docker_on_every_profile_from_dockers_repos(self):
+        role_text = (ROOT / "ansible/roles/docker/tasks/main.yml").read_text(encoding="utf-8")
+        all_vars = parse_yaml((ROOT / "ansible/group_vars/all.yml").read_text(encoding="utf-8"))
+        for profile, playbook in configure.PLAYBOOKS.items():
+            config = configure.build_config(profile, configure.default_selection(profile))
+            self.assertTrue(config["install_docker"], profile)
+            self.assertIn("role: docker", (ROOT / playbook).read_text(encoding="utf-8"), profile)
+            profile_vars = parse_yaml((ROOT / "ansible/group_vars" / f"{profile}.yml").read_text(encoding="utf-8"))
+            self.assertTrue(profile_vars["install_docker"], profile)
+        self.assertIn("docker-compose-plugin", all_vars["docker_packages"])
+        self.assertTrue(all_vars["docker_apt_repo_url"].startswith("https://download.docker.com/"))
+        self.assertTrue(all_vars["docker_dnf_repo_url"].startswith("https://download.docker.com/"))
+        self.assertIn("groups: docker", role_text)
+
     def test_starship_uses_installer_not_distro_packages(self):
         # Ubuntu LTS has no starship APT package; one missing package fails the whole apt task.
         for profile in configure.PLAYBOOKS:
