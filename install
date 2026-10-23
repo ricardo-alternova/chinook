@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Chinook one-line installer.
-# wget -qO- https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash
+# curl -fsSL https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash
+# wget -qO- https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash works too.
+# Keep this script working on macOS's bash 3.2.
 set -euo pipefail
 
 CHINOOK_REPO="${CHINOOK_REPO:-https://github.com/ricardo-alternova/chinook.git}"
@@ -16,7 +18,7 @@ banner() {
  | |___ | | | | | | | | (_) | (_) |   <
   \____|_| |_|_|_| |_|\___/ \___/|_|\_\
 
-  Fresh Linux → daily driver
+  Fresh Linux or macOS → daily driver
 EOF
 }
 
@@ -35,7 +37,18 @@ prompt_enter() {
   read -r -p "Press Enter to continue. " _ </dev/tty
 }
 
+is_macos() {
+  [[ "$(uname -s)" == Darwin ]]
+}
+
 detect_os() {
+  if is_macos; then
+    CHINOOK_OS_LABEL="macOS $(sw_vers -productVersion)"
+    CHINOOK_PROFILE=macos
+    CHINOOK_PLAYBOOK=ansible/playbooks/macos.yml
+    return
+  fi
+
   [[ -r /etc/os-release ]] || die "Unsupported system: /etc/os-release is missing."
   # shellcheck disable=SC1091
   . /etc/os-release
@@ -58,7 +71,7 @@ detect_os() {
       fi
       ;;
     *)
-      die "Unsupported OS '${ID:-unknown}'. Chinook supports Ubuntu (GNOME or Server) and Fedora Asahi Remix (KDE)."
+      die "Unsupported OS '${ID:-unknown}'. Chinook supports Ubuntu (GNOME or Server), Fedora Asahi Remix (KDE), and macOS."
       ;;
   esac
 
@@ -102,7 +115,36 @@ choose_ubuntu_profile() {
   esac
 }
 
+load_homebrew() {
+  local brew
+  for brew in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+    if [[ -x "$brew" ]]; then
+      eval "$("$brew" shellenv)"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Homebrew also installs the Command Line Tools, which provide git and python3.
+ensure_homebrew() {
+  load_homebrew && return 0
+  echo "Installing Homebrew (it asks for your password)..."
+  sudo -v
+  local installer
+  # set -e doesn't see a failure inside $( ), so check the download explicitly.
+  installer="$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" \
+    || die "Could not download the Homebrew installer."
+  NONINTERACTIVE=1 /bin/bash -c "$installer"
+  load_homebrew || die "Homebrew installed, but brew was not found in /opt/homebrew or /usr/local."
+}
+
 pkg_install() {
+  if is_macos; then
+    ensure_homebrew
+    command -v ansible-playbook >/dev/null 2>&1 || brew install ansible
+    return
+  fi
   case "${ID:-}" in
     ubuntu)
       sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
@@ -118,6 +160,13 @@ pkg_install() {
 }
 
 ensure_git() {
+  if is_macos; then
+    # /usr/bin/git is only a stub until the Command Line Tools are installed.
+    xcode-select -p >/dev/null 2>&1 && return 0
+    ensure_homebrew
+    command -v git >/dev/null 2>&1 || die "git is required; open a new terminal and re-run after the Command Line Tools finish installing."
+    return
+  fi
   command -v git >/dev/null 2>&1 && return 0
   echo "Installing git..."
   [[ -r /etc/os-release ]] || die "Unsupported system: /etc/os-release is missing."
@@ -164,13 +213,24 @@ clone_or_update() {
   git clone --depth 1 --branch "$CHINOOK_REF" "$CHINOOK_REPO" "$CHINOOK_DIR"
 }
 
+check_os() {
+  case "$(uname -s)" in
+    Linux|Darwin) ;;
+    *) die "Chinook is for Linux and macOS. Detected $(uname -s)." ;;
+  esac
+}
+
 bootstrap() {
-  [[ "$(uname -s)" == Linux ]] || die "Chinook is for Linux. Detected $(uname -s)."
+  check_os
   [[ "${EUID:-$(id -u)}" -ne 0 ]] || die "Run as your user, not root. The installer will sudo when needed."
   need_tty
   banner
   echo
-  echo "This will install git, ansible, and python3, then help you pick apps."
+  if is_macos; then
+    echo "This will install Homebrew (with git and python3) and ansible, then help you pick apps."
+  else
+    echo "This will install git, ansible, and python3, then help you pick apps."
+  fi
   prompt_enter
 
   local root
@@ -185,7 +245,7 @@ bootstrap() {
 }
 
 run_from_repo() {
-  [[ "$(uname -s)" == Linux ]] || die "Chinook is for Linux. Detected $(uname -s)."
+  check_os
   [[ "${EUID:-$(id -u)}" -ne 0 ]] || die "Run as your user, not root. The installer will sudo when needed."
   need_tty
 
@@ -196,7 +256,7 @@ run_from_repo() {
   detect_os
   echo
   echo "Detected $CHINOOK_OS_LABEL → profile '$CHINOOK_PROFILE'"
-  echo "Installing prerequisites (git, ansible, python3)..."
+  echo "Installing prerequisites..."
   pkg_install
 
   command -v python3 >/dev/null 2>&1 || die "python3 is required."
@@ -223,7 +283,7 @@ run_from_repo() {
   # Newer Ubuntu releases default to sudo-rs, whose password prompt Ansible
   # doesn't recognize (it times out waiting for it). The classic sudo still ships
   # as sudo.ws, so have Ansible use that.
-  if sudo --version 2>/dev/null | grep -qi 'sudo-rs'; then
+  if ! is_macos && sudo --version 2>/dev/null | grep -qi 'sudo-rs'; then
     command -v sudo.ws >/dev/null 2>&1 || sudo DEBIAN_FRONTEND=noninteractive apt-get install -y sudo
     command -v sudo.ws >/dev/null 2>&1 || die "This system uses sudo-rs, and Ansible needs the classic sudo (sudo.ws)."
     echo "sudo-rs detected; Ansible will use sudo.ws."
@@ -238,7 +298,22 @@ run_from_repo() {
   else
     become=(--ask-become-pass)
   fi
-  ansible-playbook "$CHINOOK_PLAYBOOK" "${become[@]}"
+  # bash 3.2 treats an empty array as unset under set -u.
+  ansible-playbook "$CHINOOK_PLAYBOOK" ${become[@]+"${become[@]}"}
+
+  if is_macos; then
+    cat <<'EOF'
+
+Chinook is ready.
+
+Next steps:
+  1. If you picked Fleet, check that the Fleet Desktop icon shows in the menu bar.
+  2. If Chinook renamed this Mac, restart it so every app picks up the new name.
+
+That is it.
+EOF
+    return
+  fi
 
   cat <<'EOF'
 
@@ -254,7 +329,12 @@ That is it.
 EOF
 }
 
-trap 'echo "Chinook installation failed. Retry with: wget -qO- https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash"' ERR
+if command -v curl >/dev/null 2>&1; then
+  CHINOOK_RETRY="curl -fsSL https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash"
+else
+  CHINOOK_RETRY="wget -qO- https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash"
+fi
+trap 'echo "Chinook installation failed. Retry with: $CHINOOK_RETRY"' ERR
 
 if [[ "${1:-}" == "--in-repo" ]]; then
   run_from_repo

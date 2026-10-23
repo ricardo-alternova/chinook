@@ -20,3 +20,5 @@
   ansible.builtin.set_fact:
     workstation_user: "{{ ansible_facts['user_id'] }}"
     workstation_home: "{{ ansible_facts['env']['HOME'] }}"
+    # Linux gives each user a group of the same name; macOS uses staff.
+    workstation_group: "{{ ansible_facts['user_gid'] }}"

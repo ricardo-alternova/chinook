@@ -1,0 +1,14 @@
+# macOS support is new: the selector only offers apps whose macOS install is
+# Homebrew or a cross-platform role, and only Fleet starts ticked.
+install_packages: true
+
+# Fleet Desktop is the usual macOS setup, and reinstalling without it would remove it.
+install_fleet: true
+fleet_desktop: true
+
+# The selector ticks these when they are already installed or when you tick them.
+configure_ssh: false
+install_opencode_cli: false
+install_codex_cli: false
+install_claude_code: false
+install_cursor_cli: false

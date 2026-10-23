@@ -1,0 +1,76 @@
+# Homebrew refuses to run as root, so nothing here uses become.
+- name: Find Homebrew
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /opt/homebrew/bin/brew
+    - /usr/local/bin/brew
+  register: homebrew_candidates
+
+- name: Fail when Homebrew is missing
+  ansible.builtin.fail:
+    msg: "Homebrew is not installed. The Chinook installer sets it up, or see https://brew.sh."
+  when: homebrew_candidates.results | selectattr('stat.exists') | list | length == 0
+
+- name: Set the Homebrew path
+  ansible.builtin.set_fact:
+    homebrew_bin: "{{ (homebrew_candidates.results | selectattr('stat.exists') | first).item }}"
+
+- name: Put Homebrew on the zsh PATH
+  ansible.builtin.lineinfile:
+    path: "{{ workstation_home }}/.zprofile"
+    create: true
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_group }}"
+    mode: "0644"
+    line: 'eval "$({{ homebrew_bin }} shellenv)"'
+
+- name: List installed Homebrew formulae
+  ansible.builtin.command: "{{ homebrew_bin }} list --formula -1"
+  register: homebrew_formulae
+  changed_when: false
+  check_mode: false
+
+- name: Install Homebrew formulae
+  ansible.builtin.command:
+    argv: "{{ [homebrew_bin, 'install', '--formula'] + homebrew_missing_formulae }}"
+  vars:
+    homebrew_missing_formulae: "{{ (brew_packages + brew_packages_extra) | unique | difference(homebrew_formulae.stdout_lines) | list }}"
+  when: homebrew_missing_formulae | length > 0
+
+- name: List installed Homebrew casks
+  ansible.builtin.command: "{{ homebrew_bin }} list --cask -1"
+  register: homebrew_installed_casks
+  changed_when: false
+  check_mode: false
+
+# One cask at a time, so a failed cask doesn't stop the rest. Apps the
+# configurator found in /Applications outside Homebrew are in
+# brew_casks_present, not brew_casks: Homebrew downloads the whole artifact
+# before noticing the app already exists.
+- name: Install Homebrew casks
+  ansible.builtin.command:
+    argv:
+      - "{{ homebrew_bin }}"
+      - install
+      - --cask
+      - "{{ item }}"
+  loop: "{{ (brew_casks + brew_casks_extra) | unique | difference(homebrew_installed_casks.stdout_lines) | list }}"
+  register: homebrew_cask_install
+  changed_when: homebrew_cask_install.rc == 0
+  failed_when:
+    - homebrew_cask_install.rc != 0
+    - "'It seems there is already' not in homebrew_cask_install.stderr"
+
+- name: Report apps that were installed without Homebrew
+  ansible.builtin.debug:
+    msg: >-
+      {{ homebrew_skipped_casks | join(', ') }} {{ 'is' if homebrew_skipped_casks | length == 1 else 'are' }}
+      already in /Applications from outside Homebrew, so Chinook left {{ 'it' if homebrew_skipped_casks | length == 1 else 'them' }} as is.
+      To let Homebrew update {{ 'it' if homebrew_skipped_casks | length == 1 else 'them' }}, run: brew install --cask --adopt {{ homebrew_skipped_casks | join(' ') }}
+  vars:
+    homebrew_skipped_casks: >-
+      {{ ((brew_casks_present | default([]))
+          + (homebrew_cask_install.results | default([]) | rejectattr('skipped', 'defined') | rejectattr('rc', 'equalto', 0) | map(attribute='item') | list))
+         | unique }}
+  when: homebrew_skipped_casks | length > 0

@@ -3,6 +3,8 @@
     name: curl
     state: present
   become: true
+  # macOS ships curl and tar.
+  when: ansible_facts['system'] == 'Linux'
 
 # Claude Code updates itself after the first install, so only run the installer when it is missing.
 - name: Install Claude Code with official installer
@@ -20,6 +22,6 @@
     path: "{{ workstation_home }}/.zshrc"
     create: true
     owner: "{{ workstation_user }}"
-    group: "{{ workstation_user }}"
+    group: "{{ workstation_group }}"
     mode: "0644"
     line: 'export PATH="$HOME/.local/bin:$PATH"'

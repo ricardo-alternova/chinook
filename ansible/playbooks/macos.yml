@@ -1,0 +1,43 @@
+- name: Configure macOS
+  hosts: localhost
+  gather_facts: true
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/macos.yml
+
+  pre_tasks:
+    - name: Load local workstation overrides
+      ansible.builtin.import_tasks: tasks/load_local_vars.yml
+      tags: always
+
+    - name: Fail when the macOS playbook is run on another OS
+      ansible.builtin.fail:
+        msg: "This playbook is for macOS. This machine runs {{ ansible_facts['system'] }}."
+      when: ansible_facts['system'] != 'Darwin'
+      tags: always
+
+  roles:
+    - role: hostname
+      tags: hostname
+      when: workstation_hostname | length > 0
+    - role: homebrew
+      tags: homebrew
+      when: install_packages | bool
+    - role: ssh_client
+      tags: ssh_client
+      when: configure_ssh | bool
+    - role: opencode_cli
+      tags: opencode_cli
+      when: install_opencode_cli | bool
+    - role: codex_cli
+      tags: codex_cli
+      when: install_codex_cli | bool
+    - role: claude_code
+      tags: claude_code
+      when: install_claude_code | bool
+    - role: cursor_cli
+      tags: cursor_cli
+      when: install_cursor_cli | bool
+    - role: fleet
+      tags: fleet
+      when: install_fleet | bool
