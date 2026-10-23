@@ -116,9 +116,9 @@ class TestCatalog(unittest.TestCase):
         self.assertNotIn("install_cursor |", server)
         self.assertTrue((ROOT / "ansible" / "roles" / "cursor" / "tasks" / "main.yml").is_file())
 
-    def test_agent_and_git_clis_on_every_profile(self):
-        playbook_dir = ROOT / "ansible" / "playbooks"
-        for profile, playbook in configure.PLAYBOOKS.items():
+    def test_agent_and_git_clis_on_every_linux_profile(self):
+        for profile in configure.LINUX_PROFILES:
+            playbook = configure.PLAYBOOKS[profile]
             selected = configure.default_selection(profile)
             config = configure.build_config(profile, selected)
             playbook_text = (ROOT / playbook).read_text(encoding="utf-8")
@@ -131,10 +131,11 @@ class TestCatalog(unittest.TestCase):
             for flag in ("install_claude_code", "install_cursor_cli", "install_glab", "install_starship"):
                 self.assertTrue(profile_vars[flag], f"{profile} {flag}")
 
-    def test_docker_on_every_profile_from_dockers_repos(self):
+    def test_docker_on_every_linux_profile_from_dockers_repos(self):
         role_text = (ROOT / "ansible/roles/docker/tasks/main.yml").read_text(encoding="utf-8")
         all_vars = parse_yaml((ROOT / "ansible/group_vars/all.yml").read_text(encoding="utf-8"))
-        for profile, playbook in configure.PLAYBOOKS.items():
+        for profile in configure.LINUX_PROFILES:
+            playbook = configure.PLAYBOOKS[profile]
             config = configure.build_config(profile, configure.default_selection(profile))
             self.assertTrue(config["install_docker"], profile)
             self.assertIn("role: docker", (ROOT / playbook).read_text(encoding="utf-8"), profile)
@@ -151,10 +152,14 @@ class TestCatalog(unittest.TestCase):
         self.assertEqual(all_vars["fleet_url"], "https://fleet.alternova.dev")
         for profile, playbook in configure.PLAYBOOKS.items():
             config = configure.build_config(profile, configure.default_selection(profile))
-            self.assertFalse(config["install_fleet"], profile)
+            # macOS is the exception: Fleet is the one app ticked by default there.
+            self.assertEqual(config["install_fleet"], profile == "macos", profile)
             self.assertIn("fleet", [app["key"] for app in configure.visible_apps(profile)], profile)
             profile_vars = parse_yaml((ROOT / "ansible/group_vars" / f"{profile}.yml").read_text(encoding="utf-8"))
-            self.assertNotIn("install_fleet", profile_vars, profile)
+            if profile == "macos":
+                self.assertTrue(profile_vars["install_fleet"], profile)
+            else:
+                self.assertNotIn("install_fleet", profile_vars, profile)
             playbook_text = (ROOT / playbook).read_text(encoding="utf-8")
             self.assertIn("role: fleet", playbook_text, profile)
             self.assertLess(playbook_text.index("role: hostname"), playbook_text.index("role: fleet"), profile)
@@ -179,7 +184,7 @@ class TestCatalog(unittest.TestCase):
 
     def test_starship_uses_installer_not_distro_packages(self):
         # Ubuntu LTS has no starship APT package; one missing package fails the whole apt task.
-        for profile in configure.PLAYBOOKS:
+        for profile in configure.LINUX_PROFILES:
             config = configure.build_config(profile, configure.default_selection(profile))
             self.assertTrue(config["install_starship"], profile)
             self.assertNotIn("starship", config.get("apt_packages", []), profile)
@@ -224,6 +229,7 @@ class TestCatalog(unittest.TestCase):
             i > include_index
             and facts.get("workstation_user") == "{{ ansible_facts['user_id'] }}"
             and facts.get("workstation_home") == "{{ ansible_facts['env']['HOME'] }}"
+            and facts.get("workstation_group") == "{{ ansible_facts['user_gid'] }}"
             for i, facts in set_facts
         ))
         example = (ROOT / "ansible/group_vars/local.yml.example").read_text(encoding="utf-8")
@@ -231,7 +237,7 @@ class TestCatalog(unittest.TestCase):
         self.assertNotIn("workstation_home:", example)
 
     def test_shell_and_kitty_are_configured(self):
-        for profile in configure.PLAYBOOKS:
+        for profile in configure.LINUX_PROFILES:
             config = configure.build_config(profile, configure.default_selection(profile))
             self.assertTrue(config["install_starship"], profile)
             self.assertTrue(config["configure_shell"], profile)
@@ -253,12 +259,13 @@ class TestCatalog(unittest.TestCase):
         self.assertIn("include catppuccin-mocha.conf", kitty_conf)
         self.assertTrue((ROOT / "ansible/roles/kitty/files/catppuccin-mocha.conf").is_file())
 
-    def test_unity_cli_is_optional_everywhere(self):
-        for profile in configure.PLAYBOOKS:
+    def test_unity_cli_is_optional_on_every_linux_profile(self):
+        for profile in configure.LINUX_PROFILES:
             self.assertIn("unity_cli", {app["key"] for app in configure.visible_apps(profile)})
             self.assertNotIn("unity_cli", configure.default_selection(profile))
             playbook = (ROOT / configure.PLAYBOOKS[profile]).read_text(encoding="utf-8")
             self.assertIn("role: unity_cli", playbook)
+        self.assertNotIn("unity_cli", {app["key"] for app in configure.visible_apps("macos")})
         config = configure.build_config("ubuntu", configure.default_selection("ubuntu") | {"unity_cli"})
         self.assertTrue(config["install_unity_cli"])
 
@@ -466,8 +473,8 @@ class TestPrompts(unittest.TestCase):
 
 class TestDetection(unittest.TestCase):
     def packages(self, **managers):
-        found = {name: set(managers.get(name, [])) for name in ("apt", "dnf", "snap", "flatpak")}
-        found["system"] = found["apt"] | found["dnf"]
+        found = {name: set(managers.get(name, [])) for name in ("apt", "dnf", "snap", "flatpak", "brew", "cask")}
+        found["system"] = found["apt"] | found["dnf"] | found["brew"] | found["cask"]
         return found
 
     def app(self, key):
@@ -501,7 +508,7 @@ class TestDetection(unittest.TestCase):
 
     def test_every_app_can_be_detected(self):
         for profile in configure.PLAYBOOKS:
-            managers = ["apt", "snap", "flatpak"] if profile in configure.APT_PROFILES else ["dnf", "flatpak"]
+            managers = configure.profile_managers(profile)
             for app in configure.visible_apps(profile):
                 installs_something = configure.app_flags(app) or any(app.get(manager) for manager in managers)
                 if not installs_something:
@@ -519,6 +526,124 @@ class TestDetection(unittest.TestCase):
         data = configure.read_local_yml_text(configure.generate_local_yml("ubuntu", config))
         self.assertEqual(configure.previous_selection("ubuntu", data), selected)
         self.assertEqual(data["fleet_enroll_secret"], "s3cret+abc")
+
+
+class TestMacosProfile(unittest.TestCase):
+    def app(self, key):
+        return next(app for app in configure.APPS if app["key"] == key)
+
+    def packages(self, **managers):
+        found = {name: set(managers.get(name, [])) for name in ("apt", "dnf", "snap", "flatpak", "brew", "cask")}
+        found["system"] = set().union(*found.values())
+        return found
+
+    def test_playbook_uses_shared_roles_and_checks_the_os(self):
+        self.assertEqual(configure.PLAYBOOKS["macos"], "ansible/playbooks/macos.yml")
+        text = (ROOT / "ansible/playbooks/macos.yml").read_text(encoding="utf-8")
+        self.assertIn("ansible_facts['system'] != 'Darwin'", text)
+        for role in ("hostname", "homebrew", "ssh_client", "opencode_cli", "codex_cli", "claude_code", "cursor_cli", "fleet"):
+            self.assertIn(f"role: {role}", text)
+        for role in ("packages", "snaps", "flatpaks", "timeshift", "gnome", "kde", "docker", "ufw", "fail2ban", "shell"):
+            self.assertNotIn(f"role: {role}", text)
+
+    def test_only_apps_with_a_macos_install_are_offered(self):
+        for app in configure.visible_apps("macos"):
+            self.assertTrue(
+                app.get("brew") or app.get("cask") or configure.app_flags(app),
+                app["key"],
+            )
+        keys = {app["key"] for app in configure.visible_apps("macos")}
+        for linux_only in (
+            "shell", "tmux", "tailscale", "ufw", "fail2ban", "codecs", "heif", "wayshot",
+            "input_remapper", "helium", "unity_hub", "xournalpp", "onedrive", "mangohud",
+            "opencode_desktop", "compai_agent", "unity_cli", "grok_bot", "t3_code",
+            "steam", "zapzap", "balena_etcher", "teams_pwa", "keychron",
+        ):
+            self.assertNotIn(linux_only, keys, linux_only)
+
+    def test_defaults_only_tick_fleet(self):
+        selected = configure.default_selection("macos")
+        self.assertEqual(selected, {"fleet"})
+        config = configure.build_config("macos", selected)
+        self.assertTrue(config["install_packages"])
+        self.assertTrue(config["install_fleet"])
+        self.assertFalse(config["install_claude_code"])
+        self.assertFalse(config["configure_ssh"])
+        for key in ("apt_packages", "dnf_packages", "snap_packages", "flatpak_packages"):
+            self.assertNotIn(key, config)
+        self.assertEqual(config["brew_packages"], [])
+        self.assertEqual(config["brew_casks"], [])
+
+    def test_homebrew_formulae_and_casks(self):
+        selected = configure.default_selection("macos") | {"base_cli", "chrome", "zed"}
+        config = configure.build_config("macos", selected)
+        self.assertEqual(config["brew_packages"], ["git", "jq"])
+        self.assertEqual(config["brew_casks"], ["google-chrome", "zed"])
+
+    def test_chrome_label_matches_macos(self):
+        chrome = self.app("chrome")
+        self.assertEqual(configure.app_label(chrome, "macos"), "Google Chrome")
+        self.assertIn("Ubuntu", configure.app_label(chrome, "ubuntu"))
+
+    def test_detection_uses_homebrew_and_applications(self):
+        base = self.app("base_cli")
+        self.assertTrue(configure.app_installed(base, "macos", self.packages(brew=["git", "jq"])))
+        self.assertFalse(configure.app_installed(base, "macos", self.packages(brew=["git"])))
+        chrome = self.app("chrome")
+        self.assertTrue(configure.app_installed(chrome, "macos", self.packages(cask=["google-chrome"])))
+        with patch.object(configure.glob, "glob", return_value=["/Applications/Google Chrome.app"]):
+            self.assertTrue(configure.app_installed(chrome, "macos", self.packages()))
+            # A Linux profile never installs into /Applications.
+            self.assertFalse(configure.app_installed(chrome, "ubuntu", self.packages()))
+
+    def test_previous_selection_round_trips(self):
+        selected = configure.default_selection("macos") | {"base_cli", "chrome", "glab", "zed", "cursor"}
+        config = configure.build_config("macos", selected)
+        data = configure.read_local_yml_text(configure.generate_local_yml("macos", config))
+        self.assertEqual(configure.previous_selection("macos", data), selected)
+
+    def test_unmanaged_casks_are_reported_not_installed(self):
+        config = configure.build_macos_config({"fleet", "chrome"}, unmanaged_casks={"chrome"})
+        self.assertEqual(config["brew_casks"], [])
+        self.assertEqual(config["brew_casks_present"], ["google-chrome"])
+        data = parse_yaml(configure.generate_local_yml("macos", config))
+        self.assertEqual(data["brew_casks"], [])
+        self.assertEqual(data["brew_casks_present"], ["google-chrome"])
+
+    def test_detection_separates_homebrew_managed_casks(self):
+        chrome_path = "/Applications/Google Chrome.app"
+
+        def detect(casks):
+            packages = self.packages(cask=casks)
+            with patch.object(configure.sys, "platform", "darwin"), \
+                 patch.object(configure, "installed_packages", return_value=packages), \
+                 patch.object(configure.glob, "glob", side_effect=lambda path: [chrome_path] if path == chrome_path else []):
+                return configure.detect_installation("macos")
+
+        installed, unmanaged = detect([])
+        self.assertIn("chrome", installed)
+        self.assertEqual(unmanaged, {"chrome"})
+        installed, unmanaged = detect(["google-chrome"])
+        self.assertIn("chrome", installed)
+        self.assertNotIn("chrome", unmanaged)
+
+    def test_fleet_role_builds_and_loads_a_pkg(self):
+        enroll = (ROOT / "ansible/roles/fleet/tasks/enroll.yml").read_text(encoding="utf-8")
+        self.assertIn("'pkg'", enroll)
+        self.assertIn("installer", enroll)
+        self.assertIn("launchctl", enroll)
+        self.assertIn("fleetctl_archive_ext", enroll)
+        self.assertIn("fleet_macos_plist", enroll)
+        # fleetctl only accepts --end-user-email on Windows and Linux.
+        self.assertIn("and not fleet_macos", enroll)
+
+    def test_homebrew_role_installs_formulae_and_casks(self):
+        role = (ROOT / "ansible/roles/homebrew/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertIn("brew_packages", role)
+        self.assertIn("brew_casks", role)
+        self.assertIn("--cask", role)
+        self.assertIn("/opt/homebrew/bin/brew", role)
+        self.assertIn("shellenv", role)
 
 
 class TestTuiProcess(unittest.TestCase):
@@ -593,6 +718,38 @@ class TestTuiProcess(unittest.TestCase):
         self.assertNotIn("tailscale_auth_key", data)
         self.assertIn("openssh-server", data["apt_packages"])
         self.assertNotIn("snap_packages", data)
+
+    def test_macos_defaults_tick_fleet_only(self):
+        result, output = self.run_tui(
+            ["--profile", "macos"],
+            ["", "", "john-doe", ""],
+        )
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        data = parse_yaml(output.read_text(encoding="utf-8"))
+        self.assertEqual(data["profile"], "macos")
+        self.assertTrue(data["install_fleet"])
+        self.assertTrue(data["install_packages"])
+        self.assertFalse(data["install_claude_code"])
+        self.assertEqual(data["workstation_hostname"], "john-doe")
+        # fleetd learns the owner's email through MDM enrollment on macOS.
+        self.assertNotIn("fleet_end_user_email", data)
+        self.assertEqual(data["brew_packages"], [])
+        self.assertEqual(data["brew_casks"], [])
+        for key in ("apt_packages", "dnf_packages", "snap_packages", "flatpak_packages"):
+            self.assertNotIn(key, data)
+        self.assertIn("ansible/playbooks/macos.yml", result.stdout)
+
+    def test_macos_tui_writes_homebrew_lists(self):
+        picks = f"{app_index('macos', 'base_cli')} {app_index('macos', 'chrome')}"
+        result, output = self.run_tui(
+            ["--profile", "macos"],
+            [picks, "", "", "john-doe", ""],
+        )
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        data = parse_yaml(output.read_text(encoding="utf-8"))
+        self.assertEqual(data["brew_packages"], ["git", "jq"])
+        self.assertEqual(data["brew_casks"], ["google-chrome"])
+        self.assertTrue(data["install_fleet"])
 
     def test_fedora_removals_keep_one(self):
         result, output = self.run_tui(
@@ -684,6 +841,19 @@ class TestInstallScript(unittest.TestCase):
     def test_ubuntu_profile_override_rejects_fedora(self):
         text = (ROOT / "install").read_text(encoding="utf-8")
         self.assertIn("On Ubuntu, CHINOOK_PROFILE must be ubuntu or ubuntu_server", text)
+
+    def test_macos_bootstrap(self):
+        text = (ROOT / "install").read_text(encoding="utf-8")
+        self.assertIn("is_macos()", text)
+        self.assertIn("ensure_homebrew", text)
+        self.assertIn("brew install ansible", text)
+        self.assertIn("ansible/playbooks/macos.yml", text)
+        self.assertIn("curl -fsSL", text)
+        # macOS has no /etc/os-release, so detection must branch before reading it.
+        detect = text[text.index("detect_os()"):text.index("choose_ubuntu_profile()")]
+        self.assertLess(detect.index("is_macos"), detect.index("/etc/os-release"))
+        # bash 3.2 treats an empty array as unset under set -u.
+        self.assertIn('${become[@]+"${become[@]}"}', text)
 
 
 if __name__ == "__main__":

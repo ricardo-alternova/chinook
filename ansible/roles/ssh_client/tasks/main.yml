@@ -3,7 +3,7 @@
     path: "{{ workstation_home }}/.ssh"
     state: directory
     owner: "{{ workstation_user }}"
-    group: "{{ workstation_user }}"
+    group: "{{ workstation_group }}"
     mode: "0700"
 
 - name: Ensure SSH config include directory exists
@@ -11,7 +11,7 @@
     path: "{{ workstation_home }}/.ssh/config.d"
     state: directory
     owner: "{{ workstation_user }}"
-    group: "{{ workstation_user }}"
+    group: "{{ workstation_group }}"
     mode: "0700"
 
 - name: Check base SSH config
@@ -32,7 +32,7 @@
     path: "{{ workstation_home }}/.ssh/config"
     create: true
     owner: "{{ workstation_user }}"
-    group: "{{ workstation_user }}"
+    group: "{{ workstation_group }}"
     mode: "0600"
     line: "Include ~/.ssh/config.d/*.conf"
     insertbefore: BOF
@@ -42,5 +42,5 @@
     src: ssh_config_block.j2
     dest: "{{ workstation_home }}/.ssh/config.d/workstation.conf"
     owner: "{{ workstation_user }}"
-    group: "{{ workstation_user }}"
+    group: "{{ workstation_group }}"
     mode: "0600"

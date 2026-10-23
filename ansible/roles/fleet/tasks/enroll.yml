@@ -1,12 +1,18 @@
-- name: Map machine architecture and package type for fleetd
+- name: Map the OS, architecture, and package type for fleetd
   ansible.builtin.set_fact:
+    fleet_macos: "{{ ansible_facts['system'] == 'Darwin' }}"
     fleet_arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}.get(ansible_facts['architecture'], '') }}"
-    fleet_package_type: "{{ 'deb' if ansible_facts['pkg_mgr'] == 'apt' else 'rpm' }}"
+    fleet_package_type: >-
+      {{ 'pkg' if ansible_facts['system'] == 'Darwin'
+         else ('deb' if ansible_facts['pkg_mgr'] == 'apt' else 'rpm') }}
 
+# The macOS fleetctl and fleetd are universal binaries.
 - name: Fail when fleetd has no build for this architecture
   ansible.builtin.fail:
     msg: "Fleet publishes no Linux fleetd for {{ ansible_facts['architecture'] }}."
-  when: fleet_arch | length == 0
+  when:
+    - not fleet_macos
+    - fleet_arch | length == 0
 
 - name: Read the installed fleetd settings
   ansible.builtin.slurp:
@@ -14,6 +20,20 @@
   become: true
   register: fleet_orbit_env
   failed_when: false
+  when: not fleet_macos
+
+- name: Read the installed fleetd server on macOS
+  ansible.builtin.command:
+    argv:
+      - /usr/libexec/PlistBuddy
+      - -c
+      - "Print :EnvironmentVariables:ORBIT_FLEET_URL"
+      - "{{ fleet_macos_plist }}"
+  register: fleet_macos_url
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: fleet_macos
 
 - name: Check for the fleetd enrollment key
   ansible.builtin.stat:
@@ -25,8 +45,9 @@
 - name: Decide whether fleetd needs installing
   ansible.builtin.set_fact:
     fleet_needs_install: >-
-      {{ ('ORBIT_FLEET_URL=' ~ fleet_url) not in ((fleet_orbit_env.content | default('')) | b64decode)
-         or not fleet_node_key.stat.exists }}
+      {{ not fleet_node_key.stat.exists
+         or ((fleet_macos_url.stdout | default('') | trim) != fleet_url if fleet_macos
+             else ('ORBIT_FLEET_URL=' ~ fleet_url) not in ((fleet_orbit_env.content | default('')) | b64decode)) }}
 
 - name: Build and install fleetd
   when: fleet_needs_install | bool
@@ -38,12 +59,15 @@
       changed_when: false
       failed_when: false
       check_mode: false
+      when: not fleet_macos
 
+    # Every Mac has its own hardware UUID.
     - name: Choose the Fleet host identifier
       ansible.builtin.set_fact:
         fleet_resolved_host_identifier: >-
           {{ fleet_host_identifier if fleet_host_identifier != 'auto'
-             else ('instance' if (fleet_hardware_uuid.stdout | default('') | trim | lower) in fleet_placeholder_uuids else 'uuid') }}
+             else ('uuid' if fleet_macos
+                   else ('instance' if (fleet_hardware_uuid.stdout | default('') | trim | lower) in fleet_placeholder_uuids else 'uuid')) }}
 
     - name: Report a placeholder hardware UUID
       ansible.builtin.debug:
@@ -65,6 +89,12 @@
       ansible.builtin.set_fact:
         fleetctl_version: "{{ fleetctl_release.json.tag_name | regex_replace('^fleet-v', '') }}"
 
+    # Ansible unpacks tar.gz only with GNU tar, which macOS doesn't have, so macOS uses the zip.
+    - name: Set the fleetctl download
+      ansible.builtin.set_fact:
+        fleetctl_dist: "fleetctl_v{{ fleetctl_version }}_{{ 'macos' if fleet_macos else 'linux_' ~ fleet_arch }}"
+        fleetctl_archive_ext: "{{ 'zip' if fleet_macos else 'tar.gz' }}"
+
     - name: Create a fleetd build directory
       ansible.builtin.tempfile:
         state: directory
@@ -73,25 +103,31 @@
 
     - name: Download fleetctl
       ansible.builtin.unarchive:
-        src: "{{ fleetctl_releases_base_url }}/fleet-v{{ fleetctl_version }}/fleetctl_v{{ fleetctl_version }}_linux_{{ fleet_arch }}.tar.gz"
+        src: "{{ fleetctl_releases_base_url }}/fleet-v{{ fleetctl_version }}/{{ fleetctl_dist }}.{{ fleetctl_archive_ext }}"
         dest: "{{ fleet_build_dir.path }}"
         remote_src: true
+
+    - name: Make fleetctl executable
+      ansible.builtin.file:
+        path: "{{ fleet_build_dir.path }}/{{ fleetctl_dist }}/fleetctl"
+        mode: "0755"
+      when: not ansible_check_mode
 
     - name: Build the fleetd package
       ansible.builtin.command:
         argv: >-
-          {{ [fleet_build_dir.path ~ '/fleetctl_v' ~ fleetctl_version ~ '_linux_' ~ fleet_arch ~ '/fleetctl',
+          {{ [fleet_build_dir.path ~ '/' ~ fleetctl_dist ~ '/fleetctl',
               'package',
               '--type=' ~ fleet_package_type,
-              '--arch=' ~ fleet_arch,
               '--fleet-url=' ~ fleet_url,
               '--enroll-secret=' ~ fleet_enroll_secret,
               '--host-identifier=' ~ fleet_resolved_host_identifier,
               '--disable-open-folder',
               '--outfile=' ~ fleet_build_dir.path ~ '/fleet-osquery.' ~ fleet_package_type]
+             + ([] if fleet_macos else ['--arch=' ~ fleet_arch])
              + (['--enable-scripts'] if fleet_enable_scripts | bool else [])
              + (['--fleet-desktop'] if fleet_desktop | bool else [])
-             + (['--end-user-email=' ~ fleet_end_user_email] if fleet_end_user_email | length > 0 else []) }}
+             + (['--end-user-email=' ~ fleet_end_user_email] if fleet_end_user_email | length > 0 and not fleet_macos else []) }}
         chdir: "{{ fleet_build_dir.path }}"
       register: fleet_package_build
       no_log: true
@@ -102,12 +138,15 @@
         msg: "fleetctl package failed: {{ (fleet_package_build.stderr | default('') ~ fleet_package_build.stdout | default('')) | replace(fleet_enroll_secret, '***') }}"
       when: fleet_package_build.rc != 0
 
-    # dpkg/rpm reinstall even when the same version is already there, so new
-    # settings (URL, secret) always replace the old ones.
+    # dpkg, rpm, and installer reinstall even when the same version is already
+    # there, so new settings (URL, secret) always replace the old ones. The macOS
+    # package loads and starts fleetd itself.
     - name: Install the fleetd package
       ansible.builtin.command:
         argv: >-
-          {{ (['dpkg', '-i'] if fleet_package_type == 'deb' else ['rpm', '-U', '--replacepkgs', '--replacefiles'])
+          {{ {'deb': ['dpkg', '-i'],
+              'rpm': ['rpm', '-U', '--replacepkgs', '--replacefiles'],
+              'pkg': ['installer', '-target', '/', '-pkg']}[fleet_package_type]
              + [fleet_build_dir.path ~ '/fleet-osquery.' ~ fleet_package_type] }}
       become: true
 
@@ -125,7 +164,27 @@
     enabled: true
     state: started
   become: true
-  when: not ansible_check_mode
+  when:
+    - not ansible_check_mode
+    - not fleet_macos
+
+- name: Check that fleetd is loaded on macOS
+  ansible.builtin.command: "launchctl print {{ fleet_macos_service }}"
+  become: true
+  register: fleet_launchd
+  changed_when: false
+  failed_when: false
+  when:
+    - not ansible_check_mode
+    - fleet_macos
+
+- name: Load fleetd on macOS
+  ansible.builtin.shell: "launchctl enable {{ fleet_macos_service }} && launchctl bootstrap system {{ fleet_macos_plist }}"
+  become: true
+  when:
+    - not ansible_check_mode
+    - fleet_macos
+    - fleet_launchd.rc != 0
 
 - name: Wait for fleetd to enroll with Fleet
   ansible.builtin.wait_for:
@@ -152,6 +211,14 @@
         name: orbit
         state: restarted
       become: true
+      when: not fleet_macos
+
+    - name: Restart fleetd on macOS
+      ansible.builtin.command: "launchctl kickstart -k {{ fleet_macos_service }}"
+      become: true
+      # A daemon that isn't loaded shouldn't hide the enrollment diagnostic below.
+      failed_when: false
+      when: fleet_macos
 
     - name: Wait again for fleetd to enroll
       ansible.builtin.wait_for:
@@ -167,10 +234,12 @@
       register: fleet_enrolled_retry
 
     - name: Read the fleetd log
-      ansible.builtin.command: journalctl -u orbit -n 40 --no-pager
+      ansible.builtin.command: "{{ 'tail -n 40 /var/log/orbit/orbit.stderr.log' if fleet_macos else 'journalctl -u orbit -n 40 --no-pager' }}"
       become: true
       register: fleet_orbit_log
       changed_when: false
+      # A missing macOS log must not replace the enrollment diagnostic below.
+      failed_when: false
       when: not fleet_enrolled_retry.stat.exists
 
     - name: Fail when fleetd did not enroll

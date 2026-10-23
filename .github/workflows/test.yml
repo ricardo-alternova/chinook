@@ -20,3 +20,24 @@ jobs:
         run: python3 -m unittest discover -s tests -v
         env:
           CHINOOK_CHECK_APT: "1"
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python3 -m pip install pyyaml ansible-core
+      # macOS still ships bash 3.2, which is what the installer targets.
+      - name: Check installer syntax with the system bash
+        run: /bin/bash -n install
+      - name: Run configurator tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Check playbook syntax
+        run: |
+          for playbook in ansible/playbooks/*.yml; do
+            case "$playbook" in */tasks/*) continue ;; esac
+            ansible-playbook "$playbook" --syntax-check
+          done

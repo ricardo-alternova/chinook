@@ -5,6 +5,8 @@
       - tar
     state: present
   become: true
+  # macOS ships curl and tar.
+  when: ansible_facts['system'] == 'Linux'
 
 - name: Check installed Codex CLI version
   ansible.builtin.command: "{{ codex_cli_bin_path }} --version"

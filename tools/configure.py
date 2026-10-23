@@ -16,21 +16,29 @@ TMUX_SESSION_NAME_RE = re.compile(r"[A-Za-z0-9_-]+")
 HOSTNAME_RE = re.compile(r"[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?")
 
 
+LINUX_PROFILES = ("ubuntu", "ubuntu_server", "fedora_asahi")
+ALL_PROFILES = LINUX_PROFILES + ("macos",)
 DESKTOP_PROFILES = ("ubuntu", "fedora_asahi")
+DESKTOPS_AND_MACOS = DESKTOP_PROFILES + ("macos",)
 APT_PROFILES = ("ubuntu", "ubuntu_server")
 PLAYBOOKS = {
     "ubuntu": "ansible/playbooks/ubuntu.yml",
     "ubuntu_server": "ansible/playbooks/ubuntu_server.yml",
     "fedora_asahi": "ansible/playbooks/fedora_asahi.yml",
+    "macos": "ansible/playbooks/macos.yml",
 }
+# Apps without "profiles" are Linux only. On macOS, "brew" lists Homebrew
+# formulae and "cask" Homebrew casks; only apps with "macos_default" start ticked.
 
 APPS = [
     {
         "key": "base_cli",
         "label": "Base CLI tools",
         "default": True,
+        "profiles": ALL_PROFILES,
         "apt": ["ansible", "curl", "git", "jq"],
         "dnf": ["ansible", "git", "jq", "curl"],
+        "brew": ["git", "jq"],
     },
     {
         "key": "shell",
@@ -52,15 +60,19 @@ APPS = [
         "key": "btop",
         "label": "btop process viewer",
         "default_profiles": ["ubuntu_server"],
+        "profiles": ALL_PROFILES,
         "apt": ["btop"],
         "dnf": ["btop"],
+        "brew": ["btop"],
     },
     {
         "key": "gh",
         "label": "GitHub CLI",
         "default_profiles": ["ubuntu_server"],
+        "profiles": ALL_PROFILES,
         "apt": ["gh"],
         "dnf": ["gh"],
+        "brew": ["gh"],
     },
     {
         "key": "tailscale",
@@ -124,36 +136,36 @@ APPS = [
         "profiles": DESKTOP_PROFILES,
         "apt": ["heif-gdk-pixbuf", "heif-thumbnailer", "libheif-examples", "libheif-plugin-libde265", "libheif-plugin-aomdec"],
     },
-    {"key": "chrome", "label": "Google Chrome on Ubuntu / Chromium on Fedora Asahi", "default": True, "profiles": DESKTOP_PROFILES, "apt": ["google-chrome-stable"], "dnf": ["chromium"]},
+    {"key": "chrome", "label": "Google Chrome on Ubuntu / Chromium on Fedora Asahi", "macos_label": "Google Chrome", "default": True, "profiles": DESKTOPS_AND_MACOS, "apt": ["google-chrome-stable"], "dnf": ["chromium"], "cask": ["google-chrome"], "detect_paths": ["/Applications/Google Chrome.app"]},
     {"key": "wayshot", "label": "WayShot (screenshot annotate)", "default": True, "profiles": DESKTOP_PROFILES, "flatpak": ["io.github.gutopardini.wayshot"]},
     {"key": "input_remapper", "label": "input-remapper (remap mouse buttons and wheel)", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["input-remapper"], "dnf": ["input-remapper"]},
     {"key": "helium", "label": "Helium browser (privacy-first Chromium fork)", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_helium", "detect_packages": ["helium-bin"]},
     {"key": "unity_hub", "label": "Unity Hub (Unity game engine)", "default": False, "profiles": ["ubuntu"], "flag": "install_unity_hub", "detect_packages": ["unityhub"]},
-    {"key": "gimp", "label": "GIMP", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["gimp"], "dnf": ["gimp"]},
+    {"key": "gimp", "label": "GIMP", "default": False, "profiles": DESKTOPS_AND_MACOS, "apt": ["gimp"], "dnf": ["gimp"], "cask": ["gimp"], "detect_paths": ["/Applications/GIMP.app"]},
     {"key": "xournalpp", "label": "Xournal++", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["xournalpp"], "dnf": ["xournalpp"]},
     {"key": "onedrive", "label": "OneDrive", "default": False, "apt": ["onedrive"], "dnf": ["onedrive"], "flag": "install_onedrive"},
     {"key": "mangohud", "label": "MangoHud", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["mangohud"], "dnf": ["mangohud"], "flag": "install_mangohud"},
-    {"key": "obs_studio", "label": "OBS Studio", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["obs-studio"], "dnf": ["obs-studio"]},
-    {"key": "opencode_cli", "label": "OpenCode CLI", "default": True, "flag": "install_opencode_cli", "detect_paths": ["~/.opencode/bin/opencode"]},
+    {"key": "obs_studio", "label": "OBS Studio", "default": False, "profiles": DESKTOPS_AND_MACOS, "apt": ["obs-studio"], "dnf": ["obs-studio"], "cask": ["obs"], "detect_paths": ["/Applications/OBS.app"]},
+    {"key": "opencode_cli", "label": "OpenCode CLI", "default": True, "profiles": ALL_PROFILES, "flag": "install_opencode_cli", "detect_paths": ["~/.opencode/bin/opencode"]},
     {"key": "opencode_desktop", "label": "OpenCode Desktop", "default": True, "profiles": DESKTOP_PROFILES, "flag": "install_opencode_desktop", "detect_packages": ["opencode"]},
-    {"key": "codex_cli", "label": "Codex CLI", "default": False, "flag": "install_codex_cli", "detect_paths": ["~/.local/bin/codex"]},
-    {"key": "claude_code", "label": "Claude Code", "default": True, "flag": "install_claude_code", "detect_paths": ["~/.local/bin/claude"]},
-    {"key": "cursor_cli", "label": "Cursor CLI (agent)", "default": True, "flag": "install_cursor_cli", "detect_paths": ["~/.local/bin/cursor-agent"]},
-    {"key": "glab", "label": "GitLab CLI (glab)", "default": True, "flag": "install_glab", "detect_packages": ["glab"]},
+    {"key": "codex_cli", "label": "Codex CLI", "default": False, "profiles": ALL_PROFILES, "flag": "install_codex_cli", "detect_paths": ["~/.local/bin/codex"]},
+    {"key": "claude_code", "label": "Claude Code", "default": True, "profiles": ALL_PROFILES, "flag": "install_claude_code", "detect_paths": ["~/.local/bin/claude"]},
+    {"key": "cursor_cli", "label": "Cursor CLI (agent)", "default": True, "profiles": ALL_PROFILES, "flag": "install_cursor_cli", "detect_paths": ["~/.local/bin/cursor-agent"]},
+    {"key": "glab", "label": "GitLab CLI (glab)", "default": True, "profiles": ALL_PROFILES, "flag": "install_glab", "detect_packages": ["glab"], "brew": ["glab"]},
     {"key": "docker", "label": "Docker Engine (with Compose and Buildx)", "default": True, "flag": "install_docker", "detect_packages": ["docker-ce"]},
-    {"key": "fleet", "label": "Fleet (fleetd device management, needs the enroll secret)", "default": False, "flag": "install_fleet", "detect_packages": ["fleet-osquery"]},
+    {"key": "fleet", "label": "Fleet (fleetd device management, needs the enroll secret)", "default": False, "macos_default": True, "profiles": ALL_PROFILES, "flag": "install_fleet", "detect_packages": ["fleet-osquery"], "detect_paths": ["/Library/LaunchDaemons/com.fleetdm.orbit.plist"]},
     {"key": "compai_agent", "label": "Comp AI device agent (compliance checks)", "default": False, "profiles": ["ubuntu"], "flag": "install_compai_agent", "detect_packages": ["comp-ai-device-agent"]},
     {"key": "unity_cli", "label": "Unity CLI (beta)", "default": False, "flag": "install_unity_cli", "detect_paths": ["~/.local/bin/unity"]},
     {"key": "grok_bot", "label": "Grok Bot (xAI desktop agent)", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_grok_bot", "detect_paths": ["/usr/bin/grok-bot"]},
-    {"key": "cursor", "label": "Cursor editor", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_cursor", "detect_paths": ["/usr/bin/cursor"]},
+    {"key": "cursor", "label": "Cursor editor", "default": False, "profiles": DESKTOPS_AND_MACOS, "flag": "install_cursor", "detect_paths": ["/usr/bin/cursor", "/Applications/Cursor.app"], "cask": ["cursor"]},
     {"key": "t3_code", "label": "T3 Code (remote agent control surface)", "default": False, "flag": "install_t3_code", "detect_paths": ["/usr/local/bin/t3-code"]},
     {"key": "steam", "label": "Steam", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["steam-installer"], "foreign_arch": ["i386"]},
-    {"key": "discord", "label": "Discord", "default": False, "profiles": DESKTOP_PROFILES, "snap": ["discord"], "flatpak": ["com.discordapp.Discord"]},
-    {"key": "onlyoffice", "label": "OnlyOffice", "default": True, "profiles": DESKTOP_PROFILES, "snap": ["onlyoffice-desktopeditors"], "flatpak": ["org.onlyoffice.desktopeditors"]},
-    {"key": "spotify", "label": "Spotify", "default": False, "profiles": DESKTOP_PROFILES, "snap": ["spotify"], "flatpak": ["com.spotify.Client"]},
-    {"key": "localsend", "label": "LocalSend", "default": True, "profiles": DESKTOP_PROFILES, "snap": ["localsend"], "flatpak": ["org.localsend.localsend_app"]},
+    {"key": "discord", "label": "Discord", "default": False, "profiles": DESKTOPS_AND_MACOS, "snap": ["discord"], "flatpak": ["com.discordapp.Discord"], "cask": ["discord"], "detect_paths": ["/Applications/Discord.app"]},
+    {"key": "onlyoffice", "label": "OnlyOffice", "default": True, "profiles": DESKTOPS_AND_MACOS, "snap": ["onlyoffice-desktopeditors"], "flatpak": ["org.onlyoffice.desktopeditors"], "cask": ["onlyoffice"], "detect_paths": ["/Applications/ONLYOFFICE.app"]},
+    {"key": "spotify", "label": "Spotify", "default": False, "profiles": DESKTOPS_AND_MACOS, "snap": ["spotify"], "flatpak": ["com.spotify.Client"], "cask": ["spotify"], "detect_paths": ["/Applications/Spotify.app"]},
+    {"key": "localsend", "label": "LocalSend", "default": True, "profiles": DESKTOPS_AND_MACOS, "snap": ["localsend"], "flatpak": ["org.localsend.localsend_app"], "cask": ["localsend"], "detect_paths": ["/Applications/LocalSend.app"]},
     {"key": "zapzap", "label": "ZapZap", "default": False, "profiles": DESKTOP_PROFILES, "snap": ["zapzap"]},
-    {"key": "zed", "label": "Zed editor", "default": True, "profiles": DESKTOP_PROFILES, "flag": "install_zed", "detect_paths": ["~/.local/bin/zed"]},
+    {"key": "zed", "label": "Zed editor", "default": True, "profiles": DESKTOPS_AND_MACOS, "flag": "install_zed", "detect_paths": ["~/.local/bin/zed", "/Applications/Zed.app"], "cask": ["zed"]},
     {"key": "balena_etcher", "label": "Balena Etcher", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_balena_etcher", "detect_paths": ["/opt/balena-etcher-*/balenaEtcher-linux-x64/balena-etcher"]},
     {"key": "teams_pwa", "label": "Microsoft Teams PWA", "default": False, "profiles": DESKTOP_PROFILES, "flag": "configure_teams_pwa", "detect_paths": ["/etc/opt/chrome/policies/managed/teams-pwa.json"]},
     {"key": "keychron", "label": "Keychron udev rule", "default": False, "flag": "configure_keychron", "detect_paths": ["/etc/udev/rules.d/50-keychron-k4-pro.rules"]},
@@ -326,14 +338,38 @@ def app_flags(app):
 
 
 def app_visible(app, profile):
-    profiles = app.get("profiles")
-    return profiles is None or profile in profiles
+    return profile in app.get("profiles", LINUX_PROFILES)
 
 
 def app_default(app, profile):
+    if profile == "macos":
+        return app.get("macos_default", False)
     if "default_profiles" in app:
         return profile in app["default_profiles"]
     return app.get("default", False)
+
+
+def app_label(app, profile):
+    return app.get("macos_label", app["label"]) if profile == "macos" else app["label"]
+
+
+def profile_managers(profile):
+    """Package managers whose lists an app uses on this profile, in order of preference."""
+    if profile in APT_PROFILES:
+        return ["apt", "snap", "flatpak"]
+    if profile == "macos":
+        return ["brew", "cask"]
+    return ["dnf", "flatpak"]
+
+
+MANAGER_LISTS = {
+    "apt": "apt_packages",
+    "snap": "snap_packages",
+    "flatpak": "flatpak_packages",
+    "dnf": "dnf_packages",
+    "brew": "brew_packages",
+    "cask": "brew_casks",
+}
 
 
 def visible_apps(profile):
@@ -364,7 +400,26 @@ def installed_packages():
     rpm = set(command_lines(["rpm", "-qa", "--qf", "%{NAME}\n"]))
     snap = {line.split()[0] for line in command_lines(["snap", "list"])[1:] if line.split()}
     flatpak = {line.strip() for line in command_lines(["flatpak", "list", "--app", "--columns=application"]) if line.strip()}
-    return {"apt": dpkg, "dnf": rpm, "snap": snap, "flatpak": flatpak, "system": dpkg | rpm}
+    brew = brew_path()
+    formulae = set(command_lines([brew, "list", "--formula", "-1"])) if brew else set()
+    casks = set(command_lines([brew, "list", "--cask", "-1"])) if brew else set()
+    return {
+        "apt": dpkg,
+        "dnf": rpm,
+        "snap": snap,
+        "flatpak": flatpak,
+        "brew": formulae,
+        "cask": casks,
+        "system": dpkg | rpm | formulae | casks,
+    }
+
+
+def brew_path():
+    # A fresh shell may not have Homebrew on PATH yet.
+    for path in (shutil.which("brew"), "/opt/homebrew/bin/brew", "/usr/local/bin/brew"):
+        if path and os.access(path, os.X_OK):
+            return path
+    return None
 
 
 def ufw_enabled():
@@ -378,24 +433,54 @@ def ufw_enabled():
 def app_installed(app, profile, packages):
     if app.get("detect") == "ufw_enabled":
         return ufw_enabled()
-    if any(glob.glob(os.path.expanduser(path)) for path in app.get("detect_paths", [])):
+    # /Applications belongs to macOS; a Linux profile never installs there.
+    paths = app.get("detect_paths", [])
+    if profile != "macos":
+        paths = [path for path in paths if not path.startswith("/Applications/")]
+    if any(glob.glob(os.path.expanduser(path)) for path in paths):
         return True
     if any(name in packages["system"] for name in app.get("detect_packages", [])):
         return True
-    managers = ["apt", "snap", "flatpak"] if profile in APT_PROFILES else ["dnf", "flatpak"]
-    for manager in managers:
+    for manager in profile_managers(profile):
         names = app.get(manager)
         if names:
             return all(name in packages[manager] for name in names)
     return False
 
 
+def detect_installation(profile):
+    """Installed app keys, and casks already in /Applications outside Homebrew.
+
+    The second set is what lets the configurator avoid calling `brew install`
+    (which downloads the whole artifact before noticing the app is present) for
+    apps the user installed from a website or the App Store.
+    """
+    if profile == "macos":
+        if sys.platform != "darwin":
+            return set(), set()
+    elif not sys.platform.startswith("linux"):
+        return set(), set()
+    packages = installed_packages()
+    installed = {app["key"] for app in visible_apps(profile) if app_installed(app, profile, packages)}
+    unmanaged_casks = set()
+    if profile == "macos":
+        for app in visible_apps(profile):
+            if app["key"] not in installed or not app.get("cask"):
+                continue
+            if all(name in packages["cask"] for name in app["cask"]):
+                continue
+            if any(
+                glob.glob(os.path.expanduser(path))
+                for path in app.get("detect_paths", [])
+                if path.startswith("/Applications/")
+            ):
+                unmanaged_casks.add(app["key"])
+    return installed, unmanaged_casks
+
+
 def detect_installed(profile):
     """Keys of the apps that are already on this machine."""
-    if not sys.platform.startswith("linux"):
-        return set()
-    packages = installed_packages()
-    return {app["key"] for app in visible_apps(profile) if app_installed(app, profile, packages)}
+    return detect_installation(profile)[0]
 
 
 def read_local_yml(path):
@@ -439,17 +524,10 @@ def previous_selection(profile, data):
             if all(data.get(flag) is True for flag in flags):
                 selected.add(app["key"])
             continue
-        lists = {
-            "apt": "apt_packages",
-            "snap": "snap_packages",
-            "flatpak": "flatpak_packages",
-            "dnf": "dnf_packages",
-        }
-        managers = ["apt", "snap", "flatpak"] if profile in APT_PROFILES else ["dnf", "flatpak"]
-        for manager in managers:
+        for manager in profile_managers(profile):
             names = app.get(manager)
             if names:
-                chosen = data.get(lists[manager])
+                chosen = data.get(MANAGER_LISTS[manager])
                 if isinstance(chosen, list) and all(name in chosen for name in names):
                     selected.add(app["key"])
                 break
@@ -473,6 +551,9 @@ def generate_local_yml(profile, config):
         "dnf_remove_packages",
         "rpmfusion_release_packages",
         "flatpak_packages",
+        "brew_packages",
+        "brew_casks",
+        "brew_casks_present",
         "onedrive_sync_list",
     ]:
         if key in config:
@@ -514,7 +595,9 @@ def write_local_yml(path, content):
     return path
 
 
-def build_config(profile, selected):
+def build_config(profile, selected, unmanaged_casks=()):
+    if profile == "macos":
+        return build_macos_config(selected, unmanaged_casks)
     config = {
         "install_packages": True,
         "install_snap_apps": profile == "ubuntu",
@@ -570,10 +653,36 @@ def build_config(profile, selected):
     return config
 
 
+def build_macos_config(selected, unmanaged_casks=()):
+    config = {"install_packages": True, "configure_ssh": False}
+    for app in visible_apps("macos"):
+        for flag in app_flags(app):
+            config[flag] = app["key"] in selected
+    chosen = [app for app in APPS if app["key"] in selected and app_visible(app, "macos")]
+    config["brew_packages"] = unique(name for app in chosen for name in app.get("brew", []))
+    # Apps already in /Applications from outside Homebrew are reported, not
+    # installed: running `brew install --cask` would download the installer
+    # before failing on the existing app.
+    config["brew_casks"] = unique(
+        name
+        for app in chosen
+        if app["key"] not in unmanaged_casks
+        for name in app.get("cask", [])
+    )
+    config["brew_casks_present"] = unique(
+        name
+        for app in chosen
+        if app["key"] in unmanaged_casks
+        for name in app.get("cask", [])
+    )
+    return config
+
+
 PROFILE_LABELS = {
     "ubuntu": "Ubuntu GNOME",
     "ubuntu_server": "Ubuntu Server (remote agent box)",
     "fedora_asahi": "Fedora Asahi Remix KDE",
+    "macos": "macOS",
 }
 
 
@@ -613,7 +722,7 @@ def main(argv=None):
             )
 
         apps = visible_apps(profile)
-        installed = set() if args.no_detect else detect_installed(profile)
+        installed, unmanaged_casks = (set(), set()) if args.no_detect else detect_installation(profile)
         previous = read_local_yml(args.output)
         if previous is not None:
             # A re-run starts from the last answers, so it doesn't bring back
@@ -625,11 +734,11 @@ def main(argv=None):
             print("\nApps already on this machine are ticked and marked (installed).")
             print("Unticking one makes Chinook stop managing it; it doesn't uninstall it.")
         choices = [
-            dict(app, label=f"{app['label']} (installed)") if app["key"] in installed else app
+            dict(app, label=app_label(app, profile) + (" (installed)" if app["key"] in installed else ""))
             for app in apps
         ]
         selected = choose_many("Select apps and modules", choices, initial | installed)
-        config = build_config(profile, selected)
+        config = build_config(profile, selected, unmanaged_casks)
         saved = previous or {}
 
         def saved_text(key, default=""):
@@ -672,9 +781,11 @@ def main(argv=None):
                 secret = ask("Fleet enroll secret (from the Fleet admin; leave empty to enroll later)", "")
             if secret:
                 config["fleet_enroll_secret"] = secret
-            email = ask("Your work email for Fleet (optional)", saved_text("fleet_end_user_email"))
-            if email:
-                config["fleet_end_user_email"] = email
+            # fleetd on macOS only learns the owner's email through MDM enrollment.
+            if profile != "macos":
+                email = ask("Your work email for Fleet (optional)", saved_text("fleet_end_user_email"))
+                if email:
+                    config["fleet_end_user_email"] = email
 
         if "onedrive" in selected:
             sync_dir = ask("OneDrive sync dir", saved_text("onedrive_sync_dir", "~/OneDrive"))

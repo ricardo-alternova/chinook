@@ -1,18 +1,16 @@
 # Chinook
 
-**Chinook** turns a fresh Linux install into your daily driver — reproducible, opinionated, and private by design.
+**Chinook** turns a fresh Linux or macOS install into your daily driver — reproducible, opinionated, and private by design.
 
-```bash
-wget -qO- https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash
-```
-
-If `wget` is missing:
+One command, on Linux and macOS:
 
 ```bash
 curl -fsSL https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash
 ```
 
-That command installs `git`, `ansible`, and `python3`, clones this repo to `~/chinook`, detects Ubuntu GNOME, Ubuntu Server, or Fedora Asahi Remix, opens the app selector, and runs the matching playbook.
+If `curl` is missing (some minimal Linux images), use `wget -qO- <same URL> | bash`.
+
+That command installs `git`, `ansible`, and `python3` (Homebrew first on macOS), clones this repo to `~/chinook`, detects Ubuntu GNOME, Ubuntu Server, Fedora Asahi Remix, or macOS, opens the app selector, and runs the matching playbook.
 
 When it finishes:
 
@@ -26,6 +24,7 @@ Your SSH hosts, sync paths, and device IDs stay in a git-ignored `local.yml`, so
 | Ubuntu 24.04 LTS | GNOME | `ansible/playbooks/ubuntu.yml` | `ansible/group_vars/ubuntu.yml` |
 | Ubuntu Server 24.04 LTS | none (headless) | `ansible/playbooks/ubuntu_server.yml` | `ansible/group_vars/ubuntu_server.yml` |
 | Fedora Asahi Remix | KDE Plasma | `ansible/playbooks/fedora_asahi.yml` | `ansible/group_vars/fedora_asahi.yml` |
+| macOS (Apple silicon or Intel) | its own | `ansible/playbooks/macos.yml` | `ansible/group_vars/macos.yml` |
 
 Public defaults live in the profile files; your private choices live in `ansible/group_vars/local.yml`.
 
@@ -42,6 +41,7 @@ The Ubuntu profiles target **Ubuntu 24.04 LTS** (desktop and server). On another
 - [Ubuntu (GNOME) Profile](#ubuntu-gnome-profile)
 - [Ubuntu Server Profile](#ubuntu-server-profile)
 - [Fedora Asahi (KDE) Profile](#fedora-asahi-kde-profile)
+- [macOS Profile](#macos-profile)
 - [Optional Roles](#optional-roles)
 - [Project Layout](#project-layout)
 - [Tags](#tags)
@@ -59,9 +59,9 @@ The Ubuntu profiles target **Ubuntu 24.04 LTS** (desktop and server). On another
 
 ## Quick Start
 
-The command at the top of this README is the full install. Re-run it (or `~/chinook/install`) any time — the playbook is **idempotent**.
+The command at the top of this README is the full install — there is no separate setup step. It installs the prerequisites, clones the repo, runs the app selector, and runs the playbook. Re-run it (or `~/chinook/install`) any time — the playbook is **idempotent**.
 
-The installer asks for `sudo` when it needs it. Override the checkout path with `CHINOOK_DIR`, or pin a branch/tag with `CHINOOK_REF`. Force a profile with `CHINOOK_PROFILE=ubuntu` or `ubuntu_server` on Ubuntu, or `fedora_asahi` on Fedora.
+The installer asks for `sudo` when it needs it. Override the checkout path with `CHINOOK_DIR`, or pin a branch/tag with `CHINOOK_REF`. Force a profile with `CHINOOK_PROFILE=ubuntu` or `ubuntu_server` on Ubuntu, or `fedora_asahi` on Fedora. macOS is detected automatically. On macOS the installer also installs Homebrew if it is missing (it asks for your password and the Command Line Tools), then uses Homebrew to install Ansible.
 
 ### Manual install
 
@@ -80,6 +80,14 @@ If you would rather walk the steps yourself:
 
    ```bash
    sudo dnf install git ansible python3
+   ```
+
+   macOS (installs the Command Line Tools too, which provide `git` and `python3`):
+
+   ```bash
+   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+   eval "$(/opt/homebrew/bin/brew shellenv)"
+   brew install ansible
    ```
 
 2. Clone and configure:
@@ -112,7 +120,13 @@ If you would rather walk the steps yourself:
    ansible-playbook ansible/playbooks/fedora_asahi.yml --ask-become-pass
    ```
 
-   Drop `--ask-become-pass` if your user has passwordless sudo. The GNOME playbook refuses to run on a machine without `gnome-shell` and points you at `ubuntu_server.yml`. The legacy Ubuntu entrypoint `ansible/playbooks/workstation.yml` still imports `ubuntu.yml`.
+   macOS:
+
+   ```bash
+   ansible-playbook ansible/playbooks/macos.yml --ask-become-pass
+   ```
+
+   Drop `--ask-become-pass` if your user has passwordless sudo. The GNOME playbook refuses to run on a machine without `gnome-shell` and points you at `ubuntu_server.yml`. The macOS playbook refuses to run on anything but Darwin. The legacy Ubuntu entrypoint `ansible/playbooks/workstation.yml` still imports `ubuntu.yml`.
 
 4. Do the [next steps](#next-steps).
 
@@ -131,7 +145,7 @@ That is it. From here, edit `local.yml` or ask OpenCode, re-run `~/chinook/insta
 
 Depending on the selected profile and local config, Chinook can:
 
-- Install apps via APT, DNF, Snap, and Flatpak
+- Install apps via APT, DNF, Snap, Flatpak, and Homebrew
 - Add or remove package repositories (Chrome, RPM Fusion)
 - Remove Fedora default apps
 - Configure user dotfiles and app settings
@@ -140,12 +154,13 @@ Depending on the selected profile and local config, Chinook can:
 - Set up Timeshift daily snapshots
 - Install desktop launchers and shortcuts
 - On Ubuntu Server: install Tailscale, OpenSSH server, tmux with SSH session resume, UFW, and fail2ban
+- On macOS: install Homebrew formulae and casks, the agent CLIs, SSH snippets, the computer name, and Fleet
 
 ## Local Configuration
 
 `tools/configure.py` writes `ansible/group_vars/local.yml` — the git-ignored file that holds your personal values: SSH hosts, sync choices, device IDs, and app selections. Chinook always configures the account that runs it, so your username and home directory are never asked for or stored.
 
-The app selector starts from what the machine already has. Apps it finds installed (through dpkg, rpm, snap, flatpak, or the paths Chinook's installers use) are ticked and marked `(installed)`, and the rest come from your existing `local.yml` (or the profile defaults on a first run). Your saved answers, like the tmux session name, the OneDrive folder, and the Fleet secret, become the prompt defaults. Unticking an installed app makes Chinook stop managing it; it doesn't uninstall it. Pass `--no-detect` to skip detection.
+The app selector starts from what the machine already has. Apps it finds installed (through dpkg, rpm, snap, flatpak, Homebrew, `/Applications`, or the paths Chinook's installers use) are ticked and marked `(installed)`, and the rest come from your existing `local.yml` (or the profile defaults on a first run). Your saved answers, like the tmux session name, the OneDrive folder, and the Fleet secret, become the prompt defaults. Unticking an installed app makes Chinook stop managing it; it doesn't uninstall it. Pass `--no-detect` to skip detection.
 
 **Add personal packages** without touching the public profile, using the `*_extra` lists:
 
@@ -158,6 +173,10 @@ dnf_packages_extra:
   - example-fedora-package
 flatpak_packages_extra:
   - org.example.App
+brew_packages_extra:
+  - ripgrep
+brew_casks_extra:
+  - rectangle
 ```
 
 **Keep a Fedora default app** from being removed by listing it in `dnf_remove_packages_keep`:
@@ -210,7 +229,7 @@ configure_teams_pwa: false
 configure_desktop_shortcuts: false
 ```
 
-The configurator writes these values for you.
+The configurator writes these values for you. On macOS, selected apps go into `brew_packages` and `brew_casks` instead of the APT, DNF, Snap, and Flatpak lists.
 
 ## Ubuntu (GNOME) Profile
 
@@ -324,6 +343,31 @@ Hardware KVMs and out-of-band power buttons are useful for this kind of box, but
 
 Google Chrome is not installed here because official Linux builds don't exist for Apple Silicon — Chromium is used instead. The terminal UI includes a step to keep any removed default apps if you want them.
 
+## macOS Profile
+
+macOS support is the newest profile and intentionally small. It leaves macOS's own defaults (Zsh, Finder, the Dock, security settings) alone and manages the parts Chinook can converge safely: Homebrew packages, the agent CLIs, SSH snippets, the computer name, and Fleet.
+
+The whole flow is still the same one command (`./install` or the `curl` one-liner). On macOS it installs Homebrew, the Command Line Tools, and Ansible first, then runs the selector and this playbook. You never call `tools/configure.py` or `ansible-playbook` yourself — the [Manual install](#manual-install) steps are only for people who explicitly want to walk it.
+
+**What it installs and configures:**
+
+- Homebrew itself, when it is missing, and `eval "$(brew shellenv)"` in `~/.zprofile`
+- Homebrew formulae and casks selected in the app selector (`brew_packages` and `brew_casks` in `local.yml`)
+- OpenCode CLI, Codex CLI, Claude Code, and Cursor CLI through their official installers (each updates itself, so the roles only install when the binary is missing)
+- GitLab CLI (`glab`) through Homebrew
+- SSH client snippets, when enabled
+- The computer name through `scutil`, when a Fleet device name is set
+- Fleet (`fleetd`, enrolled from that Mac's hardware UUID) — the one app the selector ticks by default
+
+**What it does not do on macOS:** GNOME/KDE theming, Timeshift, Docker, UFW/fail2ban, udev rules, OneDrive, Flatpak/Snap packages, or the Linux desktop apps. Packages and plugins that only exist for Linux are hidden from the selector; the remaining apps are installed through Homebrew.
+
+Casks install one at a time so a failed cask doesn't stop the rest. The configurator checks for apps already in `/Applications` before the playbook runs, so an app you installed from its website or the App Store is reported rather than downloaded: Chinook leaves that copy alone and prints the `brew install --cask --adopt` command if you want Homebrew to manage it later. Only Fleet starts ticked on macOS — on an existing Mac the selector ticks whatever it detects, and you can toggle anything else.
+
+Two macOS-specific notes:
+
+- `fleetd` is built as a `.pkg` (unsigned, like Fleet's own `fleetctl package` output) and installed with `installer`; the package registers the `com.fleetdm.orbit` launch daemon itself. Chinook still checks that launchd loaded it and restarts it once if enrollment doesn't appear.
+- The Fleet work email prompt is skipped on macOS: `fleetctl` only accepts `--end-user-email` on Windows and Linux, and macOS hosts get that mapping from MDM enrollment instead.
+
 ## Optional Roles
 
 ### T3 Code
@@ -360,19 +404,19 @@ The `glab` role resolves the latest release from the GitLab API and installs the
 
 ### Fleet
 
-Optional on every profile (off by default; tick it in the app selector or set `install_fleet: true`). The `fleet` role enrolls the device in Fleet (`fleet_url`, default `https://fleet.alternova.dev`). It replaces the manual guide: no Node.js, npm, or Docker needed.
+Optional on every profile (off by default on Linux, on by default on macOS; tick it in the app selector or set `install_fleet: true`). The `fleet` role enrolls the device in Fleet (`fleet_url`, default `https://fleet.alternova.dev`). It replaces the manual guide: no Node.js, npm, or Docker needed.
 
-1. The configurator asks for the **device name** (Fleet lists devices by hostname, in the `nombre-apellido` format), the **enroll secret** from the Fleet admin, and optionally your **work email** (links the device to you in Fleet). They go into `local.yml`, which git ignores. Never commit the secret: this repo is public.
-2. The `hostname` role renames the machine and fixes `/etc/hosts` before enrolling.
-3. The role downloads the latest `fleetctl` release, builds a `fleetd` `.deb` or `.rpm` for this machine's architecture (with Fleet Desktop on the desktop profiles and scripts enabled), installs it, and deletes the package, which contains the secret.
-4. It then **confirms enrollment** instead of assuming it worked: it waits for fleetd's enrollment key, restarts fleetd once if it doesn't appear, and fails with the fleetd log if it still doesn't. On desktops it then asks the Fleet server what it recorded and prints the name and platform Fleet shows for the device.
+1. The configurator asks for the **device name** (Fleet lists devices by hostname, in the `nombre-apellido` format), the **enroll secret** from the Fleet admin, and — on Linux — optionally your **work email** (links the device to you in Fleet). They go into `local.yml`, which git ignores. Never commit the secret: this repo is public.
+2. The `hostname` role renames the machine before enrolling. On Linux it also fixes `/etc/hosts`; on macOS it sets the computer name with `scutil`.
+3. The role downloads the latest `fleetctl` release (a `.tar.gz` on Linux, the `.zip` on macOS), builds a `fleetd` `.deb`, `.rpm`, or `.pkg` for this machine (with Fleet Desktop on the desktop profiles and macOS, and scripts enabled), installs it, and deletes the package, which contains the secret.
+4. It then **confirms enrollment** instead of assuming it worked: it waits for fleetd's enrollment key, restarts fleetd once if it doesn't appear (`systemd` on Linux, `launchctl kickstart` on macOS), and fails with the fleetd log if it still doesn't. On desktops it then asks the Fleet server what it recorded and prints the name and platform Fleet shows for the device.
 
 Re-runs skip all of this when fleetd is already enrolled with the same server. A machine fleetd enrolled before (for example with the manual guide) is left alone.
 
 Why the manual's last step sometimes didn't register the device:
 
 - **Nothing checked the result.** `dpkg -i` only installs fleetd; enrollment happens afterward in the background and can fail quietly (wrong secret, no network yet). The role now waits for it and reports failures.
-- **Hardware UUID merges.** By default Fleet identifies a host by its hardware UUID. A laptop that was enrolled under another OS, or cheap boards that ship a placeholder UUID shared by many machines, get merged into an existing Fleet record instead of showing up as new. The role detects placeholder UUIDs and switches to a per-install identifier (`fleet_host_identifier: auto`). When a machine changes OS, ask the Fleet admin to delete its old record first; the device report above shows when this happened.
+- **Hardware UUID merges.** By default Fleet identifies a host by its hardware UUID. A laptop that was enrolled under another OS, or cheap boards that ship a placeholder UUID shared by many machines, get merged into an existing Fleet record instead of showing up as new. The role detects placeholder UUIDs on Linux and switches to a per-install identifier (`fleet_host_identifier: auto`). Every Mac has its own hardware UUID, so `auto` resolves to `uuid` on macOS. When a machine changes OS, ask the Fleet admin to delete its old record first; the device report above shows when this happened.
 - **Rename without reboot.** The guide renames the device and asks for a reboot; Fleet keeps the old name until fleetd reports again. Chinook renames the device before enrolling.
 
 Leave the secret empty to install everything else and enroll later: re-run the installer, pick the app selector, and enter it.
@@ -439,12 +483,14 @@ The Zed role only creates `settings.json` when one doesn't already exist. The te
 | `ansible/playbooks/ubuntu.yml` | Ubuntu GNOME playbook |
 | `ansible/playbooks/ubuntu_server.yml` | Ubuntu Server playbook |
 | `ansible/playbooks/fedora_asahi.yml` | Fedora Asahi KDE playbook |
+| `ansible/playbooks/macos.yml` | macOS playbook |
 | `ansible/playbooks/workstation.yml` | Backward-compatible Ubuntu GNOME wrapper |
 | `ansible/playbooks/tasks/load_local_vars.yml` | Shared `local.yml` loader used by every playbook |
 | `ansible/group_vars/all.yml` | Shared generic defaults |
 | `ansible/group_vars/ubuntu.yml` | Ubuntu GNOME profile |
 | `ansible/group_vars/ubuntu_server.yml` | Ubuntu Server profile |
 | `ansible/group_vars/fedora_asahi.yml` | Fedora Asahi KDE profile |
+| `ansible/group_vars/macos.yml` | macOS profile |
 | `ansible/group_vars/local.yml.example` | Template for the private override file |
 | `ansible/roles/` | One role per workstation concern |
 | `tools/configure.py` | Terminal UI that generates `local.yml` |
@@ -463,7 +509,7 @@ ansible-playbook ansible/playbooks/fedora_asahi.yml --tags packages
 Available tags match role names:
 
 ```bash
-packages snaps flatpaks timeshift tmux tailscale ufw fail2ban ssh_client
+packages snaps flatpaks homebrew timeshift tmux tailscale ufw fail2ban ssh_client
 onedrive gnome kde mangohud opencode_cli opencode_desktop codex_cli claude_code cursor_cli glab docker fleet compai_agent hostname unity_cli starship shell kitty
 grok_bot cursor wayshot t3_code
 helium unity_hub keychron zed balena_etcher teams_pwa desktop_shortcuts
@@ -474,6 +520,10 @@ helium unity_hub keychron zed balena_etcher teams_pwa desktop_shortcuts
 - **`sudo a password is required` throughout the run** — your account needs passwordless sudo, or you must keep `--ask-become-pass`. To enable it, run `sudo visudo` and add `your-user ALL=(ALL) NOPASSWD: ALL`.
 - **The one-line installer says it needs an interactive terminal** — run it from a real terminal (desktop or SSH). `wget | bash` still works because prompts are read from `/dev/tty`.
 - **`This playbook is for Ubuntu GNOME`** — you ran `ubuntu.yml` on a machine without `gnome-shell`. Use `ansible/playbooks/ubuntu_server.yml` instead.
+- **`This playbook is for macOS`** — you ran `macos.yml` on Linux. Use the playbook for the detected profile, or run `install` and let it pick.
+- **`Homebrew is not installed` on macOS** — run the one-line installer, or install Homebrew from [brew.sh](https://brew.sh). Never run `brew` with `sudo`: Homebrew refuses to run as root. Chinook runs it as your account and only uses `become` for the fleetd package and the computer name.
+- **Homebrew is installed but `brew` is not on your PATH** — Chinook writes `eval "$(/opt/homebrew/bin/brew shellenv)"` to `~/.zprofile` (or `/usr/local/bin/brew` on Intel). Open a new terminal, or run that line now.
+- **A macOS app was already installed from its website or the App Store** — Chinook leaves it alone and prints `brew install --cask --adopt <app>` so Homebrew can take it over on the next run. The rest of the casks still install.
 - **GNOME/KDE tasks fail with "no display" or DBus errors** — the theme and shortcut roles configure a running desktop session via `gsettings`/`kwriteconfig`. Run the GNOME or KDE playbook from a logged-in GUI session, not a bare TTY or a server SSH login.
 - **SSH drops you into tmux and you wanted a plain shell** — set `configure_tmux: false` in `local.yml` and re-run, or detach with the usual tmux prefix. Auto-attach only runs on interactive SSH (`SSH_TTY`) from `.bashrc` and `.zshrc`, so `scp`, `sftp`, and Ansible are unaffected. An existing `~/.tmux.conf` is never overwritten.
 - **tmux did not start and you still have a shell** — Chinook no longer `exec`s tmux. If tmux fails, the login shell stays up. If tmux starts and you detach, the SSH session exits.
@@ -498,8 +548,8 @@ helium unity_hub keychron zed balena_etcher teams_pwa desktop_shortcuts
 - **`No package matching 'starship' is available`** — your `local.yml` was generated before Starship moved to its own installer. Re-run the installer and answer `y` to re-run the app selector, or delete `starship` from `apt_packages` in `ansible/group_vars/local.yml`.
 - **Terminals still open bash after provisioning** — the login shell changes at your next login. Log out and back in (no reboot needed), or run `zsh` to try it now.
 - **`Conflicting values set for option Signed-By regarding source https://hub.unity3d.com/...`** — an older Chinook wrote its own Unity Hub repository file, and the `unityhub` package added another with a different key. This breaks every `apt` command, so remove the old file once, then re-run Chinook: `sudo rm -f /etc/apt/sources.list.d/unityhub.list /etc/apt/keyrings/unityhub.gpg /etc/apt/keyrings/unityhub.gpg.asc`.
-- **`fleetd is installed but did not enroll`**: the output includes the last fleetd log lines. The usual causes are a wrong enroll secret (ask the Fleet admin for the current one and re-run the app selector) or no route to `fleet_url`. Check live with `sudo journalctl -u orbit -f`.
-- **Fleet shows the device with another name or OS**: Fleet merged it into an older record with the same hardware UUID. Ask the Fleet admin to delete that record. To enroll as a new host, set `fleet_host_identifier: instance` in `local.yml`, clear fleetd's identity once with `sudo systemctl stop orbit && sudo rm -rf /opt/orbit/secret-orbit-node-key.txt /opt/orbit/osquery.db`, then re-run Chinook.
+- **`fleetd is installed but did not enroll`**: the output includes the last fleetd log lines. The usual causes are a wrong enroll secret (ask the Fleet admin for the current one and re-run the app selector) or no route to `fleet_url`. Check live with `sudo journalctl -u orbit -f` on Linux or `sudo tail -f /var/log/orbit/orbit.stderr.log` on macOS.
+- **Fleet shows the device with another name or OS**: Fleet merged it into an older record with the same hardware UUID. Ask the Fleet admin to delete that record. To enroll as a new host, set `fleet_host_identifier: instance` in `local.yml` (Linux), stop fleetd and clear its identity once (`sudo systemctl stop orbit && sudo rm -rf /opt/orbit/secret-orbit-node-key.txt /opt/orbit/osquery.db` on Linux; `sudo launchctl bootout system/com.fleetdm.orbit && sudo rm -f /opt/orbit/secret-orbit-node-key.txt /opt/orbit/osquery.db` on macOS), then re-run Chinook.
 - **Stuck on `Create initial Timeshift daily snapshot`**: it's probably not stuck. The first snapshot copies the whole system (Docker's data and your home folder are excluded), which can take 5-30 minutes with no output. Watch it grow in another terminal with `sudo du -sh /timeshift/snapshots`. Later snapshots only copy what changed.
 - **`Timed out waiting for become success or become password prompt`** with `[sudo: [sudo via ansible, ...] password:] Password:`: the system uses sudo-rs, the default on Ubuntu releases newer than 24.04, and Ansible doesn't recognize its password prompt. The installer switches Ansible to the classic `sudo.ws` automatically. If you run `ansible-playbook` yourself, prefix it with `ANSIBLE_BECOME_EXE=sudo.ws`.
 - **"The password you use to log in to your computer no longer matches that of your login keyring"**: this isn't caused by Chinook. GNOME's login keyring (where Chrome, Helium, and Wi-Fi keep saved passwords) is still locked with an older password, usually because the account password was changed with `sudo passwd`, or because automatic login skips the step that unlocks it. Confirmed on Ubuntu 24.04 and 26.04:
