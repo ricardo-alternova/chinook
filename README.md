@@ -1,6 +1,6 @@
 # Chinook
 
-**Chinook** turns a fresh Linux, macOS, or Windows install into your daily driver — reproducible, opinionated, and private by design.
+**Chinook** turns a fresh Linux or macOS install into your daily driver — reproducible, opinionated, and private by design.
 
 One command, on Linux and macOS:
 
@@ -14,22 +14,16 @@ On a clean Ubuntu install where `curl` is not present, use `wget` instead:
 wget -qO- https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash
 ```
 
-On Windows (PowerShell):
+Both commands run the same installer.
 
-```powershell
-irm https://github.com/ricardo-alternova/chinook/releases/latest/download/install.ps1 | iex
-```
-
-These commands run the same installer for their platform.
-
-On Linux the installer adds `git`, `ansible`, and `python3`; on macOS it installs Homebrew and Ansible first; on Windows it downloads the repo and runs the PowerShell profile. It detects Ubuntu GNOME, Ubuntu Server, Fedora Asahi Remix, macOS, or Windows, opens the app selector, and runs the matching playbook or PowerShell profile.
+On Linux the installer adds `git`, `ansible`, and `python3`; on macOS it installs Homebrew and Ansible first. It detects Ubuntu GNOME, Ubuntu Server, Fedora Asahi Remix, or macOS, opens the app selector, and runs the matching playbook.
 
 When it finishes:
 
 1. Open OpenCode and set up your credentials (`opencode auth login`) so you can tweak the OS using AI.
 2. Set up your GitHub / GitLab accounts.
 
-Your SSH hosts, sync paths, and device IDs stay in a git-ignored `local.yml` (or `%LOCALAPPDATA%\Chinook\config.json` on Windows), so the public repo never carries personal data.
+Your SSH hosts, sync paths, and device IDs stay in a git-ignored `local.yml`, so the public repo never carries personal data.
 
 | System | Desktop | Playbook | Profile Vars |
 | --- | --- | --- | --- |
@@ -37,7 +31,6 @@ Your SSH hosts, sync paths, and device IDs stay in a git-ignored `local.yml` (or
 | Ubuntu Server 24.04 / 26.04 LTS | none (headless) | `ansible/playbooks/ubuntu_server.yml` | `ansible/group_vars/ubuntu_server.yml` |
 | Fedora Asahi Remix | KDE Plasma | `ansible/playbooks/fedora_asahi.yml` | `ansible/group_vars/fedora_asahi.yml` |
 | macOS (Apple silicon or Intel) | its own | `ansible/playbooks/macos.yml` | `ansible/group_vars/macos.yml` |
-| Windows 10 21H2+ / 11 | its own | `install.ps1` (PowerShell) | `windows/Chinook.ps1` |
 
 Public defaults live in the profile files; your private choices live in `ansible/group_vars/local.yml`.
 
@@ -55,7 +48,6 @@ The Ubuntu profiles target **Ubuntu 24.04 and 26.04 LTS** (desktop and server). 
 - [Ubuntu Server Profile](#ubuntu-server-profile)
 - [Fedora Asahi (KDE) Profile](#fedora-asahi-kde-profile)
 - [macOS Profile](#macos-profile)
-- [Windows Profile](#windows-profile)
 - [Optional Roles](#optional-roles)
 - [Project Layout](#project-layout)
 - [Tags](#tags)
@@ -73,9 +65,9 @@ The Ubuntu profiles target **Ubuntu 24.04 and 26.04 LTS** (desktop and server). 
 
 ## Quick Start
 
-The command at the top of this README is the full install — there is no separate setup step. It installs the prerequisites, clones the repo, runs the app selector, and runs the playbook. Re-run it (or `~/chinook/install`) any time — the playbook is **idempotent**. On Windows the one command downloads the repo and runs `windows/Chinook.ps1`; re-run it any time, or use the config it saved.
+The command at the top of this README is the full install — there is no separate setup step. It installs the prerequisites, clones the repo, runs the app selector, and runs the playbook. Re-run it (or `~/chinook/install`) any time — the playbook is **idempotent**.
 
-The installer asks for `sudo` when it needs it. Override the checkout path with `CHINOOK_DIR`, or pin a branch/tag with `CHINOOK_REF`. Force a profile with `CHINOOK_PROFILE=ubuntu` or `ubuntu_server` on Ubuntu, or `fedora_asahi` on Fedora. macOS is detected automatically. On macOS the installer also installs Homebrew if it is missing (it asks for your password and the Command Line Tools), then uses Homebrew to install Ansible. On Windows the one-liner self-elevates through UAC and runs the PowerShell profile.
+The installer asks for `sudo` when it needs it. Override the checkout path with `CHINOOK_DIR`, or pin a branch/tag with `CHINOOK_REF`. Force a profile with `CHINOOK_PROFILE=ubuntu` or `ubuntu_server` on Ubuntu, or `fedora_asahi` on Fedora. macOS is detected automatically. On macOS the installer also installs Homebrew if it is missing (it asks for your password and the Command Line Tools), then uses Homebrew to install Ansible.
 
 ### Manual install
 
@@ -176,7 +168,6 @@ Depending on the selected profile and local config, Chinook can:
 - Install desktop launchers and shortcuts
 - On Ubuntu Server: install Tailscale, OpenSSH server, tmux with SSH session resume, UFW, and fail2ban
 - On macOS: install Homebrew formulae and casks, the agent CLIs, SSH snippets, the computer name, and Fleet
-- On Windows: install winget apps, the agent CLIs, and an optional fleetd MSI
 
 ## Local Configuration
 
@@ -392,39 +383,6 @@ Two macOS-specific notes:
 - `fleetd` is built as a `.pkg` (unsigned, like Fleet's own `fleetctl package` output) and installed with `installer`; the package registers the `com.fleetdm.orbit` launch daemon itself. Chinook still checks that launchd loaded it and restarts it once if enrollment doesn't appear.
 - The Fleet work email prompt is skipped on macOS: `fleetctl` only accepts `--end-user-email` on Windows and Linux, and macOS hosts get that mapping from MDM enrollment instead.
 
-## Windows Profile
-
-Windows is a native PowerShell profile: Ansible cannot run as a controller on Windows, so this is the one platform that does not go through the playbooks. The one command is:
-
-```powershell
-irm https://github.com/ricardo-alternova/chinook/releases/latest/download/install.ps1 | iex
-```
-
-It requests administrator rights, downloads the repo to `%LOCALAPPDATA%\Chinook`, opens the app selector, and applies your choices. The config lives in `%LOCALAPPDATA%\Chinook\config.json`, so a re-run starts from your last answers.
-
-Run it from your own account, which should be a local administrator; UAC elevates the same account. If you enter a different administrator's credentials, per-user tools such as npm globals install into that account's profile instead.
-
-**What it installs and configures:**
-
-- Git, GitHub CLI, jq, and Node.js LTS through `winget`
-- OpenCode CLI through npm (`opencode-ai`)
-- Claude Code through `winget` (`Anthropic.ClaudeCode`)
-- Codex CLI through OpenAI's official PowerShell installer (optional)
-- Google Chrome, Discord, Spotify, LocalSend, ONLYOFFICE, OBS Studio, GIMP, Cursor, and Tailscale through `winget`
-- Fleet through a **fleetd MSI you provide**: tick Fleet and paste the MSI path or URL, or pass `-FleetMsi <path-or-url>`
-
-**What it does not do in v1:**
-
-- It does not build the fleetd MSI. Fleet's Windows MSI build needs Docker or a local WiX toolset; build it on a machine that has one, or ask your Fleet admin for a fleetd MSI built for your Fleet server.
-- It does not install Cursor CLI (use Cursor's WSL setup) or Docker Desktop.
-- It requires Windows 10 21H2+ or Windows 11 with `winget`/App Installer. Windows Server without `winget` is not supported yet.
-
-Run the script again with `-NonInteractive` to use the saved selection without prompts, for example:
-
-```powershell
-& "$env:LOCALAPPDATA\Chinook\src\chinook-main\windows\Chinook.ps1" -NonInteractive
-```
-
 ## Optional Roles
 
 ### T3 Code
@@ -537,8 +495,6 @@ The Zed role only creates `settings.json` when one doesn't already exist. The te
 | Path | Purpose |
 | --- | --- |
 | `install` | One-line bootstrap: prereqs, clone, OS detect, configure, playbook |
-| `install.ps1` | One-line Windows bootstrap: download, elevation, selector |
-| `windows/Chinook.ps1` | Windows provisioning in PowerShell |
 | `ansible/playbooks/ubuntu.yml` | Ubuntu GNOME playbook |
 | `ansible/playbooks/ubuntu_server.yml` | Ubuntu Server playbook |
 | `ansible/playbooks/fedora_asahi.yml` | Fedora Asahi KDE playbook |
@@ -550,7 +506,6 @@ The Zed role only creates `settings.json` when one doesn't already exist. The te
 | `ansible/group_vars/ubuntu_server.yml` | Ubuntu Server profile |
 | `ansible/group_vars/fedora_asahi.yml` | Fedora Asahi KDE profile |
 | `ansible/group_vars/macos.yml` | macOS profile |
-| `windows/` | Native Windows PowerShell profile |
 | `ansible/group_vars/local.yml.example` | Template for the private override file |
 | `ansible/roles/` | One role per workstation concern |
 | `tools/configure.py` | Terminal UI that generates `local.yml` |
@@ -584,9 +539,6 @@ helium unity_hub keychron zed balena_etcher teams_pwa desktop_shortcuts
 - **`Homebrew is not installed` on macOS** — run the one-line installer, or install Homebrew from [brew.sh](https://brew.sh). Never run `brew` with `sudo`: Homebrew refuses to run as root. Chinook runs it as your account and only uses `become` for the fleetd package and the computer name.
 - **Homebrew is installed but `brew` is not on your PATH** — Chinook writes `eval "$(/opt/homebrew/bin/brew shellenv)"` to `~/.zprofile` (or `/usr/local/bin/brew` on Intel). Open a new terminal, or run that line now.
 - **A macOS app was already installed from its website or the App Store** — Chinook leaves it alone and prints `brew install --cask --adopt <app>` so Homebrew can take it over on the next run. The rest of the casks still install.
-- **`winget` is not recognized on Windows** — update "App Installer" from the Microsoft Store. Chinook requires Windows 10 21H2+ or Windows 11; Windows Server images without `winget` are not supported.
-- **The Windows script closes before you can read an error** — run it from an elevated PowerShell window (`powershell -ExecutionPolicy Bypass -File .\install.ps1`) so the console stays open.
-- **Fleet is ticked on Windows but nothing installs** — pass the fleetd MSI explicitly: `-FleetMsi C:\path\fleet-osquery.msi` or an HTTPS URL. Fleet's MSI build needs Docker or WiX, which Chinook does not install.
 - **GNOME/KDE tasks fail with "no display" or DBus errors** — the theme and shortcut roles configure a running desktop session via `gsettings`/`kwriteconfig`. Run the GNOME or KDE playbook from a logged-in GUI session, not a bare TTY or a server SSH login.
 - **SSH drops you into tmux and you wanted a plain shell** — set `configure_tmux: false` in `local.yml` and re-run, or detach with the usual tmux prefix. Auto-attach only runs on interactive SSH (`SSH_TTY`) from `.bashrc` and `.zshrc`, so `scp`, `sftp`, and Ansible are unaffected. An existing `~/.tmux.conf` is never overwritten.
 - **tmux did not start and you still have a shell** — Chinook no longer `exec`s tmux. If tmux fails, the login shell stays up. If tmux starts and you detach, the SSH session exits.

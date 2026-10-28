@@ -395,36 +395,6 @@ class TestUbuntuSupport(unittest.TestCase):
         self.assertIn("Restore the GNOME screenshot UI binding when WayShot is not selected", by_name)
 
 
-class TestWindowsProfile(unittest.TestCase):
-    def test_scripts_exist_and_are_parsed_by_ci(self):
-        self.assertTrue((ROOT / "install.ps1").is_file())
-        self.assertTrue((ROOT / "windows/Chinook.ps1").is_file())
-        workflow = (ROOT / ".github/workflows/test.yml").read_text(encoding="utf-8")
-        self.assertIn("windows-scripts", workflow)
-        self.assertIn("Chinook.ps1 -Check", workflow)
-        self.assertIn("windows/config.json", (ROOT / ".gitignore").read_text(encoding="utf-8"))
-
-    def test_windows_catalog_covers_clis_and_apps(self):
-        text = (ROOT / "windows/Chinook.ps1").read_text(encoding="utf-8")
-        for package in (
-            "Git.Git",
-            "GitHub.cli",
-            "OpenJS.NodeJS.LTS",
-            "Google.Chrome",
-            "Anthropic.ClaudeCode",
-            "opencode-ai",
-            "https://chatgpt.com/codex/install.ps1",
-        ):
-            self.assertIn(package, text)
-        self.assertIn("FleetMsi", text)
-        self.assertIn("winget install", text)
-
-    def test_readme_documents_the_windows_one_liner(self):
-        text = (ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertIn("install.ps1 | iex", text)
-        self.assertIn("## Windows Profile", text)
-
-
 class TestYamlValue(unittest.TestCase):
     def test_bools_and_plain_scalars(self):
         self.assertEqual(configure.yaml_value(True), "true")
