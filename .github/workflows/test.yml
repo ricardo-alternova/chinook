@@ -68,3 +68,14 @@ jobs:
       - name: Run the Windows catalog self-test
         shell: pwsh
         run: ./windows/Chinook.ps1 -SelfTest
+
+  windows-powershell:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Windows PowerShell 5.1 checks
+        shell: cmd
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1 -Check
+          powershell -NoProfile -ExecutionPolicy Bypass -File windows\Chinook.ps1 -Check
+          powershell -NoProfile -ExecutionPolicy Bypass -File windows\Chinook.ps1 -SelfTest
