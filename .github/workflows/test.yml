@@ -41,3 +41,30 @@ jobs:
             case "$playbook" in */tasks/*) continue ;; esac
             ansible-playbook "$playbook" --syntax-check
           done
+
+  windows-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse the PowerShell scripts
+        shell: pwsh
+        run: |
+          $files = @('install.ps1', 'windows/Chinook.ps1')
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count) {
+              $errors | ForEach-Object { Write-Error "${file}: $($_.Message)" }
+              exit 1
+            }
+          }
+      - name: Run the Windows script self-check
+        shell: pwsh
+        run: ./windows/Chinook.ps1 -Check
+      - name: Run the Windows bootstrap check
+        shell: pwsh
+        run: ./install.ps1 -Check
+      - name: Run the Windows catalog self-test
+        shell: pwsh
+        run: ./windows/Chinook.ps1 -SelfTest

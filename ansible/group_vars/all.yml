@@ -1,7 +1,8 @@
 workstation_user: "{{ ansible_facts['user_id'] }}"
 workstation_home: "{{ ansible_facts['env']['HOME'] }}"
 workstation_group: "{{ ansible_facts['user_gid'] }}"
-dev_dir: "{{ workstation_home }}/Documents/Dev"
+# Empty uses the account's XDG Documents directory (localized on non-English systems).
+dev_dir: ""
 # Empty leaves the hostname alone. Fleet lists devices by hostname (nombre-apellido).
 workstation_hostname: ""
 
@@ -114,8 +115,9 @@ ssh_hosts: []
 
 gnome_color_scheme: prefer-dark
 gnome_gtk_theme: Yaru-dark
-gnome_screenshots_dir: "{{ workstation_home }}/Pictures/Screenshots"
-gnome_screenshots_redirect_target: "{{ workstation_home }}/Downloads"
+# Empty uses the account's XDG Pictures/Downloads directories (localized on non-English systems).
+gnome_screenshots_dir: ""
+gnome_screenshots_redirect_target: ""
 
 wayshot_flatpak: io.github.gutopardini.wayshot
 wayshot_command: "flatpak run --env=WAYSHOT_CAPTURE=1 io.github.gutopardini.wayshot"

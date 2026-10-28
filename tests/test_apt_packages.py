@@ -27,7 +27,7 @@ except ImportError:
 
 # Release codenames the Ubuntu profiles support. Add a codename here when a new
 # release is supported, and every package name is checked against it too.
-UBUNTU_RELEASES = ["noble"]  # 24.04 LTS
+UBUNTU_RELEASES = ["noble", "resolute"]  # 24.04 and 26.04 LTS
 UBUNTU_COMPONENTS = ["main", "restricted", "universe", "multiverse"]
 UBUNTU_ARCHIVE = "http://archive.ubuntu.com/ubuntu"
 
@@ -56,6 +56,12 @@ def chinook_apt_packages():
     all_vars = yaml.safe_load((ROOT / "ansible/group_vars/all.yml").read_text(encoding="utf-8"))
     names.update(all_vars.get("fail2ban_packages", []))
     return names - THIRD_PARTY_PACKAGES
+
+
+class TestSupportedReleases(unittest.TestCase):
+    def test_ubuntu_lts_releases_are_listed(self):
+        self.assertIn("noble", UBUNTU_RELEASES)
+        self.assertIn("resolute", UBUNTU_RELEASES)
 
 
 @unittest.skipUnless(os.environ.get("CHINOOK_CHECK_APT") == "1", "set CHINOOK_CHECK_APT=1 to download Ubuntu package indexes")
