@@ -402,6 +402,8 @@ irm https://github.com/ricardo-alternova/chinook/releases/latest/download/instal
 
 It requests administrator rights, downloads the repo to `%LOCALAPPDATA%\Chinook`, opens the app selector, and applies your choices. The config lives in `%LOCALAPPDATA%\Chinook\config.json`, so a re-run starts from your last answers.
 
+Run it from your own account, which should be a local administrator; UAC elevates the same account. If you enter a different administrator's credentials, per-user tools such as npm globals install into that account's profile instead.
+
 **What it installs and configures:**
 
 - Git, GitHub CLI, jq, and Node.js LTS through `winget`
