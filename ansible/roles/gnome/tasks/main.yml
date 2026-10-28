@@ -18,6 +18,10 @@
   ansible.builtin.command: "gsettings set org.gnome.desktop.interface gtk-theme '{{ gnome_gtk_theme }}'"
   when: gnome_current_gtk_theme.stdout != "'" + gnome_gtk_theme + "'"
 
+- name: Determine whether WayShot will be installed
+  ansible.builtin.set_fact:
+    wayshot_selected: "{{ install_flatpak_apps | bool and wayshot_flatpak in flatpak_packages }}"
+
 - name: Read GNOME screenshot UI binding
   ansible.builtin.command: gsettings get org.gnome.shell.keybindings show-screenshot-ui
   register: gnome_current_screenshot_ui
@@ -26,7 +30,16 @@
 
 - name: Free the Print key from the GNOME screenshot UI
   ansible.builtin.command: gsettings set org.gnome.shell.keybindings show-screenshot-ui "[]"
-  when: gnome_current_screenshot_ui.stdout not in ["@as []", "[]"]
+  when:
+    - wayshot_selected
+    - gnome_current_screenshot_ui.stdout not in ["@as []", "[]"]
+
+# Never leave Print dead when WayShot is not part of this run.
+- name: Restore the GNOME screenshot UI binding when WayShot is not selected
+  ansible.builtin.command: gsettings reset org.gnome.shell.keybindings show-screenshot-ui
+  when:
+    - not wayshot_selected
+    - gnome_current_screenshot_ui.stdout in ["@as []", "[]"]
 
 # A fresh account may not have its XDG folders yet, and the link needs both ends.
 - name: Ensure the screenshots redirect target and its link parent exist
@@ -98,10 +111,6 @@
     gnome_custom_keybinding_paths: >-
       {{ [] if gnome_current_custom_keybindings.stdout in ['@as []', '[]'] else (gnome_current_custom_keybindings.stdout | from_yaml) }}
 
-- name: Determine whether WayShot is selected
-  ansible.builtin.set_fact:
-    wayshot_selected: "{{ wayshot_flatpak in flatpak_packages }}"
-
 - name: Find leftover Flameshot or ksnip custom keybindings
   ansible.builtin.shell: |
     for path in {{ gnome_custom_keybinding_paths | join(' ') }}; do
@@ -145,7 +154,7 @@
 - name: Build desired custom keybinding paths
   ansible.builtin.set_fact:
     gnome_desired_custom_keybinding_paths: "{{ (gnome_custom_keybinding_paths + [wayshot_keybinding_path]) | unique | list }}"
-  when: wayshot_flatpak in flatpak_packages
+  when: wayshot_selected
 
 - name: Register the WayShot custom keybinding path
   ansible.builtin.command:
@@ -156,7 +165,7 @@
       - custom-keybindings
       - "{{ gnome_desired_custom_keybinding_paths | to_json }}"
   when:
-    - wayshot_flatpak in flatpak_packages
+    - wayshot_selected
     - gnome_custom_keybinding_paths != gnome_desired_custom_keybinding_paths
 
 - name: Read the WayShot keybinding name
@@ -167,14 +176,14 @@
   changed_when: false
   failed_when: false
   check_mode: false
-  when: wayshot_flatpak in flatpak_packages
+  when: wayshot_selected
 
 - name: Set the WayShot keybinding name
   ansible.builtin.command: >
     gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:{{ wayshot_keybinding_path }}
     name '{{ wayshot_keybinding_name }}'
   when:
-    - wayshot_flatpak in flatpak_packages
+    - wayshot_selected
     - wayshot_current_name.stdout != "'" + wayshot_keybinding_name + "'"
 
 - name: Read the WayShot keybinding command
@@ -185,14 +194,14 @@
   changed_when: false
   failed_when: false
   check_mode: false
-  when: wayshot_flatpak in flatpak_packages
+  when: wayshot_selected
 
 - name: Set the WayShot keybinding command
   ansible.builtin.command: >
     gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:{{ wayshot_keybinding_path }}
     command '{{ wayshot_command }}'
   when:
-    - wayshot_flatpak in flatpak_packages
+    - wayshot_selected
     - wayshot_current_command.stdout != "'" + wayshot_command + "'"
 
 - name: Read the WayShot keybinding binding
@@ -203,12 +212,12 @@
   changed_when: false
   failed_when: false
   check_mode: false
-  when: wayshot_flatpak in flatpak_packages
+  when: wayshot_selected
 
 - name: Bind Print to WayShot
   ansible.builtin.command: >
     gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:{{ wayshot_keybinding_path }}
     binding '{{ wayshot_keybinding_binding }}'
   when:
-    - wayshot_flatpak in flatpak_packages
+    - wayshot_selected
     - wayshot_current_binding.stdout != "'" + wayshot_keybinding_binding + "'"

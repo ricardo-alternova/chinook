@@ -357,6 +357,74 @@ class TestCatalog(unittest.TestCase):
         self.assertFalse(merged["install_opencode_desktop"])
 
 
+class TestUbuntuSupport(unittest.TestCase):
+    def test_installer_accepts_both_lts_versions(self):
+        text = (ROOT / "install").read_text(encoding="utf-8")
+        self.assertIn('CHINOOK_UBUNTU_VERSIONS="24.04 26.04"', text)
+
+    def test_readme_documents_wget_and_2604(self):
+        text = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("wget -qO- https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash", text)
+        self.assertIn("26.04", text)
+
+    def test_manual_install_documents_sudo_ws(self):
+        text = (ROOT / "README.md").read_text(encoding="utf-8")
+        manual = text[text.index("### Manual install"):text.index("## Next steps")]
+        self.assertIn("ANSIBLE_BECOME_EXE=sudo.ws", manual)
+
+    def test_local_paths_follow_xdg_user_dirs(self):
+        all_vars = parse_yaml((ROOT / "ansible/group_vars/all.yml").read_text(encoding="utf-8"))
+        self.assertEqual(all_vars["dev_dir"], "")
+        self.assertEqual(all_vars["gnome_screenshots_dir"], "")
+        self.assertEqual(all_vars["gnome_screenshots_redirect_target"], "")
+        loader = parse_yaml((ROOT / "ansible/playbooks/tasks/load_local_vars.yml").read_text(encoding="utf-8"))
+        commands = [task.get("ansible.builtin.command") for task in loader if "ansible.builtin.command" in task]
+        self.assertIn("xdg-user-dir {{ item }}", commands)
+        defaults = next(task for task in loader if task.get("name") == "Default local paths to the user's XDG directories")
+        facts = defaults["ansible.builtin.set_fact"]
+        for name in ("dev_dir", "gnome_screenshots_dir", "gnome_screenshots_redirect_target"):
+            self.assertIn(name, facts)
+            self.assertIn("xdg_", facts[name])
+
+    def test_gnome_only_frees_print_for_wayshot(self):
+        tasks = parse_yaml((ROOT / "ansible/roles/gnome/tasks/main.yml").read_text(encoding="utf-8"))
+        by_name = {task["name"]: task for task in tasks}
+        fact = by_name["Determine whether WayShot will be installed"]["ansible.builtin.set_fact"]["wayshot_selected"]
+        self.assertIn("install_flatpak_apps", fact)
+        self.assertIn("wayshot_selected", by_name["Free the Print key from the GNOME screenshot UI"]["when"])
+        self.assertIn("Restore the GNOME screenshot UI binding when WayShot is not selected", by_name)
+
+
+class TestWindowsProfile(unittest.TestCase):
+    def test_scripts_exist_and_are_parsed_by_ci(self):
+        self.assertTrue((ROOT / "install.ps1").is_file())
+        self.assertTrue((ROOT / "windows/Chinook.ps1").is_file())
+        workflow = (ROOT / ".github/workflows/test.yml").read_text(encoding="utf-8")
+        self.assertIn("windows-scripts", workflow)
+        self.assertIn("Chinook.ps1 -Check", workflow)
+        self.assertIn("windows/config.json", (ROOT / ".gitignore").read_text(encoding="utf-8"))
+
+    def test_windows_catalog_covers_clis_and_apps(self):
+        text = (ROOT / "windows/Chinook.ps1").read_text(encoding="utf-8")
+        for package in (
+            "Git.Git",
+            "GitHub.cli",
+            "OpenJS.NodeJS.LTS",
+            "Google.Chrome",
+            "Anthropic.ClaudeCode",
+            "opencode-ai",
+            "https://chatgpt.com/codex/install.ps1",
+        ):
+            self.assertIn(package, text)
+        self.assertIn("FleetMsi", text)
+        self.assertIn("winget install", text)
+
+    def test_readme_documents_the_windows_one_liner(self):
+        text = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("install.ps1 | iex", text)
+        self.assertIn("## Windows Profile", text)
+
+
 class TestYamlValue(unittest.TestCase):
     def test_bools_and_plain_scalars(self):
         self.assertEqual(configure.yaml_value(True), "true")

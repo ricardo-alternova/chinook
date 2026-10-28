@@ -22,3 +22,39 @@
     workstation_home: "{{ ansible_facts['env']['HOME'] }}"
     # Linux gives each user a group of the same name; macOS uses staff.
     workstation_group: "{{ ansible_facts['user_gid'] }}"
+
+# GNOME and the shell use English directory names by default. Ask XDG instead,
+# so a Spanish or German desktop gets ~/Imágenes and ~/Descargas rather than
+# new ~/Pictures and ~/Downloads folders next to them.
+- name: Find the user's XDG directories
+  ansible.builtin.command: "xdg-user-dir {{ item }}"
+  loop:
+    - DOCUMENTS
+    - PICTURES
+    - DOWNLOAD
+  register: chinook_xdg_dirs
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: ansible_facts['system'] == 'Linux'
+
+- name: Remember the user's XDG directories
+  ansible.builtin.set_fact:
+    xdg_documents_dir: >-
+      {{ ((chinook_xdg_dirs.results | selectattr('item', 'equalto', 'DOCUMENTS') | map(attribute='stdout') | first | default('')) | trim)
+         or (workstation_home ~ '/Documents') }}
+    xdg_pictures_dir: >-
+      {{ ((chinook_xdg_dirs.results | selectattr('item', 'equalto', 'PICTURES') | map(attribute='stdout') | first | default('')) | trim)
+         or (workstation_home ~ '/Pictures') }}
+    xdg_download_dir: >-
+      {{ ((chinook_xdg_dirs.results | selectattr('item', 'equalto', 'DOWNLOAD') | map(attribute='stdout') | first | default('')) | trim)
+         or (workstation_home ~ '/Downloads') }}
+  when: ansible_facts['system'] == 'Linux'
+
+# Keep an explicit local.yml value; only replace the empty defaults.
+- name: Default local paths to the user's XDG directories
+  ansible.builtin.set_fact:
+    dev_dir: "{{ dev_dir | default('') or (xdg_documents_dir ~ '/Dev') }}"
+    gnome_screenshots_dir: "{{ gnome_screenshots_dir | default('') or (xdg_pictures_dir ~ '/Screenshots') }}"
+    gnome_screenshots_redirect_target: "{{ gnome_screenshots_redirect_target | default('') or xdg_download_dir }}"
+  when: ansible_facts['system'] == 'Linux'
