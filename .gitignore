@@ -1,4 +1,3 @@
 ansible/group_vars/local.yml
-windows/config.json
 __pycache__/
 tools/__pycache__/
