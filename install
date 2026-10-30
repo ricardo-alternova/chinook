@@ -150,7 +150,7 @@ pkg_install() {
       sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
       sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git ansible python3
       ;;
-    fedora)
+    fedora|fedora-asahi-remix|fedora-asahi)
       sudo dnf install -y git ansible python3
       ;;
     *)
@@ -177,7 +177,7 @@ ensure_git() {
       sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
       sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
       ;;
-    fedora)
+    fedora|fedora-asahi-remix|fedora-asahi)
       sudo dnf install -y git
       ;;
     *)

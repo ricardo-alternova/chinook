@@ -369,7 +369,8 @@ class TestUbuntuSupport(unittest.TestCase):
 
     def test_installer_accepts_fedora_asahi_remix_os_id(self):
         text = (ROOT / "install").read_text(encoding="utf-8")
-        self.assertIn("fedora|fedora-asahi-remix|fedora-asahi)", text)
+        # OS detection and both package-manager paths (git and the full prerequisite set).
+        self.assertEqual(text.count("fedora|fedora-asahi-remix|fedora-asahi)"), 3)
 
     def test_manual_install_documents_sudo_ws(self):
         text = (ROOT / "README.md").read_text(encoding="utf-8")
