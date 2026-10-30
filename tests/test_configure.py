@@ -367,6 +367,10 @@ class TestUbuntuSupport(unittest.TestCase):
         self.assertIn("wget -qO- https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash", text)
         self.assertIn("26.04", text)
 
+    def test_installer_accepts_fedora_asahi_remix_os_id(self):
+        text = (ROOT / "install").read_text(encoding="utf-8")
+        self.assertIn("fedora|fedora-asahi-remix|fedora-asahi)", text)
+
     def test_manual_install_documents_sudo_ws(self):
         text = (ROOT / "README.md").read_text(encoding="utf-8")
         manual = text[text.index("### Manual install"):text.index("## Next steps")]

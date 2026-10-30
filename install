@@ -61,7 +61,7 @@ detect_os() {
       fi
       choose_ubuntu_profile
       ;;
-    fedora)
+    fedora|fedora-asahi-remix|fedora-asahi)
       CHINOOK_PROFILE=fedora_asahi
       if [[ "${NAME:-} ${VARIANT:-} ${VERSION:-}" == *[Aa]sahi* ]] || uname -r | grep -qi asahi; then
         CHINOOK_OS_LABEL="Fedora Asahi Remix ${VERSION_ID:-}"
