@@ -126,12 +126,14 @@
         path: "/tmp/cursor_{{ cursor_deb_version }}_{{ 'amd64' if cursor_arch_sub == 'x64' else 'arm64' }}.deb"
         state: absent
 
-# dnf path (Fedora Asahi)
+# dnf path (Fedora Asahi). Fedora ships dnf5, so match both dnf and dnf5.
 - name: Choose the Cursor rpm source
   ansible.builtin.set_fact:
     cursor_rpm_source: >-
-      {{ cursor_rpm_url or cursor_resolved_rpm_url }}
-  when: ansible_facts.pkg_mgr == 'dnf'
+      {{ cursor_rpm_url
+         or cursor_resolved_rpm_url
+         or cursor_fallback_rpm_urls[cursor_arch_sub] }}
+  when: ansible_facts.pkg_mgr in ['dnf', 'dnf5']
 
 - name: Fail when the Cursor rpm could not be resolved
   ansible.builtin.fail:
@@ -140,17 +142,29 @@
       local.yml to a direct download link (for example the one published on
       https://cursor.com/downloads) and re-run.
   when:
-    - ansible_facts.pkg_mgr == 'dnf'
+    - ansible_facts.pkg_mgr in ['dnf', 'dnf5']
     - cursor_rpm_source | default('') | length == 0
+
+- name: Discover the current Cursor rpm version
+  ansible.builtin.command: >-
+    curl -fsIL --max-time 30 -A {{ cursor_user_agent | quote }} {{ cursor_rpm_source | quote }}
+  register: cursor_rpm_probe
+  changed_when: false
+  failed_when: false
+  when:
+    - ansible_facts.pkg_mgr in ['dnf', 'dnf5']
+    - cursor_rpm_source | length > 0
 
 - name: Parse the current Cursor rpm version
   ansible.builtin.set_fact:
     cursor_rpm_version: >-
-      {{ (cursor_rpm_source
+      {{ (cursor_rpm_probe.stdout
           | regex_search('cursor-[0-9]+\.[0-9]+\.[0-9]+')
           | default('', true)
           | regex_replace('^cursor-', '')) }}
-  when: ansible_facts.pkg_mgr == 'dnf'
+  when:
+    - ansible_facts.pkg_mgr in ['dnf', 'dnf5']
+    - cursor_rpm_probe is not skipped
 
 - name: Fail when the Cursor rpm version could not be parsed
   ansible.builtin.fail:
@@ -159,7 +173,7 @@
       {{ cursor_rpm_source }}. Set cursor_rpm_url in local.yml to a direct
       download link and re-run.
   when:
-    - ansible_facts.pkg_mgr == 'dnf'
+    - ansible_facts.pkg_mgr in ['dnf', 'dnf5']
     - cursor_rpm_version | length == 0
 
 - name: Check the installed Cursor rpm version
@@ -167,7 +181,7 @@
   register: cursor_installed_rpm_version
   changed_when: false
   failed_when: false
-  when: ansible_facts.pkg_mgr == 'dnf'
+  when: ansible_facts.pkg_mgr in ['dnf', 'dnf5']
 
 - name: Install or update the Cursor rpm
   ansible.builtin.dnf:
@@ -175,7 +189,7 @@
     state: present
   become: true
   when:
-    - ansible_facts.pkg_mgr == 'dnf'
+    - ansible_facts.pkg_mgr in ['dnf', 'dnf5']
     - cursor_rpm_version | length > 0
     - cursor_installed_rpm_version.stdout | default('') != cursor_rpm_version
 

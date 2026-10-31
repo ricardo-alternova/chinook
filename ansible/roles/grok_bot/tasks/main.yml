@@ -131,7 +131,7 @@
   ansible.builtin.set_fact:
     grok_bot_rpm_source: >-
       {{ grok_bot_rpm_url or grok_bot_resolved_rpm_url }}
-  when: ansible_facts.pkg_mgr == 'dnf'
+  when: ansible_facts.pkg_mgr in ['dnf', 'dnf5']
 
 - name: Fail when the Grok Bot rpm could not be resolved
   ansible.builtin.fail:
@@ -140,7 +140,7 @@
       local.yml to a direct download link (for example the one published on
       https://x.ai/bot) and re-run.
   when:
-    - ansible_facts.pkg_mgr == 'dnf'
+    - ansible_facts.pkg_mgr in ['dnf', 'dnf5']
     - grok_bot_rpm_source | default('') | length == 0
 
 - name: Parse the current Grok Bot rpm version
@@ -151,7 +151,7 @@
           | default('', true)
           | regex_replace('^Grok_Bot_', '')
           | regex_replace('\.rpm$', '')) }}
-  when: ansible_facts.pkg_mgr == 'dnf'
+  when: ansible_facts.pkg_mgr in ['dnf', 'dnf5']
 
 - name: Fail when the Grok Bot rpm version could not be parsed
   ansible.builtin.fail:
@@ -160,7 +160,7 @@
       {{ grok_bot_rpm_source }}. Set grok_bot_rpm_url in local.yml to a direct
       download link and re-run.
   when:
-    - ansible_facts.pkg_mgr == 'dnf'
+    - ansible_facts.pkg_mgr in ['dnf', 'dnf5']
     - grok_bot_rpm_version | length == 0
 
 - name: Check the installed Grok Bot rpm version
@@ -168,7 +168,7 @@
   register: grok_bot_installed_rpm_version
   changed_when: false
   failed_when: false
-  when: ansible_facts.pkg_mgr == 'dnf'
+  when: ansible_facts.pkg_mgr in ['dnf', 'dnf5']
 
 - name: Install or update the Grok Bot rpm
   ansible.builtin.dnf:
@@ -176,7 +176,7 @@
     state: present
   become: true
   when:
-    - ansible_facts.pkg_mgr == 'dnf'
+    - ansible_facts.pkg_mgr in ['dnf', 'dnf5']
     - grok_bot_rpm_version | default('') | length > 0
     - grok_bot_installed_rpm_version.stdout | default('') != grok_bot_rpm_version
 

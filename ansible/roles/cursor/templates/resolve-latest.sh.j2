@@ -23,15 +23,22 @@ case "$ARCH" in
   *) empty_result ;;
 esac
 
+# The downloads page has used two shapes over time: plain HTML links to
+# api2.cursor.sh (current) and escaped JSON with a downloadUrl field. Accept
+# both, then keep the highest version.
 resolve() {
-  printf '%s' "$page" \
-    | grep -oE "Linux $1 \($label_arch\)\\\\\",\\\\\"downloadUrl\\\\\":\\\\\"https://[^\\\\\"]+" \
-    | head -1 \
-    | grep -oE 'https://[^\\"]+' || true
+  local suffix="$1" label="$2"
+  {
+    printf '%s' "$page" \
+      | grep -oE "https://api2\.cursor\.sh/updates/download/golden/linux-$ARCH-$suffix/cursor/[0-9]+(\.[0-9]+)*" || true
+    printf '%s' "$page" \
+      | grep -oE "Linux $label \($label_arch\)\\\\\",\\\\\"downloadUrl\\\\\":\\\\\"https://[^\\\\\"]+" \
+      | grep -oE 'https://[^\\"]+' || true
+  } | sort -V | tail -1
 }
 
-deb_url=$(resolve '\.deb')
-rpm_url=$(resolve 'RPM')
+deb_url=$(resolve deb '\.deb')
+rpm_url=$(resolve rpm 'RPM')
 
 echo "deb_url=$deb_url"
 echo "rpm_url=$rpm_url"

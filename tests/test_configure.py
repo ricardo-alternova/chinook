@@ -140,6 +140,16 @@ class TestCatalog(unittest.TestCase):
         self.assertNotIn("install_cursor |", server)
         self.assertTrue((ROOT / "ansible" / "roles" / "cursor" / "tasks" / "main.yml").is_file())
 
+    def test_cursor_handles_dnf5_and_the_current_download_page(self):
+        role = (ROOT / "ansible/roles/cursor/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertNotIn("ansible_facts.pkg_mgr == 'dnf'", role)
+        self.assertIn("ansible_facts.pkg_mgr in ['dnf', 'dnf5']", role)
+        self.assertIn("cursor_fallback_rpm_urls[cursor_arch_sub]", role)
+        template = (ROOT / "ansible/roles/cursor/templates/resolve-latest.sh.j2").read_text(encoding="utf-8")
+        self.assertIn("linux-$ARCH-$suffix/cursor/", template)
+        grok = (ROOT / "ansible/roles/grok_bot/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertNotIn("ansible_facts.pkg_mgr == 'dnf'", grok)
+
     def test_agent_and_git_clis_on_every_linux_profile(self):
         for profile in configure.LINUX_PROFILES:
             playbook = configure.PLAYBOOKS[profile]
