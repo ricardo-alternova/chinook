@@ -95,6 +95,8 @@ class TestCatalog(unittest.TestCase):
             self.assertIn("role: ufw", playbook)
             self.assertIn("ufw", {app["key"] for app in configure.visible_apps(profile)})
         self.assertNotIn("ufw", {app["key"] for app in configure.visible_apps("fedora_asahi")})
+        fedora_vars = parse_yaml((ROOT / "ansible/group_vars/fedora_asahi.yml").read_text(encoding="utf-8"))
+        self.assertEqual(fedora_vars["fail2ban_banaction"], "firewallcmd-rich-rules")
 
     def test_timeshift_is_a_selectable_linux_module(self):
         for profile in configure.LINUX_PROFILES:

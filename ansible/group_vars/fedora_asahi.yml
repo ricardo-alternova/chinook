@@ -100,5 +100,8 @@ flatpak_packages:
 
 kde_color_scheme: BreezeDark
 kde_look_and_feel_package: org.kde.breezedark.desktop
+# Fedora uses firewalld, so fail2ban must add its bans through firewalld
+# instead of writing raw iptables rules that firewalld will overwrite.
+fail2ban_banaction: firewallcmd-rich-rules
 # The Asahi install runs long snapshots; keep the OS awake behind the lock screen.
 kde_disable_autosuspend: true
