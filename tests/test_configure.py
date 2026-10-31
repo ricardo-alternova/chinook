@@ -82,6 +82,16 @@ class TestCatalog(unittest.TestCase):
         self.assertNotIn("wayshot", keys)
         self.assertNotIn("input_remapper", keys)
 
+    def test_timeshift_is_a_selectable_linux_module(self):
+        for profile in configure.LINUX_PROFILES:
+            keys = {app["key"] for app in configure.visible_apps(profile)}
+            self.assertIn("timeshift", keys, profile)
+            self.assertIn("timeshift", configure.default_selection(profile), profile)
+            self.assertTrue(configure.build_config(profile, configure.default_selection(profile))["configure_timeshift"], profile)
+            without = configure.default_selection(profile) - {"timeshift"}
+            self.assertFalse(configure.build_config(profile, without)["configure_timeshift"], profile)
+        self.assertNotIn("timeshift", {app["key"] for app in configure.visible_apps("macos")})
+
     def test_input_remapper_is_desktop_only(self):
         for profile in ("ubuntu", "fedora_asahi"):
             self.assertIn("input_remapper", {app["key"] for app in configure.visible_apps(profile)})
@@ -566,6 +576,8 @@ class TestDetection(unittest.TestCase):
         for profile in configure.PLAYBOOKS:
             managers = configure.profile_managers(profile)
             for app in configure.visible_apps(profile):
+                if app.get("no_detect"):
+                    continue
                 installs_something = configure.app_flags(app) or any(app.get(manager) for manager in managers)
                 if not installs_something:
                     continue

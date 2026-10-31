@@ -246,6 +246,8 @@ configure_desktop_shortcuts: false
 
 The configurator writes these values for you. On macOS, selected apps go into `brew_packages` and `brew_casks` instead of the APT, DNF, Snap, and Flatpak lists.
 
+Timeshift is in the selector too. Untick **Timeshift daily snapshots** to skip snapshots entirely; `configure_timeshift: false` does the same for a manual playbook run. It is ticked by default because snapshots make recovery automatic.
+
 ## Ubuntu (GNOME) Profile
 
 **APT packages, by category:**
