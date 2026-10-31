@@ -41,6 +41,15 @@ APPS = [
         "brew": ["git", "jq"],
     },
     {
+        "key": "timeshift",
+        "label": "Timeshift daily snapshots (system restore points)",
+        "default": True,
+        "profiles": LINUX_PROFILES,
+        "flag": "configure_timeshift",
+        # A module, not an app: don't re-tick it just because the package exists.
+        "no_detect": True,
+    },
+    {
         "key": "shell",
         "label": "Zsh, Starship, and zsh plugins",
         "default": True,
@@ -602,7 +611,6 @@ def build_config(profile, selected, unmanaged_casks=()):
         "install_packages": True,
         "install_snap_apps": profile == "ubuntu",
         "install_flatpak_apps": profile == "fedora_asahi",
-        "configure_timeshift": True,
         "configure_ssh": False,
         "configure_gnome": profile == "ubuntu",
         "configure_kde": profile == "fedora_asahi",
