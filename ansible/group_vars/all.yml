@@ -12,7 +12,6 @@ install_flatpak_apps: false
 install_onedrive: false
 install_mangohud: false
 install_opencode_cli: false
-install_opencode_desktop: false
 install_codex_cli: false
 install_claude_code: false
 install_cursor_cli: false
@@ -185,8 +184,6 @@ cursor_fallback_rpm_urls:
   x64: https://api2.cursor.sh/updates/download/golden/linux-x64-rpm/cursor/3.19
   arm64: https://api2.cursor.sh/updates/download/golden/linux-arm64-rpm/cursor/3.19
 
-opencode_desktop_package_name: opencode
-opencode_desktop_release_base_url: https://github.com/anomalyco/opencode/releases/latest/download
 
 helium_package_name: helium-bin
 helium_apt_key_url: https://raw.githubusercontent.com/imputnet/helium-linux/main/pubkey.asc
