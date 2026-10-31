@@ -958,6 +958,14 @@ class TestInstallScript(unittest.TestCase):
         text = (ROOT / "install").read_text(encoding="utf-8")
         self.assertIn("On Ubuntu, CHINOOK_PROFILE must be ubuntu or ubuntu_server", text)
 
+    def test_repo_reruns_update_the_managed_checkout(self):
+        text = (ROOT / "install").read_text(encoding="utf-8")
+        self.assertIn("update_checkout()", text)
+        self.assertIn("--is-shallow-repository", text)
+        self.assertIn("git -C \"$root\" reset --hard FETCH_HEAD", text)
+        # Developer clones are full checkouts and must be left alone.
+        self.assertIn("using it as-is", text)
+
     def test_macos_bootstrap(self):
         text = (ROOT / "install").read_text(encoding="utf-8")
         self.assertIn("is_macos()", text)

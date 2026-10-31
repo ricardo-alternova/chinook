@@ -244,6 +244,27 @@ bootstrap() {
   exec bash "$CHINOOK_DIR/install" --in-repo </dev/tty
 }
 
+# `~/chinook/install` used to run whatever checkout was on disk, so a re-run
+# after a fix could still execute old code. Keep the installer's shallow
+# checkout current; leave developer clones and dirty checkouts alone.
+update_checkout() {
+  local root="$1"
+  git -C "$root" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
+  [[ "$(git -C "$root" rev-parse --is-shallow-repository 2>/dev/null)" == "true" ]] || return 0
+  if [[ -n "$(git -C "$root" status --porcelain 2>/dev/null)" ]]; then
+    echo "warning: $root has local changes; using it as-is."
+    return 0
+  fi
+  if ! git -C "$root" fetch --depth 1 origin "$CHINOOK_REF" >/dev/null 2>&1; then
+    echo "warning: could not update Chinook; using the local checkout."
+    return 0
+  fi
+  if [[ "$(git -C "$root" rev-parse HEAD)" != "$(git -C "$root" rev-parse FETCH_HEAD)" ]]; then
+    echo "Updating Chinook to the latest $CHINOOK_REF ..."
+    git -C "$root" reset --hard FETCH_HEAD >/dev/null
+  fi
+}
+
 run_from_repo() {
   check_os
   [[ "${EUID:-$(id -u)}" -ne 0 ]] || die "Run as your user, not root. The installer will sudo when needed."
@@ -252,6 +273,11 @@ run_from_repo() {
   local root
   root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   cd "$root"
+
+  update_checkout "$root"
+  if git -C "$root" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "Chinook $(git -C "$root" rev-parse --short HEAD)"
+  fi
 
   detect_os
   echo
