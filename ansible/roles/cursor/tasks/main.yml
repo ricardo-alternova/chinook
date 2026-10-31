@@ -187,6 +187,9 @@
   ansible.builtin.dnf:
     name: "{{ cursor_rpm_source }}"
     state: present
+    # Cursor's RPMs are not GPG-signed, so a normal dnf install from the URL
+    # fails verification. It is downloaded over HTTPS from cursor.com.
+    disable_gpg_check: true
   become: true
   when:
     - ansible_facts.pkg_mgr in ['dnf', 'dnf5']
