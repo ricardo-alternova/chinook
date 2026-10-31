@@ -343,6 +343,7 @@ Hardware KVMs and out-of-band power buttons are useful for this kind of box, but
 **Also configures:**
 
 - RPM Fusion free and nonfree repositories for codecs
+- firewalld (Fedora's default firewall), with SSH allowed and any leftover UFW removed
 - Timeshift daily snapshots with 7-day retention
 - KDE screen lock after 1 minute with automatic suspend off, so long installs and the initial snapshot keep running behind the lock (set `kde_disable_autosuspend: false` in `local.yml` for normal sleep)
 - KDE Breeze Dark theme
@@ -526,7 +527,7 @@ ansible-playbook ansible/playbooks/fedora_asahi.yml --tags packages
 Available tags match role names:
 
 ```bash
-packages snaps flatpaks homebrew timeshift tmux tailscale ufw fail2ban ssh_client
+packages snaps flatpaks homebrew timeshift tmux tailscale ufw firewalld fail2ban ssh_client
 onedrive gnome kde mangohud opencode_cli codex_cli claude_code cursor_cli glab docker fleet compai_agent hostname unity_cli starship shell kitty
 grok_bot cursor wayshot t3_code
 helium unity_hub keychron zed balena_etcher teams_pwa desktop_shortcuts
@@ -547,6 +548,7 @@ helium unity_hub keychron zed balena_etcher teams_pwa desktop_shortcuts
 - **Tailscale is installed but not connected** — run `sudo tailscale up`. Storing `tailscale_auth_key` in `local.yml` is optional; use a single-use key. The playbook and configurator keep `local.yml` mode `0600`.
 - **fail2ban banned your Tailscale IP** — the default ignore list is localhost only. Add your admin tailnet address to `fail2ban_ignoreip` rather than the whole `100.64.0.0/10` range.
 - **`ufw allow in True tailscale0` / `Need 'to' or 'from' clause`** — fixed: an unquoted `on` in the UFW role was read by YAML as `True`. Update Chinook and re-run.
+- **UFW on Fedora** — Fedora uses firewalld; the Fedora profile now configures firewalld and removes a UFW package left by an earlier run. UFW remains the firewall on Ubuntu.
 - **Locked out after enabling UFW** — use console or a local session and run `sudo ufw allow OpenSSH` or `sudo ufw disable`. The Server profile allows OpenSSH before enabling UFW; this usually means SSH is on a non-standard port — add it to `ufw_allowed_ports`.
 - **fail2ban is not banning** — confirm `sudo fail2ban-client status sshd` and that `python3-systemd` is installed so the jail can read the journal.
 - **T3 Code won't start on Fedora Asahi** — the x86_64 AppImage may not mount FUSE through the emulation layer even with `fuse-libs` installed. Fall back to extraction, which needs no FUSE:

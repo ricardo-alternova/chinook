@@ -94,6 +94,7 @@ APPS = [
         "key": "ufw",
         "label": "UFW firewall (deny inbound, allow SSH)",
         "detect": "ufw_enabled",
+        "profiles": APT_PROFILES,
         "default_profiles": ["ubuntu_server"],
         "flag": "configure_ufw",
     },

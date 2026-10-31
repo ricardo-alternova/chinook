@@ -82,6 +82,20 @@ class TestCatalog(unittest.TestCase):
         self.assertNotIn("wayshot", keys)
         self.assertNotIn("input_remapper", keys)
 
+    def test_fedora_uses_firewalld_not_ufw(self):
+        fedora = (ROOT / "ansible/playbooks/fedora_asahi.yml").read_text(encoding="utf-8")
+        self.assertIn("role: firewalld", fedora)
+        self.assertNotIn("role: ufw", fedora)
+        role = (ROOT / "ansible/roles/firewalld/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertIn("firewall-cmd", role)
+        self.assertIn("name: ufw", role)
+        self.assertIn("state: absent", role)
+        for profile in ("ubuntu", "ubuntu_server"):
+            playbook = (ROOT / "ansible/playbooks" / f"{profile}.yml").read_text(encoding="utf-8")
+            self.assertIn("role: ufw", playbook)
+            self.assertIn("ufw", {app["key"] for app in configure.visible_apps(profile)})
+        self.assertNotIn("ufw", {app["key"] for app in configure.visible_apps("fedora_asahi")})
+
     def test_timeshift_is_a_selectable_linux_module(self):
         for profile in configure.LINUX_PROFILES:
             keys = {app["key"] for app in configure.visible_apps(profile)}

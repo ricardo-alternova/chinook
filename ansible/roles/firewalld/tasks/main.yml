@@ -1,0 +1,59 @@
+# Fedora uses firewalld. Chinook switches the machine from UFW (if an earlier
+# run installed it) to Fedora's default firewall.
+- name: Find UFW
+  ansible.builtin.stat:
+    path: /usr/sbin/ufw
+  register: firewalld_ufw
+
+- name: Disable UFW before switching to firewalld
+  ansible.builtin.command: ufw --force disable
+  become: true
+  failed_when: false
+  changed_when: false
+  when: firewalld_ufw.stat.exists
+
+- name: Install firewalld
+  ansible.builtin.package:
+    name: firewalld
+    state: present
+  become: true
+
+- name: Enable and start firewalld
+  ansible.builtin.systemd:
+    name: firewalld
+    enabled: true
+    state: started
+  become: true
+
+- name: Read firewalld default zone
+  ansible.builtin.command: firewall-cmd --get-default-zone
+  register: firewalld_default_zone
+  changed_when: false
+  become: true
+
+- name: Set the firewalld default zone
+  ansible.builtin.command: firewall-cmd --set-default-zone=public
+  become: true
+  when: firewalld_default_zone.stdout | trim != 'public'
+
+# Fedora's public zone allows SSH by default; make it explicit for reruns.
+- name: Allow SSH in the public zone
+  ansible.builtin.command: firewall-cmd --permanent --zone=public --add-service=ssh
+  register: firewalld_ssh
+  become: true
+  changed_when: "'ALREADY_ENABLED' not in (firewalld_ssh.stdout ~ firewalld_ssh.stderr)"
+  notify: Reload firewalld
+
+- name: Allow the Tailscale interface in the trusted zone
+  ansible.builtin.command: firewall-cmd --permanent --zone=trusted --add-interface=tailscale0
+  register: firewalld_tailscale
+  become: true
+  changed_when: "'ALREADY_ENABLED' not in (firewalld_tailscale.stdout ~ firewalld_tailscale.stderr)"
+  notify: Reload firewalld
+  when: install_tailscale | bool
+
+- name: Remove UFW on Fedora
+  ansible.builtin.package:
+    name: ufw
+    state: absent
+  become: true
