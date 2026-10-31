@@ -53,6 +53,9 @@ ufw_default_incoming: deny
 ufw_default_outgoing: allow
 ufw_default_routed: deny
 ufw_allow_openssh: true
+# Use a port rule instead of the OpenSSH app profile: Fedora's ufw package
+# does not ship /etc/ufw/applications.d/openssh.
+ufw_ssh_port: 22
 ufw_allow_tailscale: "{{ install_tailscale }}"
 ufw_allowed_ports: []
 

@@ -28,12 +28,12 @@
     - not ufw_allow_openssh | bool
     - ufw_allowed_ports | length == 0
 
-- name: Allow OpenSSH through UFW before changing the default policy
+- name: Allow SSH through UFW before changing the default policy
   ansible.builtin.command:
     argv:
       - ufw
       - allow
-      - OpenSSH
+      - "{{ ufw_ssh_port }}/tcp"
   become: true
   register: ufw_allow_openssh_result
   changed_when: ufw_allow_openssh_result.stdout is search('(?i)rule added|rules updated')
@@ -74,15 +74,15 @@
   check_mode: false
   become: true
 
-- name: Fail when OpenSSH is still not allowed before tightening UFW
+- name: Fail when SSH is still not allowed before tightening UFW
   ansible.builtin.fail:
     msg: >-
-      UFW has no OpenSSH allow rule after the allow tasks. Refusing to
+      UFW has no SSH allow rule after the allow tasks. Refusing to
       change the default policy or enable the firewall.
   when:
     - not ansible_check_mode
     - ufw_allow_openssh | bool
-    - ufw_added_rules.stdout is not search('OpenSSH')
+    - ufw_added_rules.stdout is not search(ufw_ssh_port ~ '/tcp|OpenSSH')
 
 - name: Read UFW status
   ansible.builtin.command:

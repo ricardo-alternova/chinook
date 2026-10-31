@@ -367,6 +367,16 @@ class TestCatalog(unittest.TestCase):
         self.assertFalse(merged["install_opencode_cli"])
 
 
+class TestUfw(unittest.TestCase):
+    def test_ssh_is_allowed_by_port_not_app_profile(self):
+        role = (ROOT / "ansible/roles/ufw/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertIn('- "{{ ufw_ssh_port }}/tcp"', role)
+        self.assertIn("ufw_ssh_port ~ '/tcp|OpenSSH'", role)
+        self.assertNotIn('- OpenSSH', role)
+        all_vars = parse_yaml((ROOT / "ansible/group_vars/all.yml").read_text(encoding="utf-8"))
+        self.assertEqual(all_vars["ufw_ssh_port"], 22)
+
+
 class TestTimeshift(unittest.TestCase):
     def test_initial_snapshot_is_protected_from_idle_and_screen_lock(self):
         role = (ROOT / "ansible/roles/timeshift/tasks/main.yml").read_text(encoding="utf-8")
