@@ -182,12 +182,19 @@ class TestCatalog(unittest.TestCase):
         self.assertIn("always:", enroll)
         self.assertIn("secret-orbit-node-key.txt", enroll)
 
-    def test_compai_agent_is_ubuntu_desktop_only_and_autostarts(self):
-        for profile in configure.PLAYBOOKS:
+    def test_compai_agent_is_selectable_everywhere_but_gated(self):
+        for profile in configure.LINUX_PROFILES:
             self.assertNotIn("compai_agent", configure.default_selection(profile), profile)
-            visible = [app["key"] for app in configure.visible_apps(profile)]
-            self.assertEqual("compai_agent" in visible, profile == "ubuntu", profile)
-        self.assertIn("role: compai_agent", (ROOT / "ansible/playbooks/ubuntu.yml").read_text(encoding="utf-8"))
+            self.assertIn("compai_agent", {app["key"] for app in configure.visible_apps(profile)}, profile)
+        self.assertNotIn("compai_agent", {app["key"] for app in configure.visible_apps("macos")})
+        for playbook in ("ubuntu.yml", "ubuntu_server.yml", "fedora_asahi.yml"):
+            text = (ROOT / "ansible/playbooks" / playbook).read_text(encoding="utf-8")
+            self.assertIn("role: compai_agent", text, playbook)
+            self.assertIn("ansible_facts['pkg_mgr'] == 'apt'", text, playbook)
+            self.assertIn("ansible_facts['architecture'] == 'x86_64'", text, playbook)
+            self.assertIn("configure_gnome | bool", text, playbook)
+        loader = (ROOT / "ansible/playbooks/tasks/load_local_vars.yml").read_text(encoding="utf-8")
+        self.assertIn("only available for Ubuntu GNOME on amd64", loader)
         role = (ROOT / "ansible/roles/compai_agent/tasks/main.yml").read_text(encoding="utf-8")
         self.assertIn(".config/autostart/comp-ai-device-agent.desktop", role)
         self.assertIn("minlen", role)
@@ -299,14 +306,11 @@ class TestCatalog(unittest.TestCase):
         ubuntu_defaults = configure.default_selection("ubuntu")
         server_defaults = configure.default_selection("ubuntu_server")
         self.assertIn("opencode_cli", ubuntu_defaults)
-        self.assertIn("opencode_desktop", ubuntu_defaults)
         self.assertIn("tmux", server_defaults)
         self.assertIn("tailscale", server_defaults)
         self.assertNotIn("tmux", ubuntu_defaults)
-        self.assertNotIn("opencode_desktop", server_defaults)
         fedora_defaults = configure.default_selection("fedora_asahi")
         self.assertIn("opencode_cli", fedora_defaults)
-        self.assertIn("opencode_desktop", fedora_defaults)
 
     def test_screenshot_tooling(self):
         ubuntu = (ROOT / "ansible/group_vars/ubuntu.yml").read_text(encoding="utf-8")
@@ -339,21 +343,19 @@ class TestCatalog(unittest.TestCase):
         server_selected = configure.default_selection("ubuntu_server")
         self.assertNotIn("wayshot", server_selected)
 
-    def test_profile_vars_enable_opencode(self):
+    def test_profile_vars_enable_opencode_cli(self):
         ubuntu = (ROOT / "ansible/group_vars/ubuntu.yml").read_text(encoding="utf-8")
         fedora = (ROOT / "ansible/group_vars/fedora_asahi.yml").read_text(encoding="utf-8")
         server = (ROOT / "ansible/group_vars/ubuntu_server.yml").read_text(encoding="utf-8")
         example = (ROOT / "ansible/group_vars/local.yml.example").read_text(encoding="utf-8")
         self.assertIn("install_opencode_cli: true", ubuntu)
-        self.assertIn("install_opencode_desktop: true", ubuntu)
         self.assertIn("install_opencode_cli: true", fedora)
-        self.assertIn("install_opencode_desktop: true", fedora)
         self.assertIn("install_opencode_cli: true", server)
-        self.assertNotIn("install_opencode_desktop: true", server)
         self.assertIn("install_opencode_cli: true", example)
-        self.assertIn("install_opencode_desktop: true", example)
+        for text in (ubuntu, fedora, server, example):
+            self.assertNotIn("install_opencode_desktop", text)
 
-    def test_generated_local_yml_overrides_profile_opencode(self):
+    def test_generated_local_yml_overrides_profile_opencode_cli(self):
         def load(name):
             return parse_yaml((ROOT / "ansible/group_vars" / name).read_text(encoding="utf-8"))
 
@@ -361,10 +363,8 @@ class TestCatalog(unittest.TestCase):
         merged.update(load("all.yml"))
         merged.update(load("ubuntu.yml"))
         self.assertTrue(merged["install_opencode_cli"])
-        self.assertTrue(merged["install_opencode_desktop"])
-        merged.update({"install_opencode_cli": False, "install_opencode_desktop": False})
+        merged.update({"install_opencode_cli": False})
         self.assertFalse(merged["install_opencode_cli"])
-        self.assertFalse(merged["install_opencode_desktop"])
 
 
 class TestTimeshift(unittest.TestCase):
@@ -446,7 +446,6 @@ class TestBuildConfig(unittest.TestCase):
         self.assertFalse(config["configure_kde"])
         self.assertTrue(config["install_snap_apps"])
         self.assertTrue(config["install_opencode_cli"])
-        self.assertTrue(config["install_opencode_desktop"])
         self.assertFalse(config["install_grok_bot"])
         self.assertFalse(config["install_cursor"])
         self.assertTrue(config["install_flatpak_apps"])
@@ -465,7 +464,6 @@ class TestBuildConfig(unittest.TestCase):
         self.assertTrue(config["configure_ufw"])
         self.assertTrue(config["configure_fail2ban"])
         self.assertTrue(config["install_opencode_cli"])
-        self.assertFalse(config["install_opencode_desktop"])
         self.assertIn("openssh-server", config["apt_packages"])
         self.assertIn("tmux", config["apt_packages"])
         self.assertNotIn("snap_packages", config)
@@ -482,7 +480,6 @@ class TestBuildConfig(unittest.TestCase):
         self.assertTrue(config["rpmfusion_release_packages"])
         self.assertIn("org.onlyoffice.desktopeditors", config["flatpak_packages"])
         self.assertTrue(config["install_opencode_cli"])
-        self.assertTrue(config["install_opencode_desktop"])
 
 
 class TestGenerateLocalYml(unittest.TestCase):
@@ -624,7 +621,7 @@ class TestMacosProfile(unittest.TestCase):
         for linux_only in (
             "shell", "tmux", "tailscale", "ufw", "fail2ban", "codecs", "heif", "wayshot",
             "input_remapper", "helium", "unity_hub", "xournalpp", "onedrive", "mangohud",
-            "opencode_desktop", "compai_agent", "unity_cli", "grok_bot", "t3_code",
+            "compai_agent", "unity_cli", "grok_bot", "t3_code",
             "steam", "zapzap", "balena_etcher", "teams_pwa", "keychron",
         ):
             self.assertNotIn(linux_only, keys, linux_only)
@@ -752,7 +749,6 @@ class TestTuiProcess(unittest.TestCase):
         self.assertFalse(data["install_compai_agent"])
         self.assertTrue(data["configure_gnome"])
         self.assertTrue(data["install_opencode_cli"])
-        self.assertTrue(data["install_opencode_desktop"])
         self.assertIn("Wrote", result.stdout)
         self.assertIn("ansible/playbooks/ubuntu.yml", result.stdout)
 

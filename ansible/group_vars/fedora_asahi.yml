@@ -8,7 +8,6 @@ install_glab: true
 install_docker: true
 fleet_desktop: true
 install_starship: true
-install_opencode_desktop: true
 
 configure_shell: true
 configure_kitty: true

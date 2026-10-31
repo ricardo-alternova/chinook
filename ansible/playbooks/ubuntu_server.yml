@@ -74,3 +74,10 @@
     - role: fleet
       tags: fleet
       when: install_fleet | bool
+    - role: compai_agent
+      tags: compai_agent
+      when:
+        - install_compai_agent | bool
+        - ansible_facts['pkg_mgr'] == 'apt'
+        - ansible_facts['architecture'] == 'x86_64'
+        - configure_gnome | bool

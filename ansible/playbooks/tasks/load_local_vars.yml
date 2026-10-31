@@ -58,3 +58,14 @@
     gnome_screenshots_dir: "{{ gnome_screenshots_dir | default('') or (xdg_pictures_dir ~ '/Screenshots') }}"
     gnome_screenshots_redirect_target: "{{ gnome_screenshots_redirect_target | default('') or xdg_download_dir }}"
   when: ansible_facts['system'] == 'Linux'
+
+# The Comp AI Linux agent is a .deb for amd64 and its checks assume GNOME.
+# It is selectable everywhere so the gap is visible, but skip it elsewhere.
+- name: Report when Comp AI has no build for this system
+  ansible.builtin.debug:
+    msg: >-
+      Comp AI is selected, but its Linux agent is only available for Ubuntu GNOME on amd64.
+      Chinook will skip it on {{ ansible_facts['distribution'] }} {{ ansible_facts['architecture'] }}.
+  when:
+    - install_compai_agent | bool
+    - ansible_facts['pkg_mgr'] != 'apt' or ansible_facts['architecture'] != 'x86_64' or not (configure_gnome | bool)

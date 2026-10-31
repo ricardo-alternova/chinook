@@ -214,7 +214,6 @@ install_flatpak_apps: false
 install_onedrive: false
 install_mangohud: false
 install_opencode_cli: true
-install_opencode_desktop: true
 install_claude_code: true
 install_cursor_cli: true
 install_glab: true
@@ -274,7 +273,7 @@ Timeshift is in the selector too. Untick **Timeshift daily snapshots** to skip s
 - WayShot on the `Print` key: portal region capture with an annotation editor and copy-to-clipboard on `Ctrl+C`
 - FFmpeg/GStreamer codecs and HEIC/HEIF image support
 - MangoHud overlay and Zed with `~/.local/bin` on the Zsh path
-- OpenCode CLI and Desktop
+- OpenCode CLI
 - Claude Code, Cursor CLI, GitLab CLI (`glab`), and Starship
 - Docker Engine with Compose and Buildx
 
@@ -350,7 +349,7 @@ Hardware KVMs and out-of-band power buttons are useful for this kind of box, but
 - Spectacle (preinstalled with Plasma) handles screenshots on the `Print` key, with built-in annotation
 - WayShot (optional, flatpak): takes over the `Print` key with portal capture and annotation when selected in the configurator
 - Zed with `~/.local/bin` on the Zsh path
-- OpenCode CLI and Desktop
+- OpenCode CLI
 - Claude Code, Cursor CLI, GitLab CLI (`glab`), and Starship
 - Docker Engine with Compose and Buildx
 - Fleet (fleetd, optional)
@@ -394,9 +393,9 @@ T3 Code is an agent-harness control surface that drives Claude Code, Codex, Curs
 
 The only published Linux build is **x86_64**; on Fedora Asahi (aarch64) the AppImage runs through the x86 emulation layer, so the same install works on both distros. T3 Code needs at least one provider CLI installed and authenticated to drive agents — such as OpenCode CLI (installed by default).
 
-### OpenCode CLI / Desktop
+### OpenCode CLI
 
-The `opencode_cli` role runs the official installer (`curl -fsSL https://opencode.ai/install | bash -s -- --no-modify-path`) and puts `~/.opencode/bin` on the Zsh PATH. The `opencode_desktop` role installs the GitHub-release `.deb`/`.rpm` on desktop profiles only. After provisioning, sign in with `opencode auth login`.
+The `opencode_cli` role runs the official installer (`curl -fsSL https://opencode.ai/install | bash -s -- --no-modify-path`) and puts `~/.opencode/bin` on the Zsh PATH. After provisioning, sign in with `opencode auth login`.
 
 ### Codex CLI
 
@@ -441,7 +440,7 @@ Leave the secret empty to install everything else and enroll later: re-run the i
 
 ### Comp AI device agent
 
-Optional, Ubuntu desktop only (off by default; tick it in the app selector or set `install_compai_agent: true`). Comp AI publishes the Linux agent for amd64. The `compai_agent` role installs the latest production release from Comp AI's GitHub releases and keeps it updated on re-runs. It also prepares the machine for the agent's Linux checks:
+Selectable on every Linux profile (off by default; tick it in the app selector or set `install_compai_agent: true`). Comp AI publishes only an amd64 `.deb` and its checks assume GNOME, so Chinook installs it on Ubuntu GNOME amd64 and skips it with a message on Ubuntu Server, Fedora Asahi (arm64), and other systems. The `compai_agent` role installs the latest production release from Comp AI's GitHub releases and keeps it updated on re-runs. It also prepares the machine for the agent's Linux checks:
 
 - **Start at login:** the agent's own "Start at Login" doesn't work on Linux, so Chinook adds `~/.config/autostart/comp-ai-device-agent.desktop`; otherwise it stops reporting after a reboot.
 - **Password policy:** installs `libpam-pwquality` and sets `minlen = 8` in `/etc/security/pwquality.conf`.
@@ -528,7 +527,7 @@ Available tags match role names:
 
 ```bash
 packages snaps flatpaks homebrew timeshift tmux tailscale ufw fail2ban ssh_client
-onedrive gnome kde mangohud opencode_cli opencode_desktop codex_cli claude_code cursor_cli glab docker fleet compai_agent hostname unity_cli starship shell kitty
+onedrive gnome kde mangohud opencode_cli codex_cli claude_code cursor_cli glab docker fleet compai_agent hostname unity_cli starship shell kitty
 grok_bot cursor wayshot t3_code
 helium unity_hub keychron zed balena_etcher teams_pwa desktop_shortcuts
 ```
