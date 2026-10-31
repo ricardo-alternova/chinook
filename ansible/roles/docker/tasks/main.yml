@@ -78,11 +78,16 @@
         - docker_podman_docker.rc == 0
         - not ansible_check_mode
 
-    - name: Remove distro Docker packages
+    - name: Gather installed packages
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Remove installed distro Docker packages
       ansible.builtin.dnf:
-        name: "{{ docker_conflicting_dnf_packages }}"
+        name: "{{ docker_conflicting_dnf_packages | select('in', ansible_facts['packages'].keys() | list) | list }}"
         state: absent
       become: true
+      when: (docker_conflicting_dnf_packages | select('in', ansible_facts['packages'].keys() | list) | list) | length > 0
 
     - name: Import Docker's RPM signing key
       ansible.builtin.rpm_key:
