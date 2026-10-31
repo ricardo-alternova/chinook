@@ -61,6 +61,23 @@
 - name: Install Docker Engine from Docker's DNF repository
   when: ansible_facts['pkg_mgr'] in ['dnf', 'dnf5']
   block:
+    # podman-docker is just a /usr/bin/docker shim. Removing it with dnf pulls
+    # container-selinux, which other Fedora packages (passt-selinux) require,
+    # so remove only the shim and keep the SELinux policy packages.
+    - name: Check for the podman-docker shim
+      ansible.builtin.command: rpm -q podman-docker
+      register: docker_podman_docker
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Remove the podman-docker shim without pulling dependencies
+      ansible.builtin.command: rpm -e --nodeps podman-docker
+      become: true
+      when:
+        - docker_podman_docker.rc == 0
+        - not ansible_check_mode
+
     - name: Remove distro Docker packages
       ansible.builtin.dnf:
         name: "{{ docker_conflicting_dnf_packages }}"

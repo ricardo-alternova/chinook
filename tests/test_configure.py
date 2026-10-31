@@ -169,6 +169,8 @@ class TestCatalog(unittest.TestCase):
         self.assertTrue(all_vars["docker_apt_repo_url"].startswith("https://download.docker.com/"))
         self.assertTrue(all_vars["docker_dnf_repo_url"].startswith("https://download.docker.com/"))
         self.assertIn("groups: docker", role_text)
+        self.assertNotIn("podman-docker", all_vars["docker_conflicting_dnf_packages"])
+        self.assertIn("rpm -e --nodeps podman-docker", role_text)
 
     def test_fleet_on_every_profile_without_a_committed_secret(self):
         all_vars = parse_yaml((ROOT / "ansible/group_vars/all.yml").read_text(encoding="utf-8"))
