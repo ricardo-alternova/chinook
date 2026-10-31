@@ -357,6 +357,19 @@ class TestCatalog(unittest.TestCase):
         self.assertFalse(merged["install_opencode_desktop"])
 
 
+class TestTimeshift(unittest.TestCase):
+    def test_initial_snapshot_is_protected_from_idle_and_screen_lock(self):
+        role = (ROOT / "ansible/roles/timeshift/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertIn("systemd-inhibit", role)
+        self.assertIn("--what=idle:sleep:handle-lid-switch", role)
+        self.assertIn("kscreenlockerrc", role)
+        self.assertIn("suspendType 0", role)
+        all_vars = parse_yaml((ROOT / "ansible/group_vars/all.yml").read_text(encoding="utf-8"))
+        self.assertEqual(all_vars["kde_screen_lock_timeout"], 1)
+        fedora = parse_yaml((ROOT / "ansible/group_vars/fedora_asahi.yml").read_text(encoding="utf-8"))
+        self.assertTrue(fedora["kde_disable_autosuspend"])
+
+
 class TestUbuntuSupport(unittest.TestCase):
     def test_installer_accepts_both_lts_versions(self):
         text = (ROOT / "install").read_text(encoding="utf-8")

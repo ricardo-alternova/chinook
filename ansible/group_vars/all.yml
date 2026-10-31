@@ -128,6 +128,9 @@ kde_wayshot_desktop_file: "{{ workstation_home }}/.local/share/applications/ways
 
 kde_color_scheme: BreezeDark
 kde_look_and_feel_package: org.kde.breezedark.desktop
+# Keep the screen locking after a minute, but do not suspend while long jobs run.
+kde_screen_lock_timeout: 1
+kde_disable_autosuspend: false
 
 keychron_vendor_id: ""
 keychron_product_id: ""

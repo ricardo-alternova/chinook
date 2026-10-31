@@ -101,3 +101,5 @@ flatpak_packages:
 
 kde_color_scheme: BreezeDark
 kde_look_and_feel_package: org.kde.breezedark.desktop
+# The Asahi install runs long snapshots; keep the OS awake behind the lock screen.
+kde_disable_autosuspend: true
