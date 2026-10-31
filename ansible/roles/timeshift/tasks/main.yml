@@ -98,22 +98,132 @@
   ansible.builtin.debug:
     msg: >-
       Creating the first Timeshift snapshot. It copies the whole system, so it can take
-      5-30 minutes with no output. Check progress in another terminal with
-      'sudo du -sh /timeshift/snapshots'.
+      5-30 minutes with no output. The snapshot runs with idle, sleep, and lid-suspend
+      inhibited, and the KDE screen locker is paused while it runs. Check progress with
+      'sudo du -sh /run/timeshift/*/backup/timeshift/snapshots'.
   when:
     - timeshift_enabled | bool
     - timeshift_create_initial_snapshot | bool
     - not ansible_check_mode
-    - timeshift_snapshot_list.stdout is not search('[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}')
+    - (timeshift_snapshot_list.stdout | default('')) is not search('[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}')
 
-- name: Create initial Timeshift daily snapshot when none exist (can take 5-30 minutes)
-  ansible.builtin.command: timeshift --create --scripted --yes --snapshot-device {{ timeshift_resolved_backup_device_uuid }} --tags D --comments "Initial Ansible snapshot"
+# Keep the machine usable behind the lock screen. The screen may lock, but the
+# disk and OS stay awake so long-running playbook tasks finish.
+- name: Set KDE lock-screen and suspend defaults
+  ansible.builtin.shell: |
+    if command -v kwriteconfig6 >/dev/null 2>&1; then
+      writer=kwriteconfig6
+    elif command -v kwriteconfig5 >/dev/null 2>&1; then
+      writer=kwriteconfig5
+    else
+      printf 'KDE config tools are not installed\n'
+      exit 0
+    fi
+
+    "$writer" --file kscreenlockerrc --group Daemon --key Autolock true
+    "$writer" --file kscreenlockerrc --group Daemon --key Timeout "{{ kde_screen_lock_timeout }}"
+
+    if [ "{{ kde_disable_autosuspend | bool }}" = "True" ]; then
+      "$writer" --file powerdevilrc --group AC --group SuspendSession --key suspendType 0
+      "$writer" --file powerdevilrc --group Battery --group SuspendSession --key suspendType 0
+    fi
+
+    if command -v qdbus6 >/dev/null 2>&1; then
+      qdbus6 org.kde.screensaver /ScreenSaver org.kde.screensaver.configure >/dev/null 2>&1 || true
+    elif command -v qdbus >/dev/null 2>&1; then
+      qdbus org.kde.screensaver /ScreenSaver org.kde.screensaver.configure >/dev/null 2>&1 || true
+    fi
+  args:
+    executable: /bin/bash
   become: true
+  become_user: "{{ workstation_user }}"
+  environment:
+    HOME: "{{ workstation_home }}"
+  when:
+    - timeshift_enabled | bool
+    - configure_kde | bool
+    - not ansible_check_mode
+
+- name: Create the first Timeshift snapshot with session safeguards
   when:
     - timeshift_enabled | bool
     - timeshift_create_initial_snapshot | bool
     - not ansible_check_mode
-    - timeshift_snapshot_list.stdout is not search('[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}')
+    - (timeshift_snapshot_list.stdout | default('')) is not search('[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}')
+  block:
+    - name: Pause KDE screen locking while the snapshot runs
+      ansible.builtin.shell: |
+        if command -v kwriteconfig6 >/dev/null 2>&1; then
+          writer=kwriteconfig6
+        elif command -v kwriteconfig5 >/dev/null 2>&1; then
+          writer=kwriteconfig5
+        else
+          printf 'KDE config tools are not installed\n'
+          exit 0
+        fi
+
+        "$writer" --file kscreenlockerrc --group Daemon --key Autolock false
+
+        if command -v qdbus6 >/dev/null 2>&1; then
+          qdbus6 org.kde.screensaver /ScreenSaver org.kde.screensaver.configure >/dev/null 2>&1 || true
+        elif command -v qdbus >/dev/null 2>&1; then
+          qdbus org.kde.screensaver /ScreenSaver org.kde.screensaver.configure >/dev/null 2>&1 || true
+        fi
+      args:
+        executable: /bin/bash
+      become: true
+      become_user: "{{ workstation_user }}"
+      environment:
+        HOME: "{{ workstation_home }}"
+      when: configure_kde | bool
+
+    - name: Create initial Timeshift daily snapshot when none exist (can take 5-30 minutes)
+      ansible.builtin.command:
+        argv:
+          - systemd-inhibit
+          - --what=idle:sleep:handle-lid-switch
+          - --who=Chinook
+          - --why=Creating the initial Timeshift snapshot
+          - --mode=block
+          - timeshift
+          - --create
+          - --scripted
+          - --yes
+          - --snapshot-device
+          - "{{ timeshift_resolved_backup_device_uuid }}"
+          - --tags
+          - D
+          - --comments
+          - Initial Ansible snapshot
+      become: true
+
+  always:
+    - name: Restore KDE screen locking after the snapshot
+      ansible.builtin.shell: |
+        if command -v kwriteconfig6 >/dev/null 2>&1; then
+          writer=kwriteconfig6
+        elif command -v kwriteconfig5 >/dev/null 2>&1; then
+          writer=kwriteconfig5
+        else
+          printf 'KDE config tools are not installed\n'
+          exit 0
+        fi
+
+        "$writer" --file kscreenlockerrc --group Daemon --key Autolock true
+        "$writer" --file kscreenlockerrc --group Daemon --key Timeout "{{ kde_screen_lock_timeout }}"
+
+        if command -v qdbus6 >/dev/null 2>&1; then
+          qdbus6 org.kde.screensaver /ScreenSaver org.kde.screensaver.configure >/dev/null 2>&1 || true
+        elif command -v qdbus >/dev/null 2>&1; then
+          qdbus org.kde.screensaver /ScreenSaver org.kde.screensaver.configure >/dev/null 2>&1 || true
+        fi
+      args:
+        executable: /bin/bash
+      become: true
+      become_user: "{{ workstation_user }}"
+      environment:
+        HOME: "{{ workstation_home }}"
+      when: configure_kde | bool
 
 - name: Disable Timeshift daily timer when disabled
   ansible.builtin.systemd:
