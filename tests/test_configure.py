@@ -348,6 +348,11 @@ class TestCatalog(unittest.TestCase):
         self.assertIn("X-KDE-Shortcuts", wayshot_role)
         self.assertIn("org.kde.spectacle.desktop", wayshot_role)
 
+    def test_kde_role_does_not_reconfigure_removed_flameshot(self):
+        role = (ROOT / "ansible/roles/kde/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertNotIn("kde_flameshot_shortcut }}", role)
+        self.assertNotIn("kde_flameshot_launcher", role)
+
     def test_wayshot_selection(self):
         selected = configure.default_selection("ubuntu")
         self.assertIn("wayshot", selected)
