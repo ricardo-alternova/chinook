@@ -11,11 +11,23 @@
     return_content: true
   register: t3_code_release
 
-- name: Select T3 Code x86_64 AppImage asset URL
+- name: Choose the T3 Code AppImage architecture
+  ansible.builtin.set_fact:
+    t3_code_appimage_arch: >-
+      {{ 'arm64' if ansible_facts['architecture'] in ['aarch64', 'arm64'] else 'x86_64' }}
+
+- name: Select T3 Code AppImage asset URL
   ansible.builtin.set_fact:
     t3_code_appimage_url: >-
-      {{ (t3_code_release.json.assets | selectattr('name', 'search', 'x86_64.AppImage$')
-          | list | first).browser_download_url }}
+      {{ (t3_code_release.json.assets
+          | selectattr('name', 'search', '-' ~ t3_code_appimage_arch ~ '.AppImage$')
+          | map(attribute='browser_download_url')
+          | list | first) | default('', true) }}
+
+- name: Fail when no T3 Code AppImage exists for this architecture
+  ansible.builtin.fail:
+    msg: "T3 Code publishes no {{ t3_code_appimage_arch }} AppImage in {{ t3_code_release.json.tag_name }}."
+  when: t3_code_appimage_url | length == 0
 
 - name: Ensure T3 Code installation directories exist
   ansible.builtin.file:

@@ -98,6 +98,12 @@ class TestCatalog(unittest.TestCase):
         fedora_vars = parse_yaml((ROOT / "ansible/group_vars/fedora_asahi.yml").read_text(encoding="utf-8"))
         self.assertEqual(fedora_vars["fail2ban_banaction"], "firewallcmd-rich-rules")
 
+    def test_t3_code_picks_the_appimage_for_the_machine(self):
+        role = (ROOT / "ansible/roles/t3_code/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertIn("t3_code_appimage_arch", role)
+        self.assertIn("'aarch64', 'arm64'", role)
+        self.assertNotIn("T3 Code x86_64 AppImage", role)
+
     def test_timeshift_is_a_selectable_linux_module(self):
         for profile in configure.LINUX_PROFILES:
             keys = {app["key"] for app in configure.visible_apps(profile)}
