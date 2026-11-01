@@ -673,7 +673,7 @@ class TestMacosProfile(unittest.TestCase):
         for linux_only in (
             "shell", "tmux", "tailscale", "ufw", "fail2ban", "codecs", "heif", "wayshot",
             "input_remapper", "helium", "unity_hub", "xournalpp", "onedrive", "mangohud",
-            "compai_agent", "unity_cli", "grok_bot", "t3_code",
+            "compai_agent", "unity_cli", "grok_bot",
             "steam", "zapzap", "balena_etcher", "teams_pwa", "keychron",
         ):
             self.assertNotIn(linux_only, keys, linux_only)
@@ -696,6 +696,17 @@ class TestMacosProfile(unittest.TestCase):
         config = configure.build_config("macos", selected)
         self.assertEqual(config["brew_packages"], ["git", "jq"])
         self.assertEqual(config["brew_casks"], ["google-chrome", "zed"])
+
+    def test_t3_code_uses_the_homebrew_cask_on_macos(self):
+        self.assertIn("t3_code", {app["key"] for app in configure.visible_apps("macos")})
+        selected = configure.default_selection("macos") | {"t3_code"}
+        config = configure.build_config("macos", selected)
+        self.assertTrue(config["install_t3_code"])
+        self.assertEqual(config["brew_casks"], ["t3-code"])
+        t3_code = self.app("t3_code")
+        self.assertTrue(configure.app_installed(t3_code, "macos", self.packages(cask=["t3-code"])))
+        with patch.object(configure.glob, "glob", return_value=["/Applications/T3 Code (Beta).app"]):
+            self.assertTrue(configure.app_installed(t3_code, "macos", self.packages()))
 
     def test_chrome_label_matches_macos(self):
         chrome = self.app("chrome")

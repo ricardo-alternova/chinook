@@ -167,7 +167,7 @@ APPS = [
     {"key": "unity_cli", "label": "Unity CLI (beta)", "default": False, "flag": "install_unity_cli", "detect_paths": ["~/.local/bin/unity"]},
     {"key": "grok_bot", "label": "Grok Bot (xAI desktop agent)", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_grok_bot", "detect_paths": ["/usr/bin/grok-bot"]},
     {"key": "cursor", "label": "Cursor editor", "default": False, "profiles": DESKTOPS_AND_MACOS, "flag": "install_cursor", "detect_paths": ["/usr/bin/cursor", "/Applications/Cursor.app"], "cask": ["cursor"]},
-    {"key": "t3_code", "label": "T3 Code (remote agent control surface)", "default": False, "flag": "install_t3_code", "detect_paths": ["/usr/local/bin/t3-code"]},
+    {"key": "t3_code", "label": "T3 Code (remote agent control surface)", "default": False, "profiles": ALL_PROFILES, "flag": "install_t3_code", "detect_paths": ["/usr/local/bin/t3-code", "/Applications/T3 Code (Beta).app"], "cask": ["t3-code"]},
     {"key": "steam", "label": "Steam", "default": False, "profiles": DESKTOP_PROFILES, "apt": ["steam-installer"], "foreign_arch": ["i386"]},
     {"key": "discord", "label": "Discord", "default": False, "profiles": DESKTOPS_AND_MACOS, "snap": ["discord"], "flatpak": ["com.discordapp.Discord"], "cask": ["discord"], "detect_paths": ["/Applications/Discord.app"]},
     {"key": "onlyoffice", "label": "OnlyOffice", "default": True, "profiles": DESKTOPS_AND_MACOS, "snap": ["onlyoffice-desktopeditors"], "flatpak": ["org.onlyoffice.desktopeditors"], "cask": ["onlyoffice"], "detect_paths": ["/Applications/ONLYOFFICE.app"]},

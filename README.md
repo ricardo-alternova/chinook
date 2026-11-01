@@ -371,6 +371,7 @@ The whole flow is still the same one command (`./install` or the `curl` one-line
 
 - Homebrew itself, when it is missing, and `eval "$(brew shellenv)"` in `~/.zprofile`
 - Homebrew formulae and casks selected in the app selector (`brew_packages` and `brew_casks` in `local.yml`)
+- T3 Code through Homebrew's `t3-code` cask
 - OpenCode CLI, Codex CLI, Claude Code, and Cursor CLI through their official installers (each updates itself, so the roles only install when the binary is missing)
 - GitLab CLI (`glab`) through Homebrew
 - SSH client snippets, when enabled
@@ -392,7 +393,9 @@ Two macOS-specific notes:
 
 T3 Code is an agent-harness control surface that drives Claude Code, Codex, Cursor, Grok Build, and OpenCode. The `t3_code` role downloads the desktop AppImage into `/opt/t3-code` and adds a `t3-code` launcher and desktop entry.
 
-The only published Linux build is **x86_64**; on Fedora Asahi (aarch64) the AppImage runs through the x86 emulation layer, so the same install works on both distros. T3 Code needs at least one provider CLI installed and authenticated to drive agents — such as OpenCode CLI (installed by default).
+The role installs the **arm64** AppImage on aarch64 (Fedora Asahi) and the **x86_64** one elsewhere. It keeps one file per release and architecture, so a re-run replaces a stale AppImage when a new release ships instead of reusing the old download, and it fails with a clear message if a release publishes no matching asset.
+
+On macOS the selector installs T3 Code through Homebrew's `t3-code` cask, which places `T3 Code (Beta).app` in `/Applications` and picks the Apple Silicon or Intel build automatically. T3 Code needs at least one provider CLI installed and authenticated to drive agents — such as OpenCode CLI (installed by default).
 
 ### OpenCode CLI
 
@@ -551,11 +554,13 @@ helium unity_hub keychron zed balena_etcher teams_pwa desktop_shortcuts
 - **UFW on Fedora** — Fedora uses firewalld; the Fedora profile now configures firewalld and removes a UFW package left by an earlier run. UFW remains the firewall on Ubuntu.
 - **Locked out after enabling UFW** — use console or a local session and run `sudo ufw allow OpenSSH` or `sudo ufw disable`. The Server profile allows OpenSSH before enabling UFW; this usually means SSH is on a non-standard port — add it to `ufw_allowed_ports`.
 - **fail2ban is not banning** — confirm `sudo fail2ban-client status sshd` and that `python3-systemd` is installed so the jail can read the journal.
-- **T3 Code won't start on Fedora Asahi** — the x86_64 AppImage may not mount FUSE through the emulation layer even with `fuse-libs` installed. Fall back to extraction, which needs no FUSE:
+- **T3 Code won't start on Fedora Asahi** — the role installs the native arm64 AppImage, so no x86 emulation is involved. If the window still does not appear, check that FUSE 2 is present (`rpm -q fuse-libs`). As a fallback that needs no FUSE, run the AppImage with `--appimage-extract-and-run`:
 
   ```bash
-  /opt/t3-code/T3-Code.AppImage --appimage-extract-and-run
+  t3-code --appimage-extract-and-run
   ```
+
+  Older checkouts that left the x86_64 build in `/opt/t3-code` are replaced automatically on the next run.
 
 - **New apps or icons don't appear in the app menu** — re-login, or refresh the icon cache:
 
