@@ -103,5 +103,8 @@ kde_look_and_feel_package: org.kde.breezedark.desktop
 # Fedora uses firewalld, so fail2ban must add its bans through firewalld
 # instead of writing raw iptables rules that firewalld will overwrite.
 fail2ban_banaction: firewallcmd-rich-rules
-# The Asahi install runs long snapshots; keep the OS awake behind the lock screen.
+# The Asahi install runs long jobs; keep the OS awake behind the lock screen.
 kde_disable_autosuspend: true
+
+# Snapper replaces Timeshift on Fedora's Btrfs layout; Btrfs Assistant is its GUI.
+snapper_install_gui: true

@@ -424,12 +424,40 @@ class TestTimeshift(unittest.TestCase):
         role = (ROOT / "ansible/roles/timeshift/tasks/main.yml").read_text(encoding="utf-8")
         self.assertIn("systemd-inhibit", role)
         self.assertIn("--what=idle:sleep:handle-lid-switch", role)
-        self.assertIn("kscreenlockerrc", role)
-        self.assertIn("suspendType 0", role)
+        kde = (ROOT / "ansible/roles/kde/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertIn("kscreenlockerrc", kde)
+        self.assertIn("suspendType 0", kde)
         all_vars = parse_yaml((ROOT / "ansible/group_vars/all.yml").read_text(encoding="utf-8"))
         self.assertEqual(all_vars["kde_screen_lock_timeout"], 1)
         fedora = parse_yaml((ROOT / "ansible/group_vars/fedora_asahi.yml").read_text(encoding="utf-8"))
         self.assertTrue(fedora["kde_disable_autosuspend"])
+
+
+class TestSnapper(unittest.TestCase):
+    def test_fedora_uses_snapper_and_removes_timeshift(self):
+        fedora = (ROOT / "ansible/playbooks/fedora_asahi.yml").read_text(encoding="utf-8")
+        self.assertIn("role: snapper", fedora)
+        self.assertNotIn("role: timeshift", fedora)
+        role = (ROOT / "ansible/roles/snapper/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertIn("snapper-timeline.timer", role)
+        self.assertIn("snapper-cleanup.timer", role)
+        self.assertIn("snapper-timeline.timer.d", role)
+        self.assertIn("OnCalendar=daily", role)
+        self.assertIn("TIMELINE_LIMIT_DAILY", role)
+        self.assertIn("timeshift-hourly", role)
+        self.assertIn("name: timeshift", role)
+        self.assertIn("state: absent", role)
+        all_vars = parse_yaml((ROOT / "ansible/group_vars/all.yml").read_text(encoding="utf-8"))
+        self.assertEqual(all_vars["snapper_config_name"], "root")
+        self.assertEqual(all_vars["snapper_daily_count"], 7)
+        fedora_vars = parse_yaml((ROOT / "ansible/group_vars/fedora_asahi.yml").read_text(encoding="utf-8"))
+        self.assertTrue(fedora_vars["snapper_install_gui"])
+
+    def test_ubuntu_keeps_timeshift(self):
+        for profile in ("ubuntu", "ubuntu_server"):
+            playbook = (ROOT / "ansible/playbooks" / f"{profile}.yml").read_text(encoding="utf-8")
+            self.assertIn("role: timeshift", playbook)
+            self.assertNotIn("role: snapper", playbook)
 
 
 class TestUbuntuSupport(unittest.TestCase):

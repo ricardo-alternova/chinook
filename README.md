@@ -60,7 +60,7 @@ The Ubuntu profiles target **Ubuntu 24.04 and 26.04 LTS** (desktop and server). 
 - **Reproducible setups** — the same `local.yml` converges any machine of the same profile
 - **Opinionated defaults** — dark themes, codecs, keybindings; every one can be toggled
 - **Apps and codecs** — packages, snaps, and flatpaks configured for you
-- **Built-in safety** — Timeshift snapshots, so recovery is automatic
+- **Built-in safety** — Timeshift or Snapper snapshots, so recovery is automatic
 - **Private by design** — nothing personal is ever committed to the repo, and `local.yml` is kept mode `0600`
 
 ## Quick Start
@@ -164,7 +164,7 @@ Depending on the selected profile and local config, Chinook can:
 - Configure user dotfiles and app settings
 - Apply GNOME or KDE theme settings and screenshot shortcuts
 - Write SSH client snippets, OneDrive config, and udev rules
-- Set up Timeshift daily snapshots
+- Set up daily system snapshots (Timeshift on Ubuntu, Snapper on Fedora)
 - Install desktop launchers and shortcuts
 - On Ubuntu Server: install Tailscale, OpenSSH server, tmux with SSH session resume, UFW, and fail2ban
 - On macOS: install Homebrew formulae and casks, the agent CLIs, SSH snippets, the computer name, and Fleet
@@ -245,7 +245,7 @@ configure_desktop_shortcuts: false
 
 The configurator writes these values for you. On macOS, selected apps go into `brew_packages` and `brew_casks` instead of the APT, DNF, Snap, and Flatpak lists.
 
-Timeshift is in the selector too. Untick **Timeshift daily snapshots** to skip snapshots entirely; `configure_timeshift: false` does the same for a manual playbook run. It is ticked by default because snapshots make recovery automatic.
+System snapshots are in the selector too. Untick **Daily system snapshots** to skip them entirely; `configure_timeshift: false` (the flag keeps its old name) does the same for a manual playbook run. It is ticked by default because snapshots make recovery automatic. Ubuntu uses Timeshift; Fedora Asahi uses Snapper.
 
 ## Ubuntu (GNOME) Profile
 
@@ -344,8 +344,8 @@ Hardware KVMs and out-of-band power buttons are useful for this kind of box, but
 
 - RPM Fusion free and nonfree repositories for codecs
 - firewalld (Fedora's default firewall), with SSH allowed and any leftover UFW removed
-- Timeshift daily snapshots with 7-day retention
-- KDE screen lock after 1 minute with automatic suspend off, so long installs and the initial snapshot keep running behind the lock (set `kde_disable_autosuspend: false` in `local.yml` for normal sleep)
+- Btrfs snapshots through Snapper with 7-day retention (timeline and cleanup timers)
+- KDE screen lock after 1 minute with automatic suspend off, so long installs keep running behind the lock (set `kde_disable_autosuspend: false` in `local.yml` for normal sleep)
 - KDE Breeze Dark theme
 - Spectacle (preinstalled with Plasma) handles screenshots on the `Print` key, with built-in annotation
 - WayShot (optional, flatpak): takes over the `Print` key with portal capture and annotation when selected in the configurator
@@ -378,7 +378,7 @@ The whole flow is still the same one command (`./install` or the `curl` one-line
 - The computer name through `scutil`, when a Fleet device name is set
 - Fleet (`fleetd`, enrolled from that Mac's hardware UUID) — the one app the selector ticks by default
 
-**What it does not do on macOS:** GNOME/KDE theming, Timeshift, Docker, UFW/fail2ban, udev rules, OneDrive, Flatpak/Snap packages, or the Linux desktop apps. Packages and plugins that only exist for Linux are hidden from the selector; the remaining apps are installed through Homebrew.
+**What it does not do on macOS:** GNOME/KDE theming, system snapshots (Timeshift/Snapper), Docker, UFW/fail2ban, udev rules, OneDrive, Flatpak/Snap packages, or the Linux desktop apps. Packages and plugins that only exist for Linux are hidden from the selector; the remaining apps are installed through Homebrew.
 
 Casks install one at a time so a failed cask doesn't stop the rest. The configurator checks for apps already in `/Applications` before the playbook runs, so an app you installed from its website or the App Store is reported rather than downloaded: Chinook leaves that copy alone and prints the `brew install --cask --adopt` command if you want Homebrew to manage it later. Only Fleet starts ticked on macOS — on an existing Mac the selector ticks whatever it detects, and you can toggle anything else.
 
@@ -530,7 +530,7 @@ ansible-playbook ansible/playbooks/fedora_asahi.yml --tags packages
 Available tags match role names:
 
 ```bash
-packages snaps flatpaks homebrew timeshift tmux tailscale ufw firewalld fail2ban ssh_client
+packages snaps flatpaks homebrew timeshift snapper tmux tailscale ufw firewalld fail2ban ssh_client
 onedrive gnome kde mangohud opencode_cli codex_cli claude_code cursor_cli glab docker fleet compai_agent hostname unity_cli starship shell kitty
 grok_bot cursor wayshot t3_code
 helium unity_hub keychron zed balena_etcher teams_pwa desktop_shortcuts
@@ -574,7 +574,8 @@ helium unity_hub keychron zed balena_etcher teams_pwa desktop_shortcuts
 - **`Conflicting values set for option Signed-By regarding source https://hub.unity3d.com/...`** — an older Chinook wrote its own Unity Hub repository file, and the `unityhub` package added another with a different key. This breaks every `apt` command, so remove the old file once, then re-run Chinook: `sudo rm -f /etc/apt/sources.list.d/unityhub.list /etc/apt/keyrings/unityhub.gpg /etc/apt/keyrings/unityhub.gpg.asc`.
 - **`fleetd is installed but did not enroll`**: the output includes the last fleetd log lines. The usual causes are a wrong enroll secret (ask the Fleet admin for the current one and re-run the app selector) or no route to `fleet_url`. Check live with `sudo journalctl -u orbit -f` on Linux or `sudo tail -f /var/log/orbit/orbit.stderr.log` on macOS.
 - **Fleet shows the device with another name or OS**: Fleet merged it into an older record with the same hardware UUID. Ask the Fleet admin to delete that record. To enroll as a new host, set `fleet_host_identifier: instance` in `local.yml` (Linux), stop fleetd and clear its identity once (`sudo systemctl stop orbit && sudo rm -rf /opt/orbit/secret-orbit-node-key.txt /opt/orbit/osquery.db` on Linux; `sudo launchctl bootout system/com.fleetdm.orbit && sudo rm -f /opt/orbit/secret-orbit-node-key.txt /opt/orbit/osquery.db` on macOS), then re-run Chinook.
-- **`Create initial Timeshift daily snapshot` looks stuck** — the first snapshot copies the whole system (Docker data and your home folder are excluded), which can take 5-30 minutes with no output. Chinook runs it with idle/sleep/lid-suspend inhibited and pauses the KDE screen locker, so it is safe to leave running. Watch it grow with `sudo du -sh /run/timeshift/*/backup/timeshift/snapshots` (the path is under `/run/timeshift`, not `/timeshift`). If it is not growing after about 15 minutes, stop it and run `sudo timeshift --create` manually to see where it is waiting. On Fedora Asahi, the screen locks after 1 minute and automatic suspend stays off afterwards; set `kde_disable_autosuspend: false` in `local.yml` to restore normal sleep.
+- **`Create initial Timeshift daily snapshot` looks stuck on Ubuntu** — the first snapshot copies the whole system (Docker data and your home folder are excluded), which can take 5-30 minutes with no output. Chinook runs it with idle/sleep/lid-suspend inhibited and pauses the KDE screen locker, so it is safe to leave running. Watch it grow with `sudo du -sh /run/timeshift/*/backup/timeshift/snapshots` (the path is under `/run/timeshift`, not `/timeshift`). If it is not growing after about 15 minutes, stop it and run `sudo timeshift --create` manually to see where it is waiting.
+- **Timeshift stalls on Fedora Asahi** — Fedora 44's Timeshift can hang after a successful rsync copy, and its Btrfs mode only supports Ubuntu's `@`/`@home` subvolume layout. The Fedora profile now uses Snapper instead: check snapshots with `sudo snapper -c root list` and the timers with `systemctl list-timers 'snapper*'`, or open Btrfs Assistant from the app menu. If an old Timeshift run is still spinning, stop it with `sudo pkill -x timeshift`; incomplete snapshots (those without `info.json`) can be deleted from the Btrfs top-level subvolume before unmounting `/run/timeshift/*/backup`.
 - **`Timed out waiting for become success or become password prompt`** with `[sudo: [sudo via ansible, ...] password:] Password:`: the system uses sudo-rs, the default on Ubuntu releases newer than 24.04, and Ansible doesn't recognize its password prompt. The installer switches Ansible to the classic `sudo.ws` automatically. If you run `ansible-playbook` yourself, prefix it with `ANSIBLE_BECOME_EXE=sudo.ws`.
 - **"The password you use to log in to your computer no longer matches that of your login keyring"**: this isn't caused by Chinook. GNOME's login keyring (where Chrome, Helium, and Wi-Fi keep saved passwords) is still locked with an older password, usually because the account password was changed with `sudo passwd`, or because automatic login skips the step that unlocks it. Confirmed on Ubuntu 24.04 and 26.04:
   - **You know the old password:** enter it to unlock, then open "Passwords and Keys" (`sudo apt install seahorse` if it's missing), right-click **Login**, choose **Change Password**, and set it to your current login password.

@@ -113,6 +113,16 @@ timeshift_exclude:
   - /var/lib/docker/**
   - /var/lib/containerd/**
 
+# Fedora Asahi keeps / and /home in Btrfs subvolumes named root and home.
+# Timeshift's Btrfs mode only supports Ubuntu's @/@home layout, and its rsync
+# mode hangs after the copy on Fedora 44, so the Fedora profile uses Snapper.
+snapper_config_name: root
+snapper_daily_count: 7
+snapper_initial_snapshot: true
+snapper_initial_description: Initial Chinook snapshot
+# Btrfs Assistant gives Snapper a GUI on KDE.
+snapper_install_gui: false
+
 ssh_hosts: []
 
 gnome_color_scheme: prefer-dark

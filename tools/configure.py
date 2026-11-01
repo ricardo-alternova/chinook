@@ -42,7 +42,7 @@ APPS = [
     },
     {
         "key": "timeshift",
-        "label": "Timeshift daily snapshots (system restore points)",
+        "label": "Daily system snapshots (Timeshift on Ubuntu, Snapper on Fedora)",
         "default": True,
         "profiles": LINUX_PROFILES,
         "flag": "configure_timeshift",

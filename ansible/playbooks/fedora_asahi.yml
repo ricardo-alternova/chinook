@@ -29,8 +29,12 @@
     - role: flatpaks
       tags: flatpaks
       when: install_flatpak_apps | bool
-    - role: timeshift
-      tags: timeshift
+    # Timeshift cannot snapshot Fedora's root/home Btrfs layout, so Fedora uses
+    # Snapper. Keep the timeshift tag working for existing commands.
+    - role: snapper
+      tags:
+        - snapper
+        - timeshift
       when: configure_timeshift | bool
     - role: tmux
       tags: tmux

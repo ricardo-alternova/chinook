@@ -91,3 +91,38 @@
     HOME: "{{ workstation_home }}"
   register: kde_theme_result
   changed_when: "'changed' in kde_theme_result.stdout"
+
+# Keep the screen locking after a minute, but do not suspend while long jobs run.
+# This used to live in the Timeshift role, but Fedora now uses Snapper and the
+# settings are useful whether snapshots are enabled or not.
+- name: Set KDE lock-screen and suspend defaults
+  ansible.builtin.shell: |
+    if command -v kwriteconfig6 >/dev/null 2>&1; then
+      writer=kwriteconfig6
+    elif command -v kwriteconfig5 >/dev/null 2>&1; then
+      writer=kwriteconfig5
+    else
+      printf 'KDE config tools are not installed\n'
+      exit 0
+    fi
+
+    "$writer" --file kscreenlockerrc --group Daemon --key Autolock true
+    "$writer" --file kscreenlockerrc --group Daemon --key Timeout "{{ kde_screen_lock_timeout }}"
+
+    if [ "{{ kde_disable_autosuspend | bool }}" = "True" ]; then
+      "$writer" --file powerdevilrc --group AC --group SuspendSession --key suspendType 0
+      "$writer" --file powerdevilrc --group Battery --group SuspendSession --key suspendType 0
+    fi
+
+    if command -v qdbus6 >/dev/null 2>&1; then
+      qdbus6 org.kde.screensaver /ScreenSaver org.kde.screensaver.configure >/dev/null 2>&1 || true
+    elif command -v qdbus >/dev/null 2>&1; then
+      qdbus org.kde.screensaver /ScreenSaver org.kde.screensaver.configure >/dev/null 2>&1 || true
+    fi
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ workstation_user }}"
+  environment:
+    HOME: "{{ workstation_home }}"
+  when: not ansible_check_mode

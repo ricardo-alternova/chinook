@@ -1,0 +1,194 @@
+---
+# Fedora Asahi keeps / and /home in Btrfs subvolumes named root and home.
+# Timeshift's Btrfs mode only supports Ubuntu's @/@home layout, and its rsync
+# mode hangs after a successful copy on Fedora 44, so use Snapper instead.
+- name: Detect the root filesystem type
+  ansible.builtin.command: findmnt -no FSTYPE /
+  register: snapper_root_fstype
+  changed_when: false
+  check_mode: false
+
+- name: Fail when the root filesystem is not Btrfs
+  ansible.builtin.fail:
+    msg: >-
+      Snapper requires a Btrfs root, but / is {{ snapper_root_fstype.stdout | trim }}.
+      Use the timeshift role on non-Btrfs systems.
+  when: snapper_root_fstype.stdout | trim != 'btrfs'
+
+- name: Install Snapper
+  ansible.builtin.package:
+    name: snapper
+    state: present
+  become: true
+
+- name: Install the Btrfs Assistant GUI
+  ansible.builtin.package:
+    name: btrfs-assistant
+    state: present
+  become: true
+  when: snapper_install_gui | bool
+
+- name: Check the Snapper root config
+  ansible.builtin.stat:
+    path: "/etc/snapper/configs/{{ snapper_config_name }}"
+  register: snapper_config
+
+- name: Create the Snapper root config
+  ansible.builtin.command:
+    argv:
+      - snapper
+      - -c
+      - "{{ snapper_config_name }}"
+      - create-config
+      - /
+  become: true
+  when: not snapper_config.stat.exists
+
+- name: Configure Snapper daily snapshots
+  ansible.builtin.command:
+    argv:
+      - snapper
+      - -c
+      - "{{ snapper_config_name }}"
+      - set-config
+      - TIMELINE_CREATE=yes
+      - TIMELINE_CLEANUP=yes
+      - TIMELINE_LIMIT_HOURLY=0
+      - "TIMELINE_LIMIT_DAILY={{ snapper_daily_count }}"
+      - TIMELINE_LIMIT_WEEKLY=0
+      - TIMELINE_LIMIT_MONTHLY=0
+      - TIMELINE_LIMIT_QUARTERLY=0
+      - TIMELINE_LIMIT_YEARLY=0
+      - NUMBER_CLEANUP=yes
+  become: true
+  changed_when: false
+
+# The CSV includes a synthetic number 0 for the current subvolume, so ignore it
+# when deciding whether the machine already has a real snapshot.
+- name: List existing Snapper snapshots
+  ansible.builtin.shell: >-
+    snapper --csvout -c {{ snapper_config_name }} list
+    | awk -F, 'NR > 1 && $3 != 0 { print $3 }'
+  args:
+    executable: /bin/bash
+  register: snapper_existing_snapshots
+  become: true
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Create the initial Snapper snapshot
+  ansible.builtin.command:
+    argv:
+      - snapper
+      - -c
+      - "{{ snapper_config_name }}"
+      - create
+      - --description
+      - "{{ snapper_initial_description }}"
+      - --cleanup-algorithm
+      - number
+  become: true
+  when:
+    - snapper_initial_snapshot | bool
+    - snapper_existing_snapshots.stdout_lines | length == 0
+
+# The packaged timer runs hourly. Daily snapshots match the 7-day retention and
+# keep the snapshot list small; Persistent catches up after the machine is off.
+- name: Ensure the Snapper timer drop-in directory exists
+  ansible.builtin.file:
+    path: /etc/systemd/system/snapper-timeline.timer.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Take one Snapper timeline snapshot per day
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/snapper-timeline.timer.d/10-chinook-daily.conf
+    content: |
+      [Timer]
+      OnCalendar=
+      OnCalendar=daily
+      Persistent=true
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: Restart snapper timeline
+
+- name: Enable Snapper timeline and cleanup timers
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  become: true
+  loop:
+    - snapper-timeline.timer
+    - snapper-cleanup.timer
+  when: not ansible_check_mode
+
+# Fedora's Timeshift package installs an hourly cron job, and Chinook used to
+# add its own systemd timer. Both can start a Timeshift run that never finishes,
+# so stop it and remove every scheduler before uninstalling the package.
+- name: Stop any running Timeshift process
+  ansible.builtin.shell: |
+    pkill -TERM -x timeshift 2>/dev/null || true
+    sleep 1
+    pkill -KILL -x timeshift 2>/dev/null || true
+  changed_when: false
+  failed_when: false
+  when: not ansible_check_mode
+
+- name: Unmount Timeshift backup mounts
+  ansible.builtin.shell: |
+    while IFS= read -r target; do
+      umount "$target" 2>/dev/null || true
+    done < <(findmnt -rn -o TARGET | grep -E '^/run/timeshift/.*/backup$' || true)
+    rm -rf /run/timeshift
+  args:
+    executable: /bin/bash
+  changed_when: false
+  failed_when: false
+  when: not ansible_check_mode
+
+- name: Disable the Chinook Timeshift timer
+  ansible.builtin.systemd:
+    name: timeshift-check.timer
+    enabled: false
+    state: stopped
+  become: true
+  failed_when: false
+  when: not ansible_check_mode
+
+- name: Remove the Chinook Timeshift units
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ item }}"
+    state: absent
+  become: true
+  loop:
+    - timeshift-check.service
+    - timeshift-check.timer
+  notify: Reload systemd
+
+- name: Remove the Timeshift cron jobs
+  ansible.builtin.file:
+    path: "/etc/cron.d/{{ item }}"
+    state: absent
+  become: true
+  loop:
+    - timeshift-hourly
+    - timeshift-hourly.disabled
+
+- name: Remove the Timeshift package
+  ansible.builtin.dnf:
+    name: timeshift
+    state: absent
+  become: true
+
+- name: Remove the Timeshift configuration
+  ansible.builtin.file:
+    path: /etc/timeshift
+    state: absent
+  become: true
