@@ -222,17 +222,20 @@ class TestCatalog(unittest.TestCase):
         self.assertIn("always:", enroll)
         self.assertIn("secret-orbit-node-key.txt", enroll)
 
-    def test_compai_agent_is_selectable_everywhere_but_gated(self):
-        for profile in configure.LINUX_PROFILES:
+    def test_compai_agent_is_offered_only_on_ubuntu(self):
+        for profile in configure.APT_PROFILES:
             self.assertNotIn("compai_agent", configure.default_selection(profile), profile)
             self.assertIn("compai_agent", {app["key"] for app in configure.visible_apps(profile)}, profile)
-        self.assertNotIn("compai_agent", {app["key"] for app in configure.visible_apps("macos")})
-        for playbook in ("ubuntu.yml", "ubuntu_server.yml", "fedora_asahi.yml"):
+        for profile in ("fedora_asahi", "macos"):
+            self.assertNotIn("compai_agent", {app["key"] for app in configure.visible_apps(profile)}, profile)
+        for playbook in ("ubuntu.yml", "ubuntu_server.yml"):
             text = (ROOT / "ansible/playbooks" / playbook).read_text(encoding="utf-8")
             self.assertIn("role: compai_agent", text, playbook)
             self.assertIn("ansible_facts['pkg_mgr'] == 'apt'", text, playbook)
             self.assertIn("ansible_facts['architecture'] == 'x86_64'", text, playbook)
             self.assertIn("configure_gnome | bool", text, playbook)
+        fedora = (ROOT / "ansible/playbooks/fedora_asahi.yml").read_text(encoding="utf-8")
+        self.assertNotIn("role: compai_agent", fedora)
         loader = (ROOT / "ansible/playbooks/tasks/load_local_vars.yml").read_text(encoding="utf-8")
         self.assertIn("only available for Ubuntu GNOME on amd64", loader)
         role = (ROOT / "ansible/roles/compai_agent/tasks/main.yml").read_text(encoding="utf-8")

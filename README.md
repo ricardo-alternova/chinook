@@ -444,7 +444,7 @@ Leave the secret empty to install everything else and enroll later: re-run the i
 
 ### Comp AI device agent
 
-Selectable on every Linux profile (off by default; tick it in the app selector or set `install_compai_agent: true`). Comp AI publishes only an amd64 `.deb` and its checks assume GNOME, so Chinook installs it on Ubuntu GNOME amd64 and skips it with a message on Ubuntu Server, Fedora Asahi (arm64), and other systems. The `compai_agent` role installs the latest production release from Comp AI's GitHub releases and keeps it updated on re-runs. It also prepares the machine for the agent's Linux checks:
+Selectable on the Ubuntu profiles (off by default; tick it in the app selector or set `install_compai_agent: true`). Comp AI publishes only an amd64 `.deb` and its checks assume GNOME, so Chinook installs it on Ubuntu GNOME amd64 and skips it with a message on Ubuntu Server; it is not offered on Fedora Asahi (arm64) or macOS. The `compai_agent` role installs the latest production release from Comp AI's GitHub releases and keeps it updated on re-runs. It also prepares the machine for the agent's Linux checks:
 
 - **Start at login:** the agent's own "Start at Login" doesn't work on Linux, so Chinook adds `~/.config/autostart/comp-ai-device-agent.desktop`; otherwise it stops reporting after a reboot.
 - **Password policy:** installs `libpam-pwquality` and sets `minlen = 8` in `/etc/security/pwquality.conf`.
