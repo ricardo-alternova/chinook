@@ -450,7 +450,7 @@ Selectable on every Linux profile (off by default; tick it in the app selector o
 - **Password policy:** installs `libpam-pwquality` and sets `minlen = 8` in `/etc/security/pwquality.conf`.
 - **Screen lock:** turns on the GNOME screen lock and, if the idle delay is off or over 15 minutes, sets it to 5 minutes.
 - **Antivirus:** passes through AppArmor, which Ubuntu enables by default.
-- **Disk encryption:** passes when any LUKS device, dm-crypt mapping, or `/etc/crypttab` entry exists.  Full-disk encryption needs a reinstall with "Encrypt the disk". Without reinstalling, moving `/home` onto a LUKS drive (plus encrypted swap) protects keys, tokens, and files. Chinook warns when no disk is encrypted.
+- **Disk encryption:** checks for a LUKS device, dm-crypt mapping, or `/etc/crypttab` entry. Full-disk encryption needs a reinstall with "Encrypt the disk". Without reinstalling, moving `/home` onto a LUKS drive (plus encrypted swap) protects keys, tokens, and files. Chinook warns when no disk is encrypted.
 
 After the run, open `comp-ai-device-agent` from the app menu and sign in with your work email.
 

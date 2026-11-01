@@ -105,8 +105,6 @@
     - compai_lock_enabled.rc == 0
     - compai_lock_enabled.stdout | trim != 'true'
 
-# Warn when no disk is encrypted.
-# 
 - name: Check for an encrypted disk
   ansible.builtin.command: lsblk -rno TYPE
   register: compai_block_types
@@ -116,9 +114,9 @@
 - name: Warn when the disk is not encrypted
   ansible.builtin.debug:
     msg: >-
-      This machine has no LUKS-encrypted disk. 
-       Full-disk encryption needs a reinstall with "Encrypt the disk";
-      without one, keeping /home on a LUKS drive protects keys, tokens, and files.
+      This machine has no LUKS-encrypted disk. Full-disk encryption needs a reinstall with
+      "Encrypt the disk"; without one, keeping /home on a LUKS drive protects keys, tokens,
+      and files.
   when: "'crypt' not in compai_block_types.stdout_lines"
 
 - name: Remind to sign in to the Comp AI agent
