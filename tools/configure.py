@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 LOCAL_VARS = ROOT / "ansible" / "group_vars" / "local.yml"
 TMUX_SESSION_NAME_RE = re.compile(r"[A-Za-z0-9_-]+")
 HOSTNAME_RE = re.compile(r"[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?")
+FLEET_URL_RE = re.compile(r"https?://[^\s/]+(?:/[^\s]*)?")
 
 
 LINUX_PROFILES = ("ubuntu", "ubuntu_server", "fedora_asahi")
@@ -586,6 +587,7 @@ def generate_local_yml(profile, config):
         "tmux_session_name",
         "tmux_status_bg",
         "tailscale_auth_key",
+        "fleet_url",
         "fleet_enroll_secret",
         "fleet_end_user_email",
         "workstation_hostname",
@@ -753,6 +755,11 @@ def main(argv=None):
             value = saved.get(key)
             return value if isinstance(value, str) and value else default
 
+        # Keep a saved Fleet URL even when Fleet is unticked, so re-selecting it
+        # later does not require typing the server again.
+        if saved_text("fleet_url"):
+            config["fleet_url"] = saved_text("fleet_url")
+
         if ask_yes_no("Configure SSH snippets", False):
             config["configure_ssh"] = True
             host = ask("SSH host alias", "github.com")
@@ -783,6 +790,12 @@ def main(argv=None):
                 print("Use lowercase letters, numbers, and hyphens, like john-doe.")
             if hostname != current_hostname():
                 config["workstation_hostname"] = hostname
+            while True:
+                fleet_url = ask("Fleet server URL", saved_text("fleet_url")).rstrip("/")
+                if FLEET_URL_RE.fullmatch(fleet_url):
+                    config["fleet_url"] = fleet_url
+                    break
+                print("Use an http:// or https:// URL, for example https://fleet.example.com.")
             if saved_text("fleet_enroll_secret"):
                 secret = ask("Fleet enroll secret (leave empty to keep the saved one)", "") or saved_text("fleet_enroll_secret")
             else:

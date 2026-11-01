@@ -196,7 +196,10 @@ class TestCatalog(unittest.TestCase):
     def test_fleet_on_every_profile_without_a_committed_secret(self):
         all_vars = parse_yaml((ROOT / "ansible/group_vars/all.yml").read_text(encoding="utf-8"))
         self.assertEqual(all_vars["fleet_enroll_secret"], "")
-        self.assertEqual(all_vars["fleet_url"], "https://fleet.example.com")
+        self.assertEqual(all_vars["fleet_url"], "")
+        fleet_main = (ROOT / "ansible/roles/fleet/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertIn("fleet_url is empty", fleet_main)
+        self.assertIn("fleet_url must start with http:// or https://", fleet_main)
         for profile, playbook in configure.PLAYBOOKS.items():
             config = configure.build_config(profile, configure.default_selection(profile))
             # macOS is the exception: Fleet is the one app ticked by default there.
@@ -683,9 +686,11 @@ class TestDetection(unittest.TestCase):
     def test_previous_local_yml_round_trips(self):
         selected = configure.default_selection("ubuntu") - {"zed"} | {"gimp", "fleet"}
         config = configure.build_config("ubuntu", selected)
+        config["fleet_url"] = "https://fleet.example.com"
         config["fleet_enroll_secret"] = "s3cret+abc"
         data = configure.read_local_yml_text(configure.generate_local_yml("ubuntu", config))
         self.assertEqual(configure.previous_selection("ubuntu", data), selected)
+        self.assertEqual(data["fleet_url"], "https://fleet.example.com")
         self.assertEqual(data["fleet_enroll_secret"], "s3cret+abc")
 
 
@@ -851,6 +856,7 @@ class TestTuiProcess(unittest.TestCase):
         self.assertEqual(data["profile"], "ubuntu")
         self.assertNotIn("workstation_user", data)
         self.assertNotIn("workstation_hostname", data)
+        self.assertNotIn("fleet_url", data)
         self.assertNotIn("fleet_enroll_secret", data)
         self.assertFalse(data["install_fleet"])
         self.assertFalse(data["install_compai_agent"])
@@ -893,7 +899,7 @@ class TestTuiProcess(unittest.TestCase):
     def test_macos_defaults_tick_fleet_only(self):
         result, output = self.run_tui(
             ["--profile", "macos"],
-            ["", "", "john-doe", ""],
+            ["", "", "john-doe", "https://fleet.example.com", ""],
         )
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
         data = parse_yaml(output.read_text(encoding="utf-8"))
@@ -902,6 +908,7 @@ class TestTuiProcess(unittest.TestCase):
         self.assertTrue(data["install_packages"])
         self.assertFalse(data["install_claude_code"])
         self.assertEqual(data["workstation_hostname"], "john-doe")
+        self.assertEqual(data["fleet_url"], "https://fleet.example.com")
         # fleetd learns the owner's email through MDM enrollment on macOS.
         self.assertNotIn("fleet_end_user_email", data)
         self.assertEqual(data["brew_packages"], [])
@@ -914,7 +921,7 @@ class TestTuiProcess(unittest.TestCase):
         picks = f"{app_index('macos', 'base_cli')} {app_index('macos', 'chrome')}"
         result, output = self.run_tui(
             ["--profile", "macos"],
-            [picks, "", "", "john-doe", ""],
+            [picks, "", "", "john-doe", "https://fleet.example.com", ""],
         )
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
         data = parse_yaml(output.read_text(encoding="utf-8"))
@@ -950,6 +957,8 @@ class TestTuiProcess(unittest.TestCase):
                 "~/.ssh/id_ed25519_gitlab",
                 "Not Valid!",
                 "John-Doe",
+                "not-a-url",
+                "https://fleet.example.com/",
                 "s3cret+abc",
                 "john@example.com",
                 "~/OneDrive/Work",
@@ -966,6 +975,7 @@ class TestTuiProcess(unittest.TestCase):
         self.assertEqual(data["onedrive_sync_dir"], "~/OneDrive/Work")
         self.assertEqual(data["onedrive_sync_list"], ["Documents", "Photos"])
         self.assertEqual(data["workstation_hostname"], "john-doe")
+        self.assertEqual(data["fleet_url"], "https://fleet.example.com")
         self.assertEqual(data["fleet_enroll_secret"], "s3cret+abc")
         self.assertEqual(data["fleet_end_user_email"], "john@example.com")
 
@@ -973,17 +983,19 @@ class TestTuiProcess(unittest.TestCase):
     def test_rerun_keeps_previous_answers(self):
         selected = configure.default_selection("ubuntu") - {"zed"} | {"fleet"}
         config = configure.build_config("ubuntu", selected)
+        config["fleet_url"] = "https://fleet.example.com"
         config["fleet_enroll_secret"] = "s3cret+abc"
         config["fleet_end_user_email"] = "john@example.com"
         result, output = self.run_tui(
             ["--profile", "ubuntu"],
-            ["", "", "john-doe", "", "", ""],
+            ["", "", "john-doe", "", "", "", ""],
             existing=configure.generate_local_yml("ubuntu", config),
         )
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
         data = parse_yaml(output.read_text(encoding="utf-8"))
         self.assertFalse(data["install_zed"])
         self.assertTrue(data["install_fleet"])
+        self.assertEqual(data["fleet_url"], "https://fleet.example.com")
         self.assertEqual(data["fleet_enroll_secret"], "s3cret+abc")
         self.assertEqual(data["fleet_end_user_email"], "john@example.com")
         self.assertNotIn("s3cret", result.stdout)

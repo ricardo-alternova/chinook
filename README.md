@@ -425,9 +425,9 @@ The `glab` role resolves the latest release from the GitLab API and installs the
 
 ### Fleet
 
-Optional on every profile (off by default on Linux, on by default on macOS; tick it in the app selector or set `install_fleet: true`). The `fleet` role enrolls the device in Fleet (`fleet_url`, default `https://fleet.example.com`). It replaces the manual guide: no Node.js, npm, or Docker needed.
+Optional on every profile (off by default on Linux, on by default on macOS; tick it in the app selector or set `install_fleet: true`). The `fleet` role enrolls the device in Fleet. The server URL is asked by the selector and stored in `local.yml` as `fleet_url`; there is no committed default. It replaces the manual guide: no Node.js, npm, or Docker needed.
 
-1. The configurator asks for the **device name** (Fleet lists devices by hostname, in the `nombre-apellido` format), the **enroll secret** from the Fleet admin, and — on Linux — optionally your **work email** (links the device to you in Fleet). They go into `local.yml`, which git ignores. Never commit the secret: this repo is public.
+1. The configurator asks for the **Fleet server URL**, the **device name** (Fleet lists devices by hostname, in the `nombre-apellido` format), the **enroll secret** from the Fleet admin, and — on Linux — optionally your **work email** (links the device to you in Fleet). They go into `local.yml`, which git ignores. Never commit the URL or the secret: this repo is public.
 2. The `hostname` role renames the machine before enrolling. On Linux it also fixes `/etc/hosts`; on macOS it sets the computer name with `scutil`.
 3. The role downloads the latest `fleetctl` release (a `.tar.gz` on Linux, the `.zip` on macOS), builds a `fleetd` `.deb`, `.rpm`, or `.pkg` for this machine (with Fleet Desktop on the desktop profiles and macOS, and scripts enabled), installs it, and deletes the package, which contains the secret.
 4. It then **confirms enrollment** instead of assuming it worked: it waits for fleetd's enrollment key, restarts fleetd once if it doesn't appear (`systemd` on Linux, `launchctl kickstart` on macOS), and fails with the fleetd log if it still doesn't. On desktops it then asks the Fleet server what it recorded and prints the name and platform Fleet shows for the device.

@@ -1,3 +1,24 @@
+- name: Normalize the Fleet server URL
+  ansible.builtin.set_fact:
+    fleet_url: "{{ fleet_url | regex_replace('/+$', '') }}"
+  when: fleet_url | length > 0
+
+- name: Fail when Fleet would enroll without a server URL
+  ansible.builtin.fail:
+    msg: >-
+      Fleet is selected but fleet_url is empty. Re-run the app selector and enter
+      the Fleet server URL, or set fleet_url in local.yml.
+  when:
+    - fleet_enroll_secret | length > 0
+    - fleet_url | length == 0
+
+- name: Validate the Fleet server URL
+  ansible.builtin.fail:
+    msg: "fleet_url must start with http:// or https:// (got '{{ fleet_url }}')."
+  when:
+    - fleet_enroll_secret | length > 0
+    - fleet_url is not match('^https?://[^ ]+$')
+
 - name: Check for an existing fleetd enrollment
   ansible.builtin.stat:
     path: /opt/orbit/secret-orbit-node-key.txt
