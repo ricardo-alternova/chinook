@@ -1,4 +1,6 @@
 ---
+# Linux only: macOS installs T3 Code through the `t3-code` Homebrew cask
+# (selected in tools/configure.py), so this role is not part of macos.yml.
 - name: Install FUSE 2 library required to run AppImages
   ansible.builtin.package:
     name: "{{ 'libfuse2t64' if ansible_facts['pkg_mgr'] == 'apt' else 'fuse-libs' }}"
@@ -29,6 +31,11 @@
     msg: "T3 Code publishes no {{ t3_code_appimage_arch }} AppImage in {{ t3_code_release.json.tag_name }}."
   when: t3_code_appimage_url | length == 0
 
+- name: Set the versioned T3 Code AppImage path
+  ansible.builtin.set_fact:
+    t3_code_versioned_appimage_path: >-
+      {{ t3_code_install_dir }}/T3-Code-{{ t3_code_release.json.tag_name }}-{{ t3_code_appimage_arch }}.AppImage
+
 - name: Ensure T3 Code installation directories exist
   ansible.builtin.file:
     path: "{{ item }}"
@@ -42,11 +49,76 @@
     - /usr/share/applications
   become: true
 
+# get_url leaves an existing destination alone, so a file from an older release
+# (or the old x86_64 build on arm64) would be reused forever. Keep one file per
+# release and architecture, download to a temporary name, and only then move it
+# into place so a partial download is never mistaken for a complete AppImage.
+- name: Check the current T3 Code AppImage
+  ansible.builtin.stat:
+    path: "{{ t3_code_versioned_appimage_path }}"
+  register: t3_code_current_appimage
+
 - name: Download T3 Code AppImage
   ansible.builtin.get_url:
     url: "{{ t3_code_appimage_url }}"
-    dest: "{{ t3_code_appimage_path }}"
+    dest: "{{ t3_code_versioned_appimage_path }}.part"
     mode: "0755"
+    force: true
+    timeout: 600
+  register: t3_code_appimage_download
+  become: true
+  when: not t3_code_current_appimage.stat.exists
+
+- name: Move the downloaded T3 Code AppImage into place
+  ansible.builtin.command:
+    argv:
+      - mv
+      - -f
+      - "{{ t3_code_versioned_appimage_path }}.part"
+      - "{{ t3_code_versioned_appimage_path }}"
+  become: true
+  when:
+    - t3_code_appimage_download is not skipped
+    - t3_code_appimage_download.changed
+
+- name: Check the stable T3 Code AppImage path
+  ansible.builtin.stat:
+    path: "{{ t3_code_appimage_path }}"
+  register: t3_code_stable_appimage
+
+# Before the versioned files, this path held the AppImage itself. Remove that
+# regular file so it can become a symlink to the current release.
+- name: Remove a stale non-symlink T3 Code AppImage
+  ansible.builtin.file:
+    path: "{{ t3_code_appimage_path }}"
+    state: absent
+  become: true
+  when:
+    - t3_code_stable_appimage.stat.exists
+    - not t3_code_stable_appimage.stat.islnk
+
+- name: Point the stable T3 Code AppImage path at the current release
+  ansible.builtin.file:
+    src: "{{ t3_code_versioned_appimage_path }}"
+    dest: "{{ t3_code_appimage_path }}"
+    state: link
+    force: true
+  become: true
+
+- name: Find older T3 Code AppImages
+  ansible.builtin.find:
+    paths: "{{ t3_code_install_dir }}"
+    patterns: "T3-Code-*.AppImage*"
+    file_type: file
+  register: t3_code_old_appimages
+
+- name: Remove older T3 Code AppImages
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ t3_code_old_appimages.files | rejectattr('path', 'equalto', t3_code_versioned_appimage_path) | list }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
   become: true
 
 - name: Remove previous T3 Code extraction directory
@@ -64,23 +136,34 @@
     mode: "0755"
   become: true
 
+# A wrong-architecture AppImage would otherwise hang forever in Fedora Asahi's
+# FEX binfmt handler. The timeout turns that into a clear, fast failure.
 - name: Extract T3 Code AppImage to access bundled icons
   ansible.builtin.command:
     argv:
-      - "{{ t3_code_appimage_path }}"
+      - timeout
+      - "180"
+      - "{{ t3_code_versioned_appimage_path }}"
       - --appimage-extract
   args:
     chdir: "{{ t3_code_extract_dir }}"
   become: true
+  changed_when: false
 
-- name: Install T3 Code icons into the system theme
-  ansible.builtin.copy:
-    src: "{{ t3_code_extract_dir }}/squashfs-root/usr/share/icons/hicolor/{{ item }}/apps/t3code.png"
-    dest: "/usr/share/icons/hicolor/{{ item }}/apps/t3code.png"
-    remote_src: true
+- name: Find bundled T3 Code icons
+  ansible.builtin.find:
+    paths: "{{ t3_code_extract_dir }}/squashfs-root/usr/share/icons/hicolor"
+    patterns: t3code.png
+    recurse: true
+  register: t3_code_icons
+
+- name: Ensure T3 Code icon directories exist
+  ansible.builtin.file:
+    path: "/usr/share/icons/hicolor/{{ item }}/apps"
+    state: directory
     owner: root
     group: root
-    mode: "0644"
+    mode: "0755"
   loop:
     - 16x16
     - 22x22
@@ -91,6 +174,19 @@
     - 128x128
     - 256x256
     - 512x512
+  become: true
+
+- name: Install bundled T3 Code icons into the system theme
+  ansible.builtin.copy:
+    src: "{{ item.path }}"
+    dest: "/usr/share/icons/hicolor/{{ item.path | regex_replace('.*/hicolor/', '') }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ t3_code_icons.files }}"
+  loop_control:
+    label: "{{ item.path | regex_replace('.*/hicolor/', '') }}"
   become: true
 
 - name: Remove T3 Code extraction directory
