@@ -88,6 +88,16 @@ flatpak_packages_extra: []
 flatpak_remote_name: flathub
 flatpak_remote_url: https://flathub.org/repo/flathub.flatpakrepo
 
+# LocalSend transfers on TCP/UDP 53317 and uses mDNS (5353/udp) for discovery.
+# Open those only when LocalSend is actually selected.
+localsend_enabled: >-
+  {{ ('org.localsend.localsend_app' in (flatpak_packages + flatpak_packages_extra))
+     or ('localsend' in (snap_packages + snap_packages_extra)) }}
+localsend_ports:
+  - 53317/tcp
+  - 53317/udp
+localsend_mdns_port: 5353/udp
+
 # macOS: Homebrew formulae and casks.
 brew_packages: []
 brew_packages_extra: []

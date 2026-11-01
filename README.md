@@ -298,7 +298,7 @@ This profile is for a headless Ubuntu box you SSH into — a remote agent machin
 - tmux with mouse support and a colorable status bar
 - Automatic tmux attach on interactive SSH (`SSH_TTY`) for bash and zsh, so disconnecting and reconnecting resumes the same session. An existing `~/.tmux.conf` is left alone.
 - Tailscale client install (`tailscaled` enabled). Prefer `sudo tailscale up` interactively. An optional `tailscale_auth_key` is passed via `TS_AUTHKEY` (not the process argv). Use a single-use key if you store one in `local.yml`
-- UFW with default-deny inbound, allow outbound, OpenSSH allowed before the firewall is turned on, and `tailscale0` allowed when Tailscale is enabled so tailnet traffic is not blocked
+- UFW with default-deny inbound, allow outbound, OpenSSH allowed before the firewall is turned on, `tailscale0` allowed when Tailscale is enabled so tailnet traffic is not blocked, and LocalSend's 53317 TCP/UDP plus mDNS allowed when LocalSend is selected
 - fail2ban SSH jail (`jail.d/sshd.local` only — package `jail.conf` is left alone) using the systemd journal, 5 retries / 10 minutes / 1 hour ban. Localhost is ignored; Tailscale/CGNAT addresses are not, so a compromised tailnet peer can still be banned
 - OpenCode CLI
 - Claude Code, Cursor CLI, GitLab CLI (`glab`), and Starship
@@ -343,7 +343,7 @@ Hardware KVMs and out-of-band power buttons are useful for this kind of box, but
 **Also configures:**
 
 - RPM Fusion free and nonfree repositories for codecs
-- firewalld (Fedora's default firewall), with SSH allowed and any leftover UFW removed
+- firewalld (Fedora's default firewall), with SSH allowed, any leftover UFW removed, and LocalSend's 53317 TCP/UDP plus mDNS allowed when LocalSend is selected
 - Btrfs snapshots through Snapper with 7-day retention (timeline and cleanup timers)
 - KDE screen lock after 1 minute with automatic suspend off, so long installs keep running behind the lock (set `kde_disable_autosuspend: false` in `local.yml` for normal sleep)
 - KDE Breeze Dark theme
@@ -552,6 +552,7 @@ helium unity_hub keychron zed balena_etcher teams_pwa desktop_shortcuts
 - **fail2ban banned your Tailscale IP** — the default ignore list is localhost only. Add your admin tailnet address to `fail2ban_ignoreip` rather than the whole `100.64.0.0/10` range.
 - **`ufw allow in True tailscale0` / `Need 'to' or 'from' clause`** — fixed: an unquoted `on` in the UFW role was read by YAML as `True`. Update Chinook and re-run.
 - **UFW on Fedora** — Fedora uses firewalld; the Fedora profile now configures firewalld and removes a UFW package left by an earlier run. UFW remains the firewall on Ubuntu.
+- **LocalSend cannot see other devices** — Chinook opens LocalSend's TCP/UDP 53317 and mDNS discovery only when LocalSend is selected in the configurator. Check `sudo firewall-cmd --zone=public --list-all` on Fedora or `sudo ufw status` on Ubuntu. If you installed LocalSend manually, set `localsend_enabled: true` in `local.yml` and re-run `--tags firewalld` or `--tags ufw`.
 - **Locked out after enabling UFW** — use console or a local session and run `sudo ufw allow OpenSSH` or `sudo ufw disable`. The Server profile allows OpenSSH before enabling UFW; this usually means SSH is on a non-standard port — add it to `ufw_allowed_ports`.
 - **fail2ban is not banning** — confirm `sudo fail2ban-client status sshd` and that `python3-systemd` is installed so the jail can read the journal.
 - **T3 Code won't start on Fedora Asahi** — the role installs the native arm64 AppImage, so no x86 emulation is involved. If the window still does not appear, check that FUSE 2 is present (`rpm -q fuse-libs`). As a fallback that needs no FUSE, run the AppImage with `--appimage-extract-and-run`:

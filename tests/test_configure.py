@@ -461,6 +461,21 @@ class TestSnapper(unittest.TestCase):
             self.assertNotIn("role: snapper", playbook)
 
 
+class TestLocalSendFirewall(unittest.TestCase):
+    def test_firewalls_open_localsend_only_when_selected(self):
+        all_vars = parse_yaml((ROOT / "ansible/group_vars/all.yml").read_text(encoding="utf-8"))
+        self.assertEqual(all_vars["localsend_ports"], ["53317/tcp", "53317/udp"])
+        self.assertEqual(all_vars["localsend_mdns_port"], "5353/udp")
+        self.assertIn("localsend_enabled", all_vars)
+        firewalld = (ROOT / "ansible/roles/firewalld/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertIn("--add-service=mdns", firewalld)
+        self.assertIn("--add-port", firewalld)
+        self.assertIn("when: localsend_enabled | bool", firewalld)
+        ufw = (ROOT / "ansible/roles/ufw/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertIn("localsend_ports + [localsend_mdns_port]", ufw)
+        self.assertIn("when: localsend_enabled | bool", ufw)
+
+
 class TestUbuntuSupport(unittest.TestCase):
     def test_installer_accepts_both_lts_versions(self):
         text = (ROOT / "install").read_text(encoding="utf-8")

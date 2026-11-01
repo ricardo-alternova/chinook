@@ -52,6 +52,24 @@
   notify: Reload firewalld
   when: install_tailscale | bool
 
+# LocalSend advertises itself over mDNS and transfers on 53317 TCP/UDP.
+- name: Allow LocalSend mDNS discovery in the public zone
+  ansible.builtin.command: firewall-cmd --permanent --zone=public --add-service=mdns
+  register: firewalld_localsend_mdns
+  become: true
+  changed_when: "'ALREADY_ENABLED' not in (firewalld_localsend_mdns.stdout ~ firewalld_localsend_mdns.stderr)"
+  notify: Reload firewalld
+  when: localsend_enabled | bool
+
+- name: Allow LocalSend transfer ports in the public zone
+  ansible.builtin.command: firewall-cmd --permanent --zone=public --add-port={{ item }}
+  loop: "{{ localsend_ports }}"
+  register: firewalld_localsend_ports
+  become: true
+  changed_when: "'ALREADY_ENABLED' not in (firewalld_localsend_ports.stdout ~ firewalld_localsend_ports.stderr)"
+  notify: Reload firewalld
+  when: localsend_enabled | bool
+
 - name: Remove UFW on Fedora
   ansible.builtin.package:
     name: ufw

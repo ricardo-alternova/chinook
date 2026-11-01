@@ -50,6 +50,20 @@
   register: ufw_allow_port_result
   changed_when: ufw_allow_port_result.stdout is defined and ufw_allow_port_result.stdout is search('(?i)rule added|rules updated')
 
+# LocalSend needs TCP/UDP 53317 and mDNS for discovery. Only open them when the
+# app is selected; the rules are skipped otherwise.
+- name: Allow LocalSend through UFW
+  ansible.builtin.command:
+    argv:
+      - ufw
+      - allow
+      - "{{ item }}"
+  become: true
+  loop: "{{ localsend_ports + [localsend_mdns_port] }}"
+  register: ufw_allow_localsend_result
+  changed_when: ufw_allow_localsend_result.stdout is search('(?i)rule added|rules updated')
+  when: localsend_enabled | bool
+
 - name: Allow traffic on the Tailscale interface
   ansible.builtin.command:
     argv:
