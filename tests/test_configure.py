@@ -444,9 +444,10 @@ class TestSnapper(unittest.TestCase):
         self.assertIn("snapper-timeline.timer.d", role)
         self.assertIn("OnCalendar=daily", role)
         self.assertIn("TIMELINE_LIMIT_DAILY", role)
+        # Disable the hanging Timeshift schedule, but leave the package alone.
         self.assertIn("timeshift-hourly", role)
-        self.assertIn("name: timeshift", role)
-        self.assertIn("state: absent", role)
+        self.assertNotIn("Remove the Timeshift package", role)
+        self.assertNotIn("Remove the Timeshift configuration", role)
         all_vars = parse_yaml((ROOT / "ansible/group_vars/all.yml").read_text(encoding="utf-8"))
         self.assertEqual(all_vars["snapper_config_name"], "root")
         self.assertEqual(all_vars["snapper_daily_count"], 7)

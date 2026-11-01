@@ -131,7 +131,8 @@
 
 # Fedora's Timeshift package installs an hourly cron job, and Chinook used to
 # add its own systemd timer. Both can start a Timeshift run that never finishes,
-# so stop it and remove every scheduler before uninstalling the package.
+# so stop it and remove those schedulers. Timeshift itself is left installed;
+# Snapper is the active snapshot tool.
 - name: Stop any running Timeshift process
   ansible.builtin.shell: |
     pkill -TERM -x timeshift 2>/dev/null || true
@@ -180,15 +181,3 @@
   loop:
     - timeshift-hourly
     - timeshift-hourly.disabled
-
-- name: Remove the Timeshift package
-  ansible.builtin.dnf:
-    name: timeshift
-    state: absent
-  become: true
-
-- name: Remove the Timeshift configuration
-  ansible.builtin.file:
-    path: /etc/timeshift
-    state: absent
-  become: true
