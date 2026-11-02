@@ -292,6 +292,8 @@ t3_code_extract_dir: /tmp/t3-code-extract
 t3_code_appimage_path: "{{ t3_code_install_dir }}/T3-Code.AppImage"
 t3_code_bin_path: /usr/local/bin/t3-code
 t3_code_desktop_file: /usr/share/applications/t3-code.desktop
+# Start T3 Code automatically when the desktop session begins.
+t3_code_autostart: false
 
 teams_pwa_name: Microsoft Teams (PWA)
 teams_pwa_url: "https://teams.cloud.microsoft/?clientType=pwa"

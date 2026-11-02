@@ -222,6 +222,39 @@
       StartupWMClass=t3code
   become: true
 
+- name: Ensure the user autostart directory exists
+  ansible.builtin.file:
+    path: "{{ workstation_home }}/.config/autostart"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0755"
+  when: t3_code_autostart | bool
+
+- name: Start T3 Code when the desktop session begins
+  ansible.builtin.copy:
+    dest: "{{ workstation_home }}/.config/autostart/t3-code.desktop"
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0644"
+    content: |
+      [Desktop Entry]
+      Type=Application
+      Name=T3 Code
+      Comment=Start T3 Code at login
+      Exec={{ t3_code_bin_path }}
+      Icon=t3code
+      Terminal=false
+      X-GNOME-Autostart-enabled=true
+      X-GNOME-Autostart-Delay=5
+  when: t3_code_autostart | bool
+
+- name: Remove the T3 Code autostart entry when disabled
+  ansible.builtin.file:
+    path: "{{ workstation_home }}/.config/autostart/t3-code.desktop"
+    state: absent
+  when: not t3_code_autostart | bool
+
 - name: Check update-desktop-database
   ansible.builtin.shell: command -v update-desktop-database
   args:
