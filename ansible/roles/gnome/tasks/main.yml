@@ -18,6 +18,50 @@
   ansible.builtin.command: "gsettings set org.gnome.desktop.interface gtk-theme '{{ gnome_gtk_theme }}'"
   when: gnome_current_gtk_theme.stdout != "'" + gnome_gtk_theme + "'"
 
+# Long agent jobs must survive an idle session: lock the screen on a timer but
+# never let GNOME suspend the machine.
+- name: Enforce GNOME screen-lock and auto-suspend policy
+  ansible.builtin.shell: |
+    set -eu
+    idle_seconds={{ (gnome_screen_lock_timeout | int) * 60 }}
+    disable_autosuspend={{ 'true' if (gnome_disable_autosuspend | bool) else 'false' }}
+    changed=0
+
+    set_if_differs() {
+      schema="$1"
+      key="$2"
+      expected="$3"
+      value="$4"
+      current="$(gsettings get "$schema" "$key")"
+      if [ "$current" != "$expected" ]; then
+        gsettings set "$schema" "$key" "$value"
+        changed=1
+      fi
+    }
+
+    set_if_differs org.gnome.desktop.session idle-delay \
+      "uint32 $idle_seconds" "$idle_seconds"
+    set_if_differs org.gnome.desktop.screensaver idle-activation-enabled "true" true
+    set_if_differs org.gnome.desktop.screensaver lock-enabled "true" true
+    set_if_differs org.gnome.desktop.screensaver lock-delay "uint32 0" 0
+
+    if [ "$disable_autosuspend" = "true" ]; then
+      set_if_differs org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type "'nothing'" "'nothing'"
+      set_if_differs org.gnome.settings-daemon.plugins.power sleep-inactive-ac-timeout "0" 0
+      set_if_differs org.gnome.settings-daemon.plugins.power sleep-inactive-battery-type "'nothing'" "'nothing'"
+      set_if_differs org.gnome.settings-daemon.plugins.power sleep-inactive-battery-timeout "0" 0
+    fi
+
+    if [ "$changed" -eq 1 ]; then
+      echo changed
+    else
+      echo ok
+    fi
+  args:
+    executable: /bin/bash
+  register: gnome_power_policy
+  changed_when: "'changed' in gnome_power_policy.stdout"
+
 - name: Determine whether WayShot will be installed
   ansible.builtin.set_fact:
     wayshot_selected: "{{ install_flatpak_apps | bool and wayshot_flatpak in flatpak_packages }}"

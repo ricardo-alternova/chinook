@@ -137,6 +137,10 @@ ssh_hosts: []
 
 gnome_color_scheme: prefer-dark
 gnome_gtk_theme: Yaru-dark
+# Lock the screen after this many minutes without input.
+gnome_screen_lock_timeout: 1
+# Keep the machine awake instead of suspending when idle.
+gnome_disable_autosuspend: false
 # Empty uses the account's XDG Pictures/Downloads directories (localized on non-English systems).
 gnome_screenshots_dir: ""
 gnome_screenshots_redirect_target: ""
