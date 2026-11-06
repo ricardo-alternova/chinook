@@ -735,6 +735,8 @@ class TestMacosProfile(unittest.TestCase):
         tailscale = (ROOT / "ansible/roles/tailscale/tasks/main.yml").read_text(encoding="utf-8")
         self.assertIn("Tailscale-latest-macos.pkg", tailscale)
         self.assertIn("/usr/sbin/installer", tailscale)
+        configurator = (ROOT / "tools/configure.py").read_text(encoding="utf-8")
+        self.assertIn('if "tailscale" in selected and profile != "macos"', configurator)
         kitty_conf = (ROOT / "ansible/roles/kitty/files/kitty.conf").read_text(encoding="utf-8")
         self.assertIn("include catppuccin-mocha.conf", kitty_conf)
 

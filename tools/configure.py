@@ -777,7 +777,7 @@ def main(argv=None):
                 print("Use only letters, numbers, underscores, or hyphens.")
             config["tmux_status_bg"] = ask("tmux status bar color (colour24, green, red, blue)", saved_text("tmux_status_bg", "colour24"))
 
-        if "tailscale" in selected:
+        if "tailscale" in selected and profile != "macos":
             auth_key = ask("Tailscale auth key (optional, leave empty to join later)", "") or saved_text("tailscale_auth_key")
             if auth_key:
                 config["tailscale_auth_key"] = auth_key
