@@ -23,9 +23,15 @@
     - role: homebrew
       tags: homebrew
       when: install_packages | bool
+    - role: kitty
+      tags: kitty
+      when: configure_kitty | bool
     - role: ssh_client
       tags: ssh_client
       when: configure_ssh | bool
+    - role: tailscale
+      tags: tailscale
+      when: install_tailscale | bool
     - role: opencode_cli
       tags: opencode_cli
       when: install_opencode_cli | bool
@@ -38,6 +44,9 @@
     - role: cursor_cli
       tags: cursor_cli
       when: install_cursor_cli | bool
+    - role: compai_agent
+      tags: compai_agent
+      when: install_compai_agent | bool
     - role: fleet
       tags: fleet
       when: install_fleet | bool

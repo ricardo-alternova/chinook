@@ -87,7 +87,8 @@ APPS = [
     {
         "key": "tailscale",
         "label": "Tailscale (install only; join is manual)",
-        "detect_paths": ["/usr/bin/tailscale"],
+        "profiles": ALL_PROFILES,
+        "detect_paths": ["/usr/bin/tailscale", "/Applications/Tailscale.app"],
         "default_profiles": ["ubuntu_server"],
         "flag": "install_tailscale",
     },
@@ -106,7 +107,7 @@ APPS = [
         "default_profiles": ["ubuntu_server"],
         "flag": "configure_fail2ban",
     },
-    {"key": "kitty", "label": "Kitty terminal (Catppuccin Mocha)", "default": True, "profiles": DESKTOP_PROFILES, "apt": ["kitty"], "dnf": ["kitty"], "flag": "configure_kitty"},
+    {"key": "kitty", "label": "Kitty terminal (Catppuccin Mocha)", "default": True, "macos_default": True, "profiles": DESKTOPS_AND_MACOS, "apt": ["kitty"], "dnf": ["kitty"], "cask": ["kitty"], "flag": "configure_kitty", "detect_paths": ["/Applications/kitty.app"]},
     {
         "key": "codecs",
         "label": "Audio/video codecs",
@@ -164,7 +165,7 @@ APPS = [
     {"key": "glab", "label": "GitLab CLI (glab)", "default": True, "profiles": ALL_PROFILES, "flag": "install_glab", "detect_packages": ["glab"], "brew": ["glab"]},
     {"key": "docker", "label": "Docker Engine (with Compose and Buildx)", "default": True, "flag": "install_docker", "detect_packages": ["docker-ce"]},
     {"key": "fleet", "label": "Fleet (fleetd device management, needs the enroll secret)", "default": False, "macos_default": True, "profiles": ALL_PROFILES, "flag": "install_fleet", "detect_packages": ["fleet-osquery"], "detect_paths": ["/Library/LaunchDaemons/com.fleetdm.orbit.plist"]},
-    {"key": "compai_agent", "label": "Comp AI device agent (compliance checks)", "default": False, "profiles": APT_PROFILES, "flag": "install_compai_agent", "detect_packages": ["comp-ai-device-agent"]},
+    {"key": "compai_agent", "label": "Comp AI device agent (compliance checks)", "default": False, "profiles": APT_PROFILES + ("macos",), "flag": "install_compai_agent", "detect_packages": ["comp-ai-device-agent"], "detect_paths": ["/Applications/Comp AI Device Agent.app"]},
     {"key": "unity_cli", "label": "Unity CLI (beta)", "default": False, "flag": "install_unity_cli", "detect_paths": ["~/.local/bin/unity"]},
     {"key": "grok_bot", "label": "Grok Bot (xAI desktop agent)", "default": False, "profiles": DESKTOP_PROFILES, "flag": "install_grok_bot", "detect_paths": ["/usr/bin/grok-bot"]},
     {"key": "cursor", "label": "Cursor editor", "default": False, "profiles": DESKTOPS_AND_MACOS, "flag": "install_cursor", "detect_paths": ["/usr/bin/cursor", "/Applications/Cursor.app"], "cask": ["cursor"]},

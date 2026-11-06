@@ -149,7 +149,7 @@ When the installer finishes, that is everything Chinook can do for you. Two thin
 
 1. **Open OpenCode and set up your credentials** (`opencode auth login`) so you can tweak the OS using AI.
 2. **Set up your GitHub / GitLab accounts.**
-3. **If you picked the Comp AI agent, sign in to it.** Open `comp-ai-device-agent` from the app menu and sign in with your work email.
+3. **If you picked the Comp AI agent, sign in to it.** Open Comp AI Device Agent (`comp-ai-device-agent` on Linux) and sign in with your work email.
 4. **Reboot if Chinook renamed the device**, so every app picks up the new hostname.
 
 That is it. From here, edit `local.yml` or ask OpenCode, re-run `~/chinook/install` (or the profile playbook), and Chinook converges the machine to the new state.
@@ -167,7 +167,7 @@ Depending on the selected profile and local config, Chinook can:
 - Set up daily system snapshots (Timeshift on Ubuntu, Snapper on Fedora)
 - Install desktop launchers and shortcuts
 - On Ubuntu Server: install Tailscale, OpenSSH server, tmux with SSH session resume, UFW, and fail2ban
-- On macOS: install Homebrew formulae and casks, the agent CLIs, SSH snippets, the computer name, and Fleet
+- On macOS: install Homebrew formulae and casks, Kitty, Tailscale, the agent CLIs, SSH snippets, the computer name, Fleet, and the Comp AI device agent
 
 ## Local Configuration
 
@@ -363,7 +363,7 @@ Google Chrome is not installed here because official Linux builds don't exist fo
 
 ## macOS Profile
 
-macOS support is the newest profile and intentionally small. It leaves macOS's own defaults (Zsh, Finder, the Dock, security settings) alone and manages the parts Chinook can converge safely: Homebrew packages, the agent CLIs, SSH snippets, the computer name, and Fleet.
+macOS support is the newest profile and intentionally small. It leaves macOS's own defaults (Zsh, Finder, the Dock, security settings) alone and manages the parts Chinook can converge safely: Homebrew packages, Kitty, Tailscale, the agent CLIs, SSH snippets, the computer name, Fleet, and Comp AI.
 
 The whole flow is still the same one command (`./install` or the `curl` one-liner). On macOS it installs Homebrew, the Command Line Tools, and Ansible first, then runs the selector and this playbook. You never call `tools/configure.py` or `ansible-playbook` yourself — the [Manual install](#manual-install) steps are only for people who explicitly want to walk it.
 
@@ -371,6 +371,9 @@ The whole flow is still the same one command (`./install` or the `curl` one-line
 
 - Homebrew itself, when it is missing, and `eval "$(brew shellenv)"` in `~/.zprofile`
 - Homebrew formulae and casks selected in the app selector (`brew_packages` and `brew_casks` in `local.yml`)
+- Kitty, with the same Catppuccin Mocha config used on Linux (`~/.config/kitty/kitty.conf`)
+- Tailscale, using the signed standalone macOS package; joining the tailnet stays manual
+- The Comp AI device agent, from Comp AI's signed arm64 or x64 app bundle
 - T3 Code through Homebrew's `t3-code` cask
 - OpenCode CLI, Codex CLI, Claude Code, and Cursor CLI through their official installers (each updates itself, so the roles only install when the binary is missing)
 - GitLab CLI (`glab`) through Homebrew
@@ -380,12 +383,14 @@ The whole flow is still the same one command (`./install` or the `curl` one-line
 
 **What it does not do on macOS:** GNOME/KDE theming, system snapshots (Timeshift/Snapper), Docker, UFW/fail2ban, udev rules, OneDrive, Flatpak/Snap packages, or the Linux desktop apps. Packages and plugins that only exist for Linux are hidden from the selector; the remaining apps are installed through Homebrew.
 
-Casks install one at a time so a failed cask doesn't stop the rest. The configurator checks for apps already in `/Applications` before the playbook runs, so an app you installed from its website or the App Store is reported rather than downloaded: Chinook leaves that copy alone and prints the `brew install --cask --adopt` command if you want Homebrew to manage it later. Only Fleet starts ticked on macOS — on an existing Mac the selector ticks whatever it detects, and you can toggle anything else.
+Casks install one at a time so a failed cask doesn't stop the rest. The configurator checks for apps already in `/Applications` before the playbook runs, so an app you installed from its website or the App Store is reported rather than downloaded: Chinook leaves that copy alone and prints the `brew install --cask --adopt` command if you want Homebrew to manage it later. Fleet and Kitty start ticked on macOS — on an existing Mac the selector also ticks whatever it detects, and you can toggle anything else.
 
-Two macOS-specific notes:
+macOS-specific notes:
 
 - `fleetd` is built as a `.pkg` (unsigned, like Fleet's own `fleetctl package` output) and installed with `installer`; the package registers the `com.fleetdm.orbit` launch daemon itself. Chinook still checks that launchd loaded it and restarts it once if enrollment doesn't appear.
 - The Fleet work email prompt is skipped on macOS: `fleetctl` only accepts `--end-user-email` on Windows and Linux, and macOS hosts get that mapping from MDM enrollment instead.
+- Tailscale is also a `.pkg`, so Chinook installs it with `installer` under `become` rather than a Homebrew cask. macOS may ask you to allow its system extension; after that, open Tailscale and sign in.
+- Comp AI ships a signed app bundle, which Chinook unpacks into `/Applications` and updates on re-runs. Enable **Start at Login** in the app after signing in.
 
 ## Optional Roles
 
@@ -444,7 +449,9 @@ Leave the secret empty to install everything else and enroll later: re-run the i
 
 ### Comp AI device agent
 
-Selectable on the Ubuntu profiles (off by default; tick it in the app selector or set `install_compai_agent: true`). Comp AI publishes only an amd64 `.deb` and its checks assume GNOME, so Chinook installs it on Ubuntu GNOME amd64 and skips it with a message on Ubuntu Server; it is not offered on Fedora Asahi (arm64) or macOS. The `compai_agent` role installs the latest production release from Comp AI's GitHub releases and keeps it updated on re-runs. It also prepares the machine for the agent's Linux checks:
+Selectable on the Ubuntu profiles and on macOS (off by default; tick it in the app selector or set `install_compai_agent: true`). On macOS, Chinook downloads the signed arm64 or x64 app from Comp AI's GitHub releases, installs it in `/Applications`, and updates it on re-runs. Enable **Start at Login** in the app's settings.
+
+On Linux, Comp AI publishes only an amd64 `.deb` and its checks assume GNOME, so Chinook installs it on Ubuntu GNOME amd64 and skips it with a message on Ubuntu Server; it is not offered on Fedora Asahi (arm64). The `compai_agent` role installs the latest production release from Comp AI's GitHub releases and keeps it updated on re-runs. On Linux it also prepares the machine for the agent's checks:
 
 - **Start at login:** the agent's own "Start at Login" doesn't work on Linux, so Chinook adds `~/.config/autostart/comp-ai-device-agent.desktop`; otherwise it stops reporting after a reboot.
 - **Password policy:** installs `libpam-pwquality` and sets `minlen = 8` in `/etc/security/pwquality.conf`.

@@ -1,5 +1,5 @@
 # macOS support is new: the selector only offers apps whose macOS install is
-# Homebrew or a cross-platform role, and only Fleet starts ticked.
+# Homebrew or a cross-platform role, and Fleet and Kitty start ticked.
 install_packages: true
 
 # Fleet Desktop is the usual macOS setup, and reinstalling without it would remove it.

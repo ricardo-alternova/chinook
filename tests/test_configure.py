@@ -222,25 +222,31 @@ class TestCatalog(unittest.TestCase):
         self.assertIn("always:", enroll)
         self.assertIn("secret-orbit-node-key.txt", enroll)
 
-    def test_compai_agent_is_offered_only_on_ubuntu(self):
-        for profile in configure.APT_PROFILES:
+    def test_compai_agent_is_offered_on_ubuntu_and_macos(self):
+        for profile in configure.APT_PROFILES + ("macos",):
             self.assertNotIn("compai_agent", configure.default_selection(profile), profile)
             self.assertIn("compai_agent", {app["key"] for app in configure.visible_apps(profile)}, profile)
-        for profile in ("fedora_asahi", "macos"):
-            self.assertNotIn("compai_agent", {app["key"] for app in configure.visible_apps(profile)}, profile)
+        self.assertNotIn("compai_agent", {app["key"] for app in configure.visible_apps("fedora_asahi")})
         for playbook in ("ubuntu.yml", "ubuntu_server.yml"):
             text = (ROOT / "ansible/playbooks" / playbook).read_text(encoding="utf-8")
             self.assertIn("role: compai_agent", text, playbook)
             self.assertIn("ansible_facts['pkg_mgr'] == 'apt'", text, playbook)
             self.assertIn("ansible_facts['architecture'] == 'x86_64'", text, playbook)
             self.assertIn("configure_gnome | bool", text, playbook)
+        macos = (ROOT / "ansible/playbooks/macos.yml").read_text(encoding="utf-8")
+        self.assertIn("role: compai_agent", macos)
         fedora = (ROOT / "ansible/playbooks/fedora_asahi.yml").read_text(encoding="utf-8")
         self.assertNotIn("role: compai_agent", fedora)
         loader = (ROOT / "ansible/playbooks/tasks/load_local_vars.yml").read_text(encoding="utf-8")
         self.assertIn("only available for Ubuntu GNOME on amd64", loader)
+        self.assertIn("ansible_facts['system'] == 'Linux'", loader)
         role = (ROOT / "ansible/roles/compai_agent/tasks/main.yml").read_text(encoding="utf-8")
         self.assertIn(".config/autostart/comp-ai-device-agent.desktop", role)
         self.assertIn("minlen", role)
+        self.assertIn("compai_agent_macos_app", role)
+        self.assertIn("ditto", role)
+        self.assertIn("CompAI-Device-Agent-", role)
+        self.assertEqual(configure.build_config("macos", {"compai_agent"})["install_compai_agent"], True)
 
     def test_starship_uses_installer_not_distro_packages(self):
         # Ubuntu LTS has no starship APT package; one missing package fails the whole apt task.
@@ -715,6 +721,23 @@ class TestMacosProfile(unittest.TestCase):
         for role in ("packages", "snaps", "flatpaks", "timeshift", "gnome", "kde", "docker", "ufw", "fail2ban", "shell"):
             self.assertNotIn(f"role: {role}", text)
 
+    def test_macos_offers_kitty_and_tailscale(self):
+        keys = {app["key"] for app in configure.visible_apps("macos")}
+        self.assertIn("kitty", keys)
+        self.assertIn("tailscale", keys)
+        config = configure.build_config("macos", {"kitty", "tailscale"})
+        self.assertTrue(config["configure_kitty"])
+        self.assertTrue(config["install_tailscale"])
+        self.assertIn("kitty", config["brew_casks"])
+        playbook = (ROOT / "ansible/playbooks/macos.yml").read_text(encoding="utf-8")
+        self.assertIn("role: kitty", playbook)
+        self.assertIn("role: tailscale", playbook)
+        tailscale = (ROOT / "ansible/roles/tailscale/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertIn("Tailscale-latest-macos.pkg", tailscale)
+        self.assertIn("/usr/sbin/installer", tailscale)
+        kitty_conf = (ROOT / "ansible/roles/kitty/files/kitty.conf").read_text(encoding="utf-8")
+        self.assertIn("include catppuccin-mocha.conf", kitty_conf)
+
     def test_only_apps_with_a_macos_install_are_offered(self):
         for app in configure.visible_apps("macos"):
             self.assertTrue(
@@ -723,38 +746,39 @@ class TestMacosProfile(unittest.TestCase):
             )
         keys = {app["key"] for app in configure.visible_apps("macos")}
         for linux_only in (
-            "shell", "tmux", "tailscale", "ufw", "fail2ban", "codecs", "heif", "wayshot",
+            "shell", "tmux", "ufw", "fail2ban", "codecs", "heif", "wayshot",
             "input_remapper", "helium", "unity_hub", "xournalpp", "onedrive", "mangohud",
-            "compai_agent", "unity_cli", "grok_bot",
+            "unity_cli", "grok_bot",
             "steam", "zapzap", "balena_etcher", "teams_pwa", "keychron",
         ):
             self.assertNotIn(linux_only, keys, linux_only)
 
-    def test_defaults_only_tick_fleet(self):
+    def test_defaults_tick_fleet_and_kitty(self):
         selected = configure.default_selection("macos")
-        self.assertEqual(selected, {"fleet"})
+        self.assertEqual(selected, {"fleet", "kitty"})
         config = configure.build_config("macos", selected)
         self.assertTrue(config["install_packages"])
         self.assertTrue(config["install_fleet"])
+        self.assertTrue(config["configure_kitty"])
         self.assertFalse(config["install_claude_code"])
         self.assertFalse(config["configure_ssh"])
         for key in ("apt_packages", "dnf_packages", "snap_packages", "flatpak_packages"):
             self.assertNotIn(key, config)
         self.assertEqual(config["brew_packages"], [])
-        self.assertEqual(config["brew_casks"], [])
+        self.assertEqual(config["brew_casks"], ["kitty"])
 
     def test_homebrew_formulae_and_casks(self):
         selected = configure.default_selection("macos") | {"base_cli", "chrome", "zed"}
         config = configure.build_config("macos", selected)
         self.assertEqual(config["brew_packages"], ["git", "jq"])
-        self.assertEqual(config["brew_casks"], ["google-chrome", "zed"])
+        self.assertEqual(config["brew_casks"], ["kitty", "google-chrome", "zed"])
 
     def test_t3_code_uses_the_homebrew_cask_on_macos(self):
         self.assertIn("t3_code", {app["key"] for app in configure.visible_apps("macos")})
         selected = configure.default_selection("macos") | {"t3_code"}
         config = configure.build_config("macos", selected)
         self.assertTrue(config["install_t3_code"])
-        self.assertEqual(config["brew_casks"], ["t3-code"])
+        self.assertEqual(config["brew_casks"], ["kitty", "t3-code"])
         t3_code = self.app("t3_code")
         self.assertTrue(configure.app_installed(t3_code, "macos", self.packages(cask=["t3-code"])))
         with patch.object(configure.glob, "glob", return_value=["/Applications/T3 Code (Beta).app"]):
@@ -899,7 +923,7 @@ class TestTuiProcess(unittest.TestCase):
         self.assertIn("openssh-server", data["apt_packages"])
         self.assertNotIn("snap_packages", data)
 
-    def test_macos_defaults_tick_fleet_only(self):
+    def test_macos_defaults_tick_fleet_and_kitty(self):
         result, output = self.run_tui(
             ["--profile", "macos"],
             ["", "", "john-doe", "https://fleet.example.com", ""],
@@ -909,13 +933,14 @@ class TestTuiProcess(unittest.TestCase):
         self.assertEqual(data["profile"], "macos")
         self.assertTrue(data["install_fleet"])
         self.assertTrue(data["install_packages"])
+        self.assertTrue(data["configure_kitty"])
         self.assertFalse(data["install_claude_code"])
         self.assertEqual(data["workstation_hostname"], "john-doe")
         self.assertEqual(data["fleet_url"], "https://fleet.example.com")
         # fleetd learns the owner's email through MDM enrollment on macOS.
         self.assertNotIn("fleet_end_user_email", data)
         self.assertEqual(data["brew_packages"], [])
-        self.assertEqual(data["brew_casks"], [])
+        self.assertEqual(data["brew_casks"], ["kitty"])
         for key in ("apt_packages", "dnf_packages", "snap_packages", "flatpak_packages"):
             self.assertNotIn(key, data)
         self.assertIn("ansible/playbooks/macos.yml", result.stdout)
@@ -929,7 +954,7 @@ class TestTuiProcess(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
         data = parse_yaml(output.read_text(encoding="utf-8"))
         self.assertEqual(data["brew_packages"], ["git", "jq"])
-        self.assertEqual(data["brew_casks"], ["google-chrome"])
+        self.assertEqual(data["brew_casks"], ["kitty", "google-chrome"])
         self.assertTrue(data["install_fleet"])
 
     def test_fedora_removals_keep_one(self):

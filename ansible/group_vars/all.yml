@@ -48,6 +48,7 @@ tmux_status_bg: colour24
 tmux_status_fg: white
 tailscale_auth_key: ""
 tailscale_ssh: false
+tailscale_macos_pkg: /tmp/Tailscale-latest-macos.pkg
 
 ufw_default_incoming: deny
 ufw_default_outgoing: allow
@@ -282,6 +283,8 @@ fleetctl_releases_base_url: https://github.com/fleetdm/fleet/releases/download
 compai_agent_repo_url: https://github.com/trycompai/comp
 compai_agent_package_name: comp-ai-device-agent
 compai_agent_desktop_file: /usr/share/applications/comp-ai-device-agent.desktop
+compai_agent_macos_app: /Applications/Comp AI Device Agent.app
+compai_agent_macos_zip: /tmp/CompAI-Device-Agent.zip
 # What the agent's Linux checks require.
 compai_password_min_length: 8
 compai_screen_lock_max_seconds: 900
