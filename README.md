@@ -167,7 +167,7 @@ Depending on the selected profile and local config, Chinook can:
 - Set up daily system snapshots (Timeshift on Ubuntu, Snapper on Fedora)
 - Install desktop launchers and shortcuts
 - On Ubuntu Server: install Tailscale, OpenSSH server, tmux with SSH session resume, UFW, and fail2ban
-- On macOS: install Homebrew formulae and casks, Kitty, Tailscale, the agent CLIs, SSH snippets, the computer name, Fleet, and the Comp AI device agent
+- On macOS: install Homebrew formulae and casks, the Zsh prompt and plugins, Kitty, Tailscale, the agent CLIs, SSH snippets, the computer name, Fleet, and the Comp AI device agent
 
 ## Local Configuration
 
@@ -363,7 +363,7 @@ Google Chrome is not installed here because official Linux builds don't exist fo
 
 ## macOS Profile
 
-macOS support is the newest profile and intentionally small. It leaves macOS's own defaults (Zsh, Finder, the Dock, security settings) alone and manages the parts Chinook can converge safely: Homebrew packages, Kitty, Tailscale, the agent CLIs, SSH snippets, the computer name, Fleet, and Comp AI.
+macOS support is the newest profile and intentionally small. It leaves macOS's own defaults (Finder, the Dock, security settings) alone and manages the parts Chinook can converge safely: the Zsh prompt and plugins, Homebrew packages, Kitty, Tailscale, the agent CLIs, SSH snippets, the computer name, Fleet, and Comp AI.
 
 The whole flow is still the same one command (`./install` or the `curl` one-liner). On macOS it installs Homebrew, the Command Line Tools, and Ansible first, then runs the selector and this playbook. You never call `tools/configure.py` or `ansible-playbook` yourself — the [Manual install](#manual-install) steps are only for people who explicitly want to walk it.
 
@@ -371,6 +371,7 @@ The whole flow is still the same one command (`./install` or the `curl` one-line
 
 - Homebrew itself, when it is missing, and `eval "$(brew shellenv)"` in `~/.zprofile`
 - Homebrew formulae and casks selected in the app selector (`brew_packages` and `brew_casks` in `local.yml`)
+- Zsh history, completion, autosuggestions, syntax highlighting, and the Starship prompt — the same block used on Linux, with Homebrew's `starship`, `zsh-autosuggestions`, `zsh-syntax-highlighting`, and the Symbols Nerd Font
 - Kitty, with the same Catppuccin Mocha config used on Linux (`~/.config/kitty/kitty.conf`)
 - Tailscale, using the signed standalone macOS package; joining the tailnet stays manual
 - The Comp AI device agent, from Comp AI's signed arm64 or x64 app bundle

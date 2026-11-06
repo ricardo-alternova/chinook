@@ -716,9 +716,9 @@ class TestMacosProfile(unittest.TestCase):
         self.assertEqual(configure.PLAYBOOKS["macos"], "ansible/playbooks/macos.yml")
         text = (ROOT / "ansible/playbooks/macos.yml").read_text(encoding="utf-8")
         self.assertIn("ansible_facts['system'] != 'Darwin'", text)
-        for role in ("hostname", "homebrew", "ssh_client", "opencode_cli", "codex_cli", "claude_code", "cursor_cli", "fleet"):
+        for role in ("hostname", "homebrew", "shell", "ssh_client", "opencode_cli", "codex_cli", "claude_code", "cursor_cli", "fleet"):
             self.assertIn(f"role: {role}", text)
-        for role in ("packages", "snaps", "flatpaks", "timeshift", "gnome", "kde", "docker", "ufw", "fail2ban", "shell"):
+        for role in ("packages", "snaps", "flatpaks", "timeshift", "gnome", "kde", "docker", "ufw", "fail2ban"):
             self.assertNotIn(f"role: {role}", text)
 
     def test_macos_offers_kitty_and_tailscale(self):
@@ -742,6 +742,17 @@ class TestMacosProfile(unittest.TestCase):
         kitty_role = (ROOT / "ansible/roles/kitty/tasks/main.yml").read_text(encoding="utf-8")
         self.assertIn('group: "{{ workstation_group }}"', kitty_role)
         self.assertNotIn('group: "{{ workstation_user }}"', kitty_role)
+
+    def test_macos_shell_goodies(self):
+        macos_vars = parse_yaml((ROOT / "ansible/group_vars/macos.yml").read_text(encoding="utf-8"))
+        self.assertTrue(macos_vars["configure_shell"])
+        playbook = (ROOT / "ansible/playbooks/macos.yml").read_text(encoding="utf-8")
+        self.assertIn("role: shell", playbook)
+        role = (ROOT / "ansible/roles/shell/tasks/main.yml").read_text(encoding="utf-8")
+        for needle in ("starship", "zsh-autosuggestions", "zsh-syntax-highlighting", "font-symbols-only-nerd-font"):
+            self.assertIn(needle, role)
+        self.assertIn('group: "{{ workstation_group }}"', role)
+        self.assertNotIn('group: "{{ workstation_user }}"', role)
 
     def test_only_apps_with_a_macos_install_are_offered(self):
         for app in configure.visible_apps("macos"):

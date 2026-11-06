@@ -7,6 +7,7 @@ install_fleet: true
 fleet_desktop: true
 
 # The selector ticks these when they are already installed or when you tick them.
+configure_shell: true
 configure_ssh: false
 install_opencode_cli: false
 install_codex_cli: false

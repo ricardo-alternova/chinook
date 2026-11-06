@@ -3,19 +3,73 @@
     name: zsh
     state: present
   become: true
+  when: ansible_facts['system'] == 'Linux'
 
 - name: Make Zsh the login shell
   ansible.builtin.user:
     name: "{{ workstation_user }}"
     shell: "{{ shell_zsh_path }}"
   become: true
+  when: ansible_facts['system'] == 'Linux'
+
+# macOS already ships Zsh. Homebrew provides the prompt, plugins, and the
+# symbols-only Nerd Font that Starship uses for git and language icons.
+- name: Install the macOS shell tooling
+  when: ansible_facts['system'] == 'Darwin'
+  block:
+    - name: Find Homebrew for the shell tooling
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /opt/homebrew/bin/brew
+        - /usr/local/bin/brew
+      register: shell_homebrew_candidates
+
+    - name: Fail when Homebrew is missing on macOS
+      ansible.builtin.fail:
+        msg: "Homebrew is not installed. The Chinook installer sets it up, or see https://brew.sh."
+      when: shell_homebrew_candidates.results | selectattr('stat.exists') | list | length == 0
+
+    - name: Set the Homebrew paths for the shell tooling
+      ansible.builtin.set_fact:
+        shell_homebrew_bin: "{{ (shell_homebrew_candidates.results | selectattr('stat.exists') | map(attribute='item') | first) }}"
+        shell_zsh_autosuggestions_path: "{{ ((shell_homebrew_candidates.results | selectattr('stat.exists') | map(attribute='item') | first) | dirname | dirname) }}/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
+        shell_zsh_syntax_highlighting_path: "{{ ((shell_homebrew_candidates.results | selectattr('stat.exists') | map(attribute='item') | first) | dirname | dirname) }}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+
+    - name: List installed Homebrew formulae
+      ansible.builtin.command: "{{ shell_homebrew_bin }} list --formula -1"
+      register: shell_brew_formulae
+      changed_when: false
+      check_mode: false
+
+    - name: Install the macOS shell formulae
+      ansible.builtin.command:
+        argv: "{{ [shell_homebrew_bin, 'install', '--formula'] + shell_brew_missing }}"
+      vars:
+        shell_brew_missing: "{{ ['starship', 'zsh-autosuggestions', 'zsh-syntax-highlighting'] | difference(shell_brew_formulae.stdout_lines) }}"
+      when: shell_brew_missing | length > 0
+
+    - name: List installed Homebrew casks
+      ansible.builtin.command: "{{ shell_homebrew_bin }} list --cask -1"
+      register: shell_brew_casks
+      changed_when: false
+      check_mode: false
+
+    - name: Install the Nerd Font symbols for the prompt
+      ansible.builtin.command:
+        argv:
+          - "{{ shell_homebrew_bin }}"
+          - install
+          - --cask
+          - font-symbols-only-nerd-font
+      when: "'font-symbols-only-nerd-font' not in shell_brew_casks.stdout_lines"
 
 - name: Configure Zsh history, completion, plugins, and Starship
   ansible.builtin.blockinfile:
     path: "{{ workstation_home }}/.zshrc"
     create: true
     owner: "{{ workstation_user }}"
-    group: "{{ workstation_user }}"
+    group: "{{ workstation_group }}"
     mode: "0644"
     marker: "# {mark} CHINOOK SHELL"
     insertbefore: BOF
@@ -26,17 +80,18 @@
       setopt share_history hist_ignore_dups hist_ignore_space
       autoload -Uz compinit && compinit
       export PATH="$HOME/.local/bin:$PATH"
-      [ -f /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh ] && source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+      {% if shell_homebrew_bin is defined %}export PATH="{{ shell_homebrew_bin | dirname }}:$PATH"{% endif %}
+      [ -f {{ shell_zsh_autosuggestions_path }} ] && source {{ shell_zsh_autosuggestions_path }}
       command -v starship >/dev/null 2>&1 && eval "$(starship init zsh)"
       # zsh-syntax-highlighting must be sourced last.
-      [ -f /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ] && source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+      [ -f {{ shell_zsh_syntax_highlighting_path }} ] && source {{ shell_zsh_syntax_highlighting_path }}
 
 - name: Ensure the config directory exists
   ansible.builtin.file:
     path: "{{ workstation_home }}/.config"
     state: directory
     owner: "{{ workstation_user }}"
-    group: "{{ workstation_user }}"
+    group: "{{ workstation_group }}"
     mode: "0755"
 
 # Only written when missing, so local prompt tweaks survive re-runs.
@@ -45,14 +100,16 @@
     src: starship.toml
     dest: "{{ workstation_home }}/.config/starship.toml"
     owner: "{{ workstation_user }}"
-    group: "{{ workstation_user }}"
+    group: "{{ workstation_group }}"
     mode: "0644"
     force: false
 
 # The prompt uses Nerd Font icons for git status. Ubuntu 24.04 packages no Nerd
 # Font, so install the symbols-only font; terminals fall back to it for icons.
 - name: Install Nerd Font symbols for the prompt
-  when: shell_install_nerd_font_symbols | bool
+  when:
+    - ansible_facts['system'] == 'Linux'
+    - shell_install_nerd_font_symbols | bool
   block:
     - name: Ensure Nerd Font symbols dependencies are present
       ansible.builtin.package:
@@ -77,7 +134,7 @@
         path: "{{ item }}"
         state: directory
         owner: "{{ workstation_user }}"
-        group: "{{ workstation_user }}"
+        group: "{{ workstation_group }}"
         mode: "0755"
       loop:
         - "{{ shell_nerd_font_symbols_dir }}"
@@ -89,7 +146,7 @@
         dest: "{{ shell_nerd_font_symbols_dir }}"
         remote_src: true
         owner: "{{ workstation_user }}"
-        group: "{{ workstation_user }}"
+        group: "{{ workstation_group }}"
         creates: "{{ shell_nerd_font_symbols_dir }}/SymbolsNerdFontMono-Regular.ttf"
       register: shell_nerd_font_symbols_extract
 
@@ -99,7 +156,7 @@
         dest: "{{ workstation_home }}/.config/fontconfig/conf.d/10-nerd-font-symbols.conf"
         remote_src: true
         owner: "{{ workstation_user }}"
-        group: "{{ workstation_user }}"
+        group: "{{ workstation_group }}"
         mode: "0644"
 
     - name: Refresh the font cache

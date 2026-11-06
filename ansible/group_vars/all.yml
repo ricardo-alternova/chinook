@@ -178,6 +178,8 @@ cursor_cli_bin_path: "{{ workstation_home }}/.local/bin/cursor-agent"
 starship_bin_dir: /usr/local/bin
 
 shell_zsh_path: /usr/bin/zsh
+shell_zsh_autosuggestions_path: /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+shell_zsh_syntax_highlighting_path: /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 shell_install_nerd_font_symbols: true
 shell_nerd_font_symbols_url: https://github.com/ryanoasis/nerd-fonts/releases/latest/download/NerdFontsSymbolsOnly.tar.xz
 shell_nerd_font_symbols_dir: "{{ workstation_home }}/.local/share/fonts/NerdFontsSymbolsOnly"
