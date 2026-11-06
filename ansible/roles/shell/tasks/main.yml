@@ -80,7 +80,9 @@
       setopt share_history hist_ignore_dups hist_ignore_space
       autoload -Uz compinit && compinit
       export PATH="$HOME/.local/bin:$PATH"
-      {% if shell_homebrew_bin is defined %}export PATH="{{ shell_homebrew_bin | dirname }}:$PATH"{% endif %}
+      {% if shell_homebrew_bin is defined %}
+      export PATH="{{ shell_homebrew_bin | dirname }}:$PATH"
+      {% endif %}
       [ -f {{ shell_zsh_autosuggestions_path }} ] && source {{ shell_zsh_autosuggestions_path }}
       command -v starship >/dev/null 2>&1 && eval "$(starship init zsh)"
       # zsh-syntax-highlighting must be sourced last.

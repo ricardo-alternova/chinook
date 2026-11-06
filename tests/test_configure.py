@@ -753,6 +753,10 @@ class TestMacosProfile(unittest.TestCase):
             self.assertIn(needle, role)
         self.assertIn('group: "{{ workstation_group }}"', role)
         self.assertNotIn('group: "{{ workstation_user }}"', role)
+        # Ansible's trim_blocks drops the newline after an inline {% endif %},
+        # which merged the Homebrew PATH export with the next [ -f ] line.
+        self.assertIn("{% if shell_homebrew_bin is defined %}\n      export PATH=", role)
+        self.assertNotIn("{% if shell_homebrew_bin is defined %}export PATH=", role)
 
     def test_only_apps_with_a_macos_install_are_offered(self):
         for app in configure.visible_apps("macos"):
