@@ -739,6 +739,9 @@ class TestMacosProfile(unittest.TestCase):
         self.assertIn('if "tailscale" in selected and profile != "macos"', configurator)
         kitty_conf = (ROOT / "ansible/roles/kitty/files/kitty.conf").read_text(encoding="utf-8")
         self.assertIn("include catppuccin-mocha.conf", kitty_conf)
+        kitty_role = (ROOT / "ansible/roles/kitty/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertIn('group: "{{ workstation_group }}"', kitty_role)
+        self.assertNotIn('group: "{{ workstation_user }}"', kitty_role)
 
     def test_only_apps_with_a_macos_install_are_offered(self):
         for app in configure.visible_apps("macos"):

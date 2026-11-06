@@ -3,7 +3,7 @@
     path: "{{ kitty_config_dir }}"
     state: directory
     owner: "{{ workstation_user }}"
-    group: "{{ workstation_user }}"
+    group: "{{ workstation_group }}"
     mode: "0755"
 
 # Only written when missing, so local Kitty tweaks survive re-runs.
@@ -12,7 +12,7 @@
     src: "{{ item }}"
     dest: "{{ kitty_config_dir }}/{{ item }}"
     owner: "{{ workstation_user }}"
-    group: "{{ workstation_user }}"
+    group: "{{ workstation_group }}"
     mode: "0644"
     force: false
   loop:
