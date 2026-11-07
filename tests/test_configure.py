@@ -260,12 +260,16 @@ class TestCatalog(unittest.TestCase):
             self.assertNotIn("starship", profile_vars.get("dnf_packages", []), profile)
         self.assertTrue((ROOT / "ansible/roles/starship/tasks/main.yml").is_file())
 
-    def test_unity_hub_is_ubuntu_desktop_only(self):
-        self.assertIn("unity_hub", {app["key"] for app in configure.visible_apps("ubuntu")})
+    def test_unity_hub_is_ubuntu_desktop_and_macos(self):
+        for profile in ("ubuntu", "macos"):
+            self.assertIn("unity_hub", {app["key"] for app in configure.visible_apps(profile)})
         for profile in ("ubuntu_server", "fedora_asahi"):
             self.assertNotIn("unity_hub", {app["key"] for app in configure.visible_apps(profile)})
         config = configure.build_config("ubuntu", configure.default_selection("ubuntu") | {"unity_hub"})
         self.assertTrue(config["install_unity_hub"])
+        macos = configure.build_config("macos", {"unity_hub"})
+        self.assertTrue(macos["install_unity_hub"])
+        self.assertIn("unity-hub", macos["brew_casks"])
         playbook_dir = ROOT / "ansible" / "playbooks"
         self.assertIn("install_unity_hub", (playbook_dir / "ubuntu.yml").read_text(encoding="utf-8"))
         self.assertNotIn("install_unity_hub", (playbook_dir / "ubuntu_server.yml").read_text(encoding="utf-8"))
@@ -325,15 +329,17 @@ class TestCatalog(unittest.TestCase):
         self.assertIn("include catppuccin-mocha.conf", kitty_conf)
         self.assertTrue((ROOT / "ansible/roles/kitty/files/catppuccin-mocha.conf").is_file())
 
-    def test_unity_cli_is_optional_on_every_linux_profile(self):
+    def test_unity_cli_is_optional_on_every_linux_profile_and_macos(self):
         for profile in configure.LINUX_PROFILES:
             self.assertIn("unity_cli", {app["key"] for app in configure.visible_apps(profile)})
             self.assertNotIn("unity_cli", configure.default_selection(profile))
             playbook = (ROOT / configure.PLAYBOOKS[profile]).read_text(encoding="utf-8")
             self.assertIn("role: unity_cli", playbook)
-        self.assertNotIn("unity_cli", {app["key"] for app in configure.visible_apps("macos")})
-        config = configure.build_config("ubuntu", configure.default_selection("ubuntu") | {"unity_cli"})
-        self.assertTrue(config["install_unity_cli"])
+        self.assertIn("unity_cli", {app["key"] for app in configure.visible_apps("macos")})
+        self.assertNotIn("unity_cli", configure.default_selection("macos"))
+        macos = configure.build_config("macos", {"unity_cli"})
+        self.assertTrue(macos["install_unity_cli"])
+        self.assertIn("unity-cli", macos["brew_casks"])
 
     def test_no_deprecated_top_level_fact_variables(self):
         # INJECT_FACTS_AS_VARS is deprecated; use ansible_facts['name'] instead.
@@ -782,8 +788,8 @@ class TestMacosProfile(unittest.TestCase):
         keys = {app["key"] for app in configure.visible_apps("macos")}
         for linux_only in (
             "shell", "tmux", "ufw", "fail2ban", "codecs", "heif", "wayshot",
-            "input_remapper", "helium", "unity_hub", "xournalpp", "onedrive", "mangohud",
-            "unity_cli", "grok_bot",
+            "input_remapper", "helium", "xournalpp", "onedrive", "mangohud",
+            "grok_bot",
             "steam", "zapzap", "balena_etcher", "teams_pwa", "keychron",
         ):
             self.assertNotIn(linux_only, keys, linux_only)

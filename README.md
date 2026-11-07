@@ -375,6 +375,7 @@ The whole flow is still the same one command (`./install` or the `curl` one-line
 - Kitty, with the same Catppuccin Mocha config used on Linux (`~/.config/kitty/kitty.conf`)
 - Tailscale, using the signed standalone macOS package; joining the tailnet stays manual
 - Docker CLI, Compose, Buildx, and Colima through Homebrew; Colima is installed but not started at login
+- Unity Hub and the Unity CLI through Homebrew, when selected
 - The Comp AI device agent, from Comp AI's signed arm64 or x64 app bundle
 - T3 Code through Homebrew's `t3-code` cask
 - OpenCode CLI, Codex CLI, Claude Code, and Cursor CLI through their official installers (each updates itself, so the roles only install when the binary is missing)
