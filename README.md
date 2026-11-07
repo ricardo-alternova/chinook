@@ -167,7 +167,7 @@ Depending on the selected profile and local config, Chinook can:
 - Set up daily system snapshots (Timeshift on Ubuntu, Snapper on Fedora)
 - Install desktop launchers and shortcuts
 - On Ubuntu Server: install Tailscale, OpenSSH server, tmux with SSH session resume, UFW, and fail2ban
-- On macOS: install Homebrew formulae and casks, the Zsh prompt and plugins, Kitty, Tailscale, the agent CLIs, SSH snippets, the computer name, Fleet, and the Comp AI device agent
+- On macOS: install Homebrew formulae and casks, the Zsh prompt and plugins, Kitty, Tailscale, Docker via Colima, the agent CLIs, SSH snippets, the computer name, Fleet, and the Comp AI device agent
 
 ## Local Configuration
 
@@ -363,7 +363,7 @@ Google Chrome is not installed here because official Linux builds don't exist fo
 
 ## macOS Profile
 
-macOS support is the newest profile and intentionally small. It leaves macOS's own defaults (Finder, the Dock, security settings) alone and manages the parts Chinook can converge safely: the Zsh prompt and plugins, Homebrew packages, Kitty, Tailscale, the agent CLIs, SSH snippets, the computer name, Fleet, and Comp AI.
+macOS support is the newest profile and intentionally small. It leaves macOS's own defaults (Finder, the Dock, security settings) alone and manages the parts Chinook can converge safely: the Zsh prompt and plugins, Homebrew packages, Kitty, Tailscale, Docker via Colima, the agent CLIs, SSH snippets, the computer name, Fleet, and Comp AI.
 
 The whole flow is still the same one command (`./install` or the `curl` one-liner). On macOS it installs Homebrew, the Command Line Tools, and Ansible first, then runs the selector and this playbook. You never call `tools/configure.py` or `ansible-playbook` yourself — the [Manual install](#manual-install) steps are only for people who explicitly want to walk it.
 
@@ -374,6 +374,7 @@ The whole flow is still the same one command (`./install` or the `curl` one-line
 - Zsh history, completion, autosuggestions, syntax highlighting, and the Starship prompt — the same block used on Linux, with Homebrew's `starship`, `zsh-autosuggestions`, `zsh-syntax-highlighting`, and the Symbols Nerd Font
 - Kitty, with the same Catppuccin Mocha config used on Linux (`~/.config/kitty/kitty.conf`)
 - Tailscale, using the signed standalone macOS package; joining the tailnet stays manual
+- Docker CLI, Compose, Buildx, and Colima through Homebrew; Colima is installed but not started at login
 - The Comp AI device agent, from Comp AI's signed arm64 or x64 app bundle
 - T3 Code through Homebrew's `t3-code` cask
 - OpenCode CLI, Codex CLI, Claude Code, and Cursor CLI through their official installers (each updates itself, so the roles only install when the binary is missing)
@@ -382,7 +383,7 @@ The whole flow is still the same one command (`./install` or the `curl` one-line
 - The computer name through `scutil`, when a Fleet device name is set
 - Fleet (`fleetd`, enrolled from that Mac's hardware UUID) — the one app the selector ticks by default
 
-**What it does not do on macOS:** GNOME/KDE theming, system snapshots (Timeshift/Snapper), Docker, UFW/fail2ban, udev rules, OneDrive, Flatpak/Snap packages, or the Linux desktop apps. Packages and plugins that only exist for Linux are hidden from the selector; the remaining apps are installed through Homebrew.
+**What it does not do on macOS:** GNOME/KDE theming, system snapshots (Timeshift/Snapper), UFW/fail2ban, udev rules, OneDrive, Flatpak/Snap packages, or the Linux desktop apps. Packages and plugins that only exist for Linux are hidden from the selector; the remaining apps are installed through Homebrew.
 
 Casks install one at a time so a failed cask doesn't stop the rest. The configurator checks for apps already in `/Applications` before the playbook runs, so an app you installed from its website or the App Store is reported rather than downloaded: Chinook leaves that copy alone and prints the `brew install --cask --adopt` command if you want Homebrew to manage it later. Fleet and Kitty start ticked on macOS — on an existing Mac the selector also ticks whatever it detects, and you can toggle anything else.
 
@@ -467,6 +468,8 @@ After the run, open `comp-ai-device-agent` from the app menu and sign in with yo
 The `docker` role installs Docker Engine, the `docker compose` plugin, and Buildx from Docker's official repositories (`download.docker.com`), for Ubuntu and for Fedora Asahi (aarch64). It removes the distro builds first (`docker.io`, `podman-docker`, and similar) because they conflict with Docker's packages. It enables the `docker` and `containerd` services and adds your account to the `docker` group. **Log out and back in once** before running `docker` without `sudo`, and check with `docker run --rm hello-world`.
 
 Docker runs natively, with no VM, so Colima isn't needed on Linux. Note that ports published with `docker run -p` bypass UFW, because Docker writes its own firewall rules. On a server, bind them to localhost (`-p 127.0.0.1:8080:80`) or reach them over Tailscale.
+
+On macOS, the selector installs `colima`, `docker`, `docker-compose`, and `docker-buildx` through Homebrew, and links the Compose/Buildx plugins into `~/.docker/cli-plugins`. Colima is **not** started at login and no launch agent is created; run `colima start` when you need Docker and `colima stop` to shut it down. The first start creates the Linux VM and downloads its image.
 
 ### Starship
 

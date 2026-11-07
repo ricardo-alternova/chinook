@@ -1,3 +1,62 @@
+# macOS: Homebrew installs Colima and the Docker CLI; this role only wires up
+# the Compose/Buildx plugins and leaves the VM stopped. Colima is not a login
+# item or a launch daemon, so it never starts at boot.
+- name: Configure the Docker CLI on macOS
+  when: ansible_facts['system'] == 'Darwin'
+  block:
+    - name: Find Homebrew for the Docker CLI
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /opt/homebrew/bin/brew
+        - /usr/local/bin/brew
+      register: docker_homebrew_candidates
+
+    - name: Fail when Homebrew is missing on macOS
+      ansible.builtin.fail:
+        msg: "Homebrew is not installed. The Chinook installer sets it up, or see https://brew.sh."
+      when: docker_homebrew_candidates.results | selectattr('stat.exists') | list | length == 0
+
+    - name: Set the Homebrew prefix for Docker
+      ansible.builtin.set_fact:
+        docker_homebrew_prefix: "{{ ((docker_homebrew_candidates.results | selectattr('stat.exists') | map(attribute='item') | first) | dirname | dirname) }}"
+
+    - name: Check for the Docker CLI
+      ansible.builtin.stat:
+        path: "{{ docker_homebrew_prefix }}/bin/docker"
+      register: docker_cli_binary
+
+    - name: Fail when the Docker formulae are missing
+      ansible.builtin.fail:
+        msg: >-
+          Docker's Homebrew formulae are missing. Enable install_packages or run
+          "brew install colima docker docker-compose docker-buildx" and re-run.
+      when: not docker_cli_binary.stat.exists
+
+    - name: Ensure the Docker CLI plugin directory exists
+      ansible.builtin.file:
+        path: "{{ workstation_home }}/.docker/cli-plugins"
+        state: directory
+        owner: "{{ workstation_user }}"
+        group: "{{ workstation_group }}"
+        mode: "0755"
+
+    - name: Link the Docker Compose and Buildx plugins
+      ansible.builtin.file:
+        src: "{{ docker_homebrew_prefix }}/lib/docker/cli-plugins/{{ item }}"
+        dest: "{{ workstation_home }}/.docker/cli-plugins/{{ item }}"
+        state: link
+        force: true
+      loop:
+        - docker-compose
+        - docker-buildx
+
+    - name: Remind to start Colima manually
+      ansible.builtin.debug:
+        msg: >-
+          Docker CLI and Colima are installed. Colima is not started at login; run
+          "colima start" when you need Docker, and "colima stop" to shut it down.
+
 - name: Ensure Docker install dependencies are present
   ansible.builtin.package:
     name:
@@ -5,6 +64,7 @@
       - curl
     state: present
   become: true
+  when: ansible_facts['system'] == 'Linux'
 
 # apt path (Ubuntu desktop and server)
 - name: Install Docker Engine from Docker's APT repository
@@ -117,7 +177,9 @@
   loop:
     - containerd
     - docker
-  when: not ansible_check_mode
+  when:
+    - ansible_facts['system'] == 'Linux'
+    - not ansible_check_mode
 
 - name: Let the workstation user run Docker without sudo
   ansible.builtin.user:
@@ -126,8 +188,11 @@
     append: true
   become: true
   register: docker_group
+  when: ansible_facts['system'] == 'Linux'
 
 - name: Remind to log out after joining the docker group
   ansible.builtin.debug:
     msg: "{{ workstation_user }} was added to the docker group. Log out and back in before running docker without sudo."
-  when: docker_group.changed
+  when:
+    - ansible_facts['system'] == 'Linux'
+    - docker_group.changed | default(false)

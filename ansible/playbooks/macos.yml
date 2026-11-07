@@ -23,6 +23,9 @@
     - role: homebrew
       tags: homebrew
       when: install_packages | bool
+    - role: docker
+      tags: docker
+      when: install_docker | bool
     - role: shell
       tags: shell
       when: configure_shell | bool

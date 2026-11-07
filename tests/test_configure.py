@@ -716,9 +716,9 @@ class TestMacosProfile(unittest.TestCase):
         self.assertEqual(configure.PLAYBOOKS["macos"], "ansible/playbooks/macos.yml")
         text = (ROOT / "ansible/playbooks/macos.yml").read_text(encoding="utf-8")
         self.assertIn("ansible_facts['system'] != 'Darwin'", text)
-        for role in ("hostname", "homebrew", "shell", "ssh_client", "opencode_cli", "codex_cli", "claude_code", "cursor_cli", "fleet"):
+        for role in ("hostname", "homebrew", "docker", "shell", "ssh_client", "opencode_cli", "codex_cli", "claude_code", "cursor_cli", "fleet"):
             self.assertIn(f"role: {role}", text)
-        for role in ("packages", "snaps", "flatpaks", "timeshift", "gnome", "kde", "docker", "ufw", "fail2ban"):
+        for role in ("packages", "snaps", "flatpaks", "timeshift", "gnome", "kde", "ufw", "fail2ban"):
             self.assertNotIn(f"role: {role}", text)
 
     def test_macos_offers_kitty_and_tailscale(self):
@@ -758,6 +758,21 @@ class TestMacosProfile(unittest.TestCase):
         self.assertIn("{% if shell_homebrew_bin is defined %}\n      export PATH=", role)
         self.assertNotIn("{% if shell_homebrew_bin is defined %}export PATH=", role)
 
+    def test_macos_docker_uses_colima_without_autostart(self):
+        keys = {app["key"] for app in configure.visible_apps("macos")}
+        self.assertIn("docker", keys)
+        self.assertIn("docker", configure.default_selection("macos"))
+        config = configure.build_config("macos", {"docker"})
+        self.assertTrue(config["install_docker"])
+        self.assertEqual(config["brew_packages"], ["colima", "docker", "docker-compose", "docker-buildx"])
+        playbook = (ROOT / "ansible/playbooks/macos.yml").read_text(encoding="utf-8")
+        self.assertIn("role: docker", playbook)
+        role = (ROOT / "ansible/roles/docker/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertIn("colima start", role)
+        self.assertIn("colima stop", role)
+        self.assertIn("not started at login", role)
+        self.assertNotIn("launchctl", role)
+
     def test_only_apps_with_a_macos_install_are_offered(self):
         for app in configure.visible_apps("macos"):
             self.assertTrue(
@@ -773,24 +788,25 @@ class TestMacosProfile(unittest.TestCase):
         ):
             self.assertNotIn(linux_only, keys, linux_only)
 
-    def test_defaults_tick_fleet_and_kitty(self):
+    def test_defaults_tick_fleet_kitty_and_docker(self):
         selected = configure.default_selection("macos")
-        self.assertEqual(selected, {"fleet", "kitty"})
+        self.assertEqual(selected, {"fleet", "kitty", "docker"})
         config = configure.build_config("macos", selected)
         self.assertTrue(config["install_packages"])
         self.assertTrue(config["install_fleet"])
         self.assertTrue(config["configure_kitty"])
+        self.assertTrue(config["install_docker"])
         self.assertFalse(config["install_claude_code"])
         self.assertFalse(config["configure_ssh"])
         for key in ("apt_packages", "dnf_packages", "snap_packages", "flatpak_packages"):
             self.assertNotIn(key, config)
-        self.assertEqual(config["brew_packages"], [])
+        self.assertEqual(config["brew_packages"], ["colima", "docker", "docker-compose", "docker-buildx"])
         self.assertEqual(config["brew_casks"], ["kitty"])
 
     def test_homebrew_formulae_and_casks(self):
         selected = configure.default_selection("macos") | {"base_cli", "chrome", "zed"}
         config = configure.build_config("macos", selected)
-        self.assertEqual(config["brew_packages"], ["git", "jq"])
+        self.assertEqual(config["brew_packages"], ["git", "jq", "colima", "docker", "docker-compose", "docker-buildx"])
         self.assertEqual(config["brew_casks"], ["kitty", "google-chrome", "zed"])
 
     def test_t3_code_uses_the_homebrew_cask_on_macos(self):
@@ -943,7 +959,7 @@ class TestTuiProcess(unittest.TestCase):
         self.assertIn("openssh-server", data["apt_packages"])
         self.assertNotIn("snap_packages", data)
 
-    def test_macos_defaults_tick_fleet_and_kitty(self):
+    def test_macos_defaults_tick_fleet_kitty_and_docker(self):
         result, output = self.run_tui(
             ["--profile", "macos"],
             ["", "", "john-doe", "https://fleet.example.com", ""],
@@ -954,12 +970,13 @@ class TestTuiProcess(unittest.TestCase):
         self.assertTrue(data["install_fleet"])
         self.assertTrue(data["install_packages"])
         self.assertTrue(data["configure_kitty"])
+        self.assertTrue(data["install_docker"])
         self.assertFalse(data["install_claude_code"])
         self.assertEqual(data["workstation_hostname"], "john-doe")
         self.assertEqual(data["fleet_url"], "https://fleet.example.com")
         # fleetd learns the owner's email through MDM enrollment on macOS.
         self.assertNotIn("fleet_end_user_email", data)
-        self.assertEqual(data["brew_packages"], [])
+        self.assertEqual(data["brew_packages"], ["colima", "docker", "docker-compose", "docker-buildx"])
         self.assertEqual(data["brew_casks"], ["kitty"])
         for key in ("apt_packages", "dnf_packages", "snap_packages", "flatpak_packages"):
             self.assertNotIn(key, data)
@@ -973,7 +990,7 @@ class TestTuiProcess(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
         data = parse_yaml(output.read_text(encoding="utf-8"))
-        self.assertEqual(data["brew_packages"], ["git", "jq"])
+        self.assertEqual(data["brew_packages"], ["git", "jq", "colima", "docker", "docker-compose", "docker-buildx"])
         self.assertEqual(data["brew_casks"], ["kitty", "google-chrome"])
         self.assertTrue(data["install_fleet"])
 
