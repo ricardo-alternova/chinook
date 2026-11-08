@@ -185,6 +185,7 @@ shell_nerd_font_symbols_url: https://github.com/ryanoasis/nerd-fonts/releases/la
 shell_nerd_font_symbols_dir: "{{ workstation_home }}/.local/share/fonts/NerdFontsSymbolsOnly"
 
 kitty_config_dir: "{{ workstation_home }}/.config/kitty"
+kitty_shell: "{{ '/bin/zsh' if ansible_facts['system'] == 'Darwin' else '/usr/bin/zsh' }}"
 
 unity_cli_install_url: https://public-cdn.cloud.unity3d.com/hub/prod/cli/install.sh
 # No stable Unity CLI release yet; set to "" once one ships.

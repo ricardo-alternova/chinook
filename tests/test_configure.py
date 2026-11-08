@@ -329,6 +329,14 @@ class TestCatalog(unittest.TestCase):
         self.assertIn("include catppuccin-mocha.conf", kitty_conf)
         self.assertTrue((ROOT / "ansible/roles/kitty/files/catppuccin-mocha.conf").is_file())
 
+    def test_kitty_pins_zsh_and_becomes_the_default_terminal(self):
+        role = (ROOT / "ansible/roles/kitty/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertIn("shell {{ kitty_shell }}", role)
+        self.assertIn("x-terminal-emulator", role)
+        self.assertIn("xdg-terminals.list", role)
+        all_vars = parse_yaml((ROOT / "ansible/group_vars/all.yml").read_text(encoding="utf-8"))
+        self.assertIn("kitty_shell", all_vars)
+
     def test_unity_cli_is_optional_on_every_linux_profile_and_macos(self):
         for profile in configure.LINUX_PROFILES:
             self.assertIn("unity_cli", {app["key"] for app in configure.visible_apps(profile)})

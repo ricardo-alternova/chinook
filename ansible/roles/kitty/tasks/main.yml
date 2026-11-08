@@ -18,3 +18,72 @@
   loop:
     - kitty.conf
     - catppuccin-mocha.conf
+
+# Kitty inherits $SHELL from the desktop session, which can still be bash until
+# the next login even after the shell role changes the login shell. Pin Kitty
+# to zsh so the Chinook prompt and plugins load immediately.
+- name: Check for a shell setting in kitty.conf
+  ansible.builtin.command:
+    argv:
+      - grep
+      - -qE
+      - '^[[:space:]]*shell[[:space:]]'
+      - "{{ kitty_config_dir }}/kitty.conf"
+  register: kitty_shell_setting
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Use Zsh in Kitty when no shell is configured
+  ansible.builtin.lineinfile:
+    path: "{{ kitty_config_dir }}/kitty.conf"
+    create: true
+    line: "shell {{ kitty_shell }}"
+    insertafter: EOF
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_group }}"
+    mode: "0644"
+  when: kitty_shell_setting.rc != 0
+
+# Ubuntu selects the terminal through x-terminal-emulator, which is what
+# Ctrl+Alt+T and "Open in Terminal" use.
+- name: Check for the Kitty binary
+  ansible.builtin.stat:
+    path: /usr/bin/kitty
+  register: kitty_binary
+
+- name: Set Kitty as the default terminal
+  ansible.builtin.shell: |
+    set -e
+    query=$(update-alternatives --query x-terminal-emulator 2>/dev/null || true)
+    current=$(printf '%s\n' "$query" | sed -n 's/^Value: //p')
+    if [ "$current" = "/usr/bin/kitty" ]; then
+      printf 'unchanged\n'
+      exit 0
+    fi
+    if ! printf '%s\n' "$query" | grep -qx 'Alternative: /usr/bin/kitty'; then
+      update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator /usr/bin/kitty 50 >/dev/null
+    fi
+    update-alternatives --set x-terminal-emulator /usr/bin/kitty >/dev/null
+    printf 'changed\n'
+  args:
+    executable: /bin/bash
+  become: true
+  register: kitty_default_terminal
+  changed_when: kitty_default_terminal.stdout | trim == 'changed'
+  when:
+    - ansible_facts['distribution'] == 'Ubuntu'
+    - kitty_binary.stat.exists
+
+- name: Prefer Kitty for xdg-terminal-exec
+  ansible.builtin.lineinfile:
+    path: "{{ workstation_home }}/.config/xdg-terminals.list"
+    create: true
+    line: kitty.desktop
+    insertbefore: BOF
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_group }}"
+    mode: "0644"
+  when:
+    - ansible_facts['distribution'] == 'Ubuntu'
+    - kitty_binary.stat.exists
