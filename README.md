@@ -550,7 +550,7 @@ helium unity_hub keychron zed balena_etcher teams_pwa desktop_shortcuts
 
 ## Troubleshooting
 
-- **`sudo a password is required` throughout the run** — your account needs passwordless sudo, or you must keep `--ask-become-pass`. To enable it, run `sudo visudo` and add `your-user ALL=(ALL) NOPASSWD: ALL`.
+- **`sudo a password is required` throughout the run** — run the installer from a real terminal and keep `--ask-become-pass`; Chinook needs an interactive sudo prompt, not passwordless sudo. If your account already has passwordless sudo, the installer detects it and skips the prompt.
 - **The one-line installer says it needs an interactive terminal** — run it from a real terminal (desktop or SSH). `wget | bash` still works because prompts are read from `/dev/tty`.
 - **`This playbook is for Ubuntu GNOME`** — you ran `ubuntu.yml` on a machine without `gnome-shell`. Use `ansible/playbooks/ubuntu_server.yml` instead.
 - **`This playbook is for macOS`** — you ran `macos.yml` on Linux. Use the playbook for the detected profile, or run `install` and let it pick.
