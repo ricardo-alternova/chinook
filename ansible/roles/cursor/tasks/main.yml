@@ -102,11 +102,20 @@
   failed_when: false
   when: ansible_facts.pkg_mgr == 'apt'
 
+- name: Decide whether to install or update Cursor
+  ansible.builtin.set_fact:
+    cursor_needs_install: >-
+      {{ (cursor_installed_version.stdout | default('') | trim | length == 0)
+         or ((cursor_installed_version.stdout | default('') | trim | regex_replace('-[^-]*$', '')) is version(cursor_deb_version, '<')) }}
+  when:
+    - ansible_facts.pkg_mgr == 'apt'
+    - cursor_deb_version | length > 0
+
 - name: Install or update Cursor
   when:
     - ansible_facts.pkg_mgr == 'apt'
     - cursor_deb_version | length > 0
-    - cursor_installed_version.stdout | default('') | regex_replace('-[^-]*$', '') != cursor_deb_version
+    - cursor_needs_install | default(false) | bool
   block:
     - name: Download the Cursor deb
       ansible.builtin.get_url:
@@ -114,6 +123,16 @@
         dest: "/tmp/cursor_{{ cursor_deb_version }}_{{ 'amd64' if cursor_arch_sub == 'x64' else 'arm64' }}.deb"
         mode: "0644"
         timeout: 600
+
+    # Cursor's .deb declares "Conflicts: cursor" against itself, so apt
+    # refuses to install it over an existing Cursor package. Remove the old
+    # package first; user settings live in ~/.config/Cursor and are kept.
+    - name: Remove the previous Cursor package before updating
+      ansible.builtin.apt:
+        name: cursor
+        state: absent
+      become: true
+      when: cursor_installed_version.stdout | default('') | trim | length > 0
 
     - name: Install the Cursor package
       ansible.builtin.apt:
@@ -183,6 +202,27 @@
   failed_when: false
   when: ansible_facts.pkg_mgr in ['dnf', 'dnf5']
 
+- name: Decide whether to install or update the Cursor rpm
+  ansible.builtin.set_fact:
+    cursor_rpm_needs_install: >-
+      {{ (cursor_installed_rpm_version.stdout | default('') | trim | length == 0)
+         or (cursor_installed_rpm_version.stdout | default('') | trim is version(cursor_rpm_version, '<')) }}
+  when:
+    - ansible_facts.pkg_mgr in ['dnf', 'dnf5']
+    - cursor_rpm_version | length > 0
+
+# Match the deb path: Cursor's packages conflict with themselves, so remove
+# the old package before installing a newer one. User settings stay in ~/.config.
+- name: Remove the previous Cursor rpm before updating
+  ansible.builtin.dnf:
+    name: cursor
+    state: absent
+  become: true
+  when:
+    - ansible_facts.pkg_mgr in ['dnf', 'dnf5']
+    - cursor_rpm_needs_install | default(false) | bool
+    - cursor_installed_rpm_version.stdout | default('') | trim | length > 0
+
 - name: Install or update the Cursor rpm
   ansible.builtin.dnf:
     name: "{{ cursor_rpm_source }}"
@@ -194,7 +234,7 @@
   when:
     - ansible_facts.pkg_mgr in ['dnf', 'dnf5']
     - cursor_rpm_version | length > 0
-    - cursor_installed_rpm_version.stdout | default('') != cursor_rpm_version
+    - cursor_rpm_needs_install | default(false) | bool
 
 - name: Verify the Cursor binary is on PATH
   ansible.builtin.stat:

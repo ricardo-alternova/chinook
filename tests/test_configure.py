@@ -154,6 +154,12 @@ class TestCatalog(unittest.TestCase):
         self.assertIn("ansible_facts.pkg_mgr in ['dnf', 'dnf5']", role)
         self.assertIn("cursor_fallback_rpm_urls[cursor_arch_sub]", role)
         self.assertIn("disable_gpg_check: true", role)
+        # Cursor's packages conflict with themselves, so updates remove the old
+        # package first and only move forward.
+        self.assertIn("cursor_needs_install", role)
+        self.assertIn("cursor_rpm_needs_install", role)
+        self.assertIn("Remove the previous Cursor package before updating", role)
+        self.assertIn("is version(cursor_deb_version, '<')", role)
         template = (ROOT / "ansible/roles/cursor/templates/resolve-latest.sh.j2").read_text(encoding="utf-8")
         self.assertIn("linux-$ARCH-$suffix/cursor/", template)
         grok = (ROOT / "ansible/roles/grok_bot/tasks/main.yml").read_text(encoding="utf-8")
