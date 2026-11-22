@@ -29,6 +29,9 @@
     - role: tmux
       tags: tmux
       when: configure_tmux | bool
+    - role: duplicates
+      tags: duplicates
+      when: ansible_facts['system'] == 'Linux'
     - role: tailscale
       tags: tailscale
       when: install_tailscale | bool

@@ -28,20 +28,57 @@
     - not ufw_allow_openssh | bool
     - ufw_allowed_ports | length == 0
 
-- name: Allow SSH through UFW from anywhere
+# Empty ufw_ssh_sources means "auto": allow SSH from the LAN this machine is on.
+# Set it to ["any"] to allow SSH from anywhere, or to a list of CIDRs to override.
+- name: Find the default route interface
+  ansible.builtin.shell: >-
+    set -o pipefail;
+    ip -4 route show default
+    | awk '{for(i=1;i<=NF;i++) if($i=="dev") print $(i+1)}' | head -1
+  args:
+    executable: /bin/bash
+  register: ufw_default_iface
+  changed_when: false
+  failed_when: false
+  when: ufw_ssh_sources | length == 0
+
+- name: Find the LAN network on the default interface
+  ansible.builtin.shell: >-
+    set -o pipefail;
+    ip -4 route show dev {{ ufw_default_iface.stdout | default('') | trim }} scope link
+    | awk '{print $1}' | head -1
+  args:
+    executable: /bin/bash
+  register: ufw_lan_cidr
+  changed_when: false
+  failed_when: false
+  when:
+    - ufw_ssh_sources | length == 0
+    - ufw_default_iface.stdout | default('') | trim | length > 0
+
+- name: Resolve the SSH sources
+  ansible.builtin.set_fact:
+    ufw_resolved_ssh_sources: >-
+      {{ ufw_ssh_sources
+         if ufw_ssh_sources | length > 0
+         else ([ufw_lan_cidr.stdout | trim]
+               if (ufw_lan_cidr | default({})).get('stdout', '') | trim | length > 0
+               else []) }}
+
+- name: Remove a world-open SSH rule from an older Chinook
   ansible.builtin.command:
     argv:
       - ufw
+      - delete
       - allow
       - "{{ ufw_ssh_port }}/tcp"
   become: true
-  register: ufw_allow_openssh_result
-  changed_when: ufw_allow_openssh_result.stdout is search('(?i)rule added|rules updated')
-  when:
-    - ufw_allow_openssh | bool
-    - ufw_ssh_sources | length == 0
+  register: ufw_delete_open_ssh
+  changed_when: ufw_delete_open_ssh.stdout is search('(?i)rule deleted|rules updated')
+  failed_when: false
+  when: "'any' not in ufw_resolved_ssh_sources"
 
-- name: Allow SSH through UFW from specific sources
+- name: Allow SSH through UFW from the resolved sources
   ansible.builtin.command:
     argv:
       - ufw
@@ -55,12 +92,25 @@
       - proto
       - tcp
   become: true
-  loop: "{{ ufw_ssh_sources }}"
+  loop: "{{ ufw_resolved_ssh_sources }}"
   register: ufw_allow_openssh_sources_result
   changed_when: ufw_allow_openssh_sources_result.stdout is search('(?i)rule added|rules updated')
   when:
     - ufw_allow_openssh | bool
-    - ufw_ssh_sources | length > 0
+    - item != 'any'
+
+- name: Allow SSH through UFW from anywhere
+  ansible.builtin.command:
+    argv:
+      - ufw
+      - allow
+      - "{{ ufw_ssh_port }}/tcp"
+  become: true
+  register: ufw_allow_openssh_result
+  changed_when: ufw_allow_openssh_result.stdout is search('(?i)rule added|rules updated')
+  when:
+    - ufw_allow_openssh | bool
+    - "'any' in ufw_resolved_ssh_sources"
 
 - name: Allow extra UFW ports
   ansible.builtin.command:
@@ -119,7 +169,7 @@
   when:
     - not ansible_check_mode
     - ufw_allow_openssh | bool
-    - ufw_added_rules.stdout is not search('(?:' ~ ufw_ssh_port ~ '/tcp|OpenSSH|port ' ~ ufw_ssh_port ~ ')')
+    - ufw_added_rules.stdout is not search('(?:' ~ ufw_ssh_port ~ '/tcp|OpenSSH|port ' ~ ufw_ssh_port ~ '|tailscale0)')
 
 - name: Read UFW status
   ansible.builtin.command:

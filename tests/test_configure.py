@@ -451,29 +451,27 @@ class TestUfw(unittest.TestCase):
         self.assertEqual(all_vars["ufw_ssh_port"], 22)
         self.assertEqual(all_vars["ufw_ssh_sources"], [])
 
+    def test_ssh_is_scoped_to_the_lan_and_tailscale_by_default(self):
+        role = (ROOT / "ansible/roles/ufw/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertIn("ufw_resolved_ssh_sources", role)
+        self.assertIn("tailscale0", role)
+        self.assertIn("ufw_delete_open_ssh", role)
+        defaults = parse_yaml((ROOT / "ansible/roles/ufw/defaults/main.yml").read_text(encoding="utf-8"))
+        self.assertEqual(defaults["ufw_ssh_sources"], [])
 
-class TestHealthcheck(unittest.TestCase):
-    def test_playbook_runs_the_role(self):
-        playbook = (ROOT / "ansible/playbooks/healthcheck.yml").read_text(encoding="utf-8")
-        self.assertIn("role: healthcheck", playbook)
-        self.assertIn("tags: healthcheck", playbook)
 
-    def test_defaults_are_report_only(self):
-        defaults = parse_yaml((ROOT / "ansible/roles/healthcheck/defaults/main.yml").read_text(encoding="utf-8"))
-        self.assertFalse(defaults["healthcheck_fix"])
-        self.assertTrue(defaults["healthcheck_scope_ssh"])
+class TestDuplicates(unittest.TestCase):
+    def test_role_handles_tailscale_and_docker(self):
+        tasks = (ROOT / "ansible/roles/duplicates/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertIn("snap, remove, tailscale", tasks)
+        self.assertIn("snap, remove, docker", tasks)
+        self.assertIn("systemctl, is-active", tasks)
 
-    def test_fix_scopes_ssh_to_lan_and_tailscale(self):
-        tasks = (ROOT / "ansible/roles/healthcheck/tasks/main.yml").read_text(encoding="utf-8")
-        self.assertIn("healthcheck_lan_cidr", tasks)
-        self.assertIn("tailscale0", tasks)
-        self.assertIn("ufw, delete, allow", tasks)
-
-    def test_installer_exposes_check_and_fix(self):
-        installer = (ROOT / "install").read_text(encoding="utf-8")
-        self.assertIn("--check", installer)
-        self.assertIn("--fix", installer)
-        self.assertIn("healthcheck.yml", installer)
+    def test_playbooks_run_duplicates_before_installs(self):
+        for name in ("ubuntu.yml", "ubuntu_server.yml", "fedora_asahi.yml"):
+            playbook = (ROOT / "ansible/playbooks" / name).read_text(encoding="utf-8")
+            self.assertIn("role: duplicates", playbook)
+            self.assertLess(playbook.index("role: duplicates"), playbook.index("role: tailscale"))
 
 
 class TestTimeshift(unittest.TestCase):

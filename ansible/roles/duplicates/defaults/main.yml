@@ -1,0 +1,3 @@
+---
+# Remove the duplicate install when both the apt and snap versions are present.
+duplicates_remove: true

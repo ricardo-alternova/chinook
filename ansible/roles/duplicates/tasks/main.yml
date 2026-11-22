@@ -1,0 +1,140 @@
+---
+# Chinook installs Tailscale and Docker from apt. If a snap version is also
+# present, keep whichever one is actually running and remove the other, so the
+# machine never ends up with two daemons fighting over the same socket.
+- name: Check for duplicate installs
+  when: ansible_facts['system'] == 'Linux'
+  block:
+    - name: Check for the apt Tailscale
+      ansible.builtin.stat:
+        path: /usr/bin/tailscale
+      register: duplicates_tailscale_apt
+
+    - name: Check for the snap Tailscale
+      ansible.builtin.command:
+        argv: [snap, list, tailscale]
+      register: duplicates_tailscale_snap
+      changed_when: false
+      failed_when: false
+
+    - name: Check which Tailscale service is active
+      ansible.builtin.command:
+        argv: [systemctl, is-active, tailscaled]
+      register: duplicates_tailscale_apt_active
+      changed_when: false
+      failed_when: false
+      when:
+        - duplicates_tailscale_apt.stat.exists
+        - duplicates_tailscale_snap.rc == 0
+
+    - name: Check the snap Tailscale service
+      ansible.builtin.command:
+        argv: [systemctl, is-active, snap.tailscale.tailscaled]
+      register: duplicates_tailscale_snap_active
+      changed_when: false
+      failed_when: false
+      when:
+        - duplicates_tailscale_apt.stat.exists
+        - duplicates_tailscale_snap.rc == 0
+
+    - name: Remove the snap Tailscale when the apt package is the active one
+      ansible.builtin.command:
+        argv: [snap, remove, tailscale]
+      become: true
+      changed_when: true
+      when:
+        - duplicates_remove | bool
+        - duplicates_tailscale_apt.stat.exists
+        - duplicates_tailscale_snap.rc == 0
+        - (duplicates_tailscale_apt_active | default({})).get('stdout', '') == 'active'
+
+    - name: Remove the snap Tailscale when neither service is active
+      ansible.builtin.command:
+        argv: [snap, remove, tailscale]
+      become: true
+      changed_when: true
+      when:
+        - duplicates_remove | bool
+        - duplicates_tailscale_apt.stat.exists
+        - duplicates_tailscale_snap.rc == 0
+        - (duplicates_tailscale_apt_active | default({})).get('stdout', '') != 'active'
+        - (duplicates_tailscale_snap_active | default({})).get('stdout', '') != 'active'
+
+    - name: Remove the apt Tailscale when the snap is the active one
+      ansible.builtin.apt:
+        name: tailscale
+        state: absent
+      become: true
+      when:
+        - duplicates_remove | bool
+        - duplicates_tailscale_apt.stat.exists
+        - duplicates_tailscale_snap.rc == 0
+        - (duplicates_tailscale_snap_active | default({})).get('stdout', '') == 'active'
+        - (duplicates_tailscale_apt_active | default({})).get('stdout', '') != 'active'
+
+    - name: Check for the apt Docker
+      ansible.builtin.stat:
+        path: /usr/bin/dockerd
+      register: duplicates_docker_apt
+
+    - name: Check for the snap Docker
+      ansible.builtin.command:
+        argv: [snap, list, docker]
+      register: duplicates_docker_snap
+      changed_when: false
+      failed_when: false
+
+    - name: Check which Docker service is active
+      ansible.builtin.command:
+        argv: [systemctl, is-active, docker]
+      register: duplicates_docker_apt_active
+      changed_when: false
+      failed_when: false
+      when:
+        - duplicates_docker_apt.stat.exists
+        - duplicates_docker_snap.rc == 0
+
+    - name: Check the snap Docker service
+      ansible.builtin.command:
+        argv: [systemctl, is-active, snap.docker.dockerd]
+      register: duplicates_docker_snap_active
+      changed_when: false
+      failed_when: false
+      when:
+        - duplicates_docker_apt.stat.exists
+        - duplicates_docker_snap.rc == 0
+
+    - name: Remove the snap Docker when the apt package is the active one
+      ansible.builtin.command:
+        argv: [snap, remove, docker]
+      become: true
+      changed_when: true
+      when:
+        - duplicates_remove | bool
+        - duplicates_docker_apt.stat.exists
+        - duplicates_docker_snap.rc == 0
+        - (duplicates_docker_apt_active | default({})).get('stdout', '') == 'active'
+
+    - name: Remove the snap Docker when neither service is active
+      ansible.builtin.command:
+        argv: [snap, remove, docker]
+      become: true
+      changed_when: true
+      when:
+        - duplicates_remove | bool
+        - duplicates_docker_apt.stat.exists
+        - duplicates_docker_snap.rc == 0
+        - (duplicates_docker_apt_active | default({})).get('stdout', '') != 'active'
+        - (duplicates_docker_snap_active | default({})).get('stdout', '') != 'active'
+
+    - name: Remove the apt Docker when the snap is the active one
+      ansible.builtin.apt:
+        name: "{{ docker_packages }}"
+        state: absent
+      become: true
+      when:
+        - duplicates_remove | bool
+        - duplicates_docker_apt.stat.exists
+        - duplicates_docker_snap.rc == 0
+        - (duplicates_docker_snap_active | default({})).get('stdout', '') == 'active'
+        - (duplicates_docker_apt_active | default({})).get('stdout', '') != 'active'

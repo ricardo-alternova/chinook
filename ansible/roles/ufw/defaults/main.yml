@@ -1,3 +1,4 @@
 ---
-# Empty allows SSH from anywhere. Set a list of CIDRs to scope SSH instead.
+# Empty scopes SSH to the LAN this machine is on, plus tailscale0. Set
+# ["any"] to allow SSH from anywhere, or a list of CIDRs to override.
 ufw_ssh_sources: []

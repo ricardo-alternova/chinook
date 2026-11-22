@@ -74,8 +74,17 @@
         path: /usr/bin/tailscale
       register: tailscale_binary
 
+    - name: Check for the snap Tailscale
+      ansible.builtin.command:
+        argv: [snap, list, tailscale]
+      register: tailscale_snap
+      changed_when: false
+      failed_when: false
+
     - name: Install Tailscale when missing
-      when: not tailscale_binary.stat.exists
+      when:
+        - not tailscale_binary.stat.exists
+        - tailscale_snap.rc != 0
       block:
         - name: Ensure Tailscale installer dependencies are present
           ansible.builtin.package:

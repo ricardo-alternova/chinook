@@ -66,9 +66,19 @@
   become: true
   when: ansible_facts['system'] == 'Linux'
 
+- name: Check for the snap Docker
+  ansible.builtin.command:
+    argv: [snap, list, docker]
+  register: docker_snap
+  changed_when: false
+  failed_when: false
+  when: ansible_facts['system'] == 'Linux'
+
 # apt path (Ubuntu desktop and server)
 - name: Install Docker Engine from Docker's APT repository
-  when: ansible_facts['pkg_mgr'] == 'apt'
+  when:
+    - ansible_facts['pkg_mgr'] == 'apt'
+    - docker_snap.rc | default(1) != 0
   block:
     # Distro builds of Docker conflict with Docker's own packages.
     - name: Remove distro Docker packages
@@ -179,6 +189,7 @@
     - docker
   when:
     - ansible_facts['system'] == 'Linux'
+    - docker_snap.rc | default(1) != 0
     - not ansible_check_mode
 
 - name: Let the workstation user run Docker without sudo
@@ -188,7 +199,9 @@
     append: true
   become: true
   register: docker_group
-  when: ansible_facts['system'] == 'Linux'
+  when:
+    - ansible_facts['system'] == 'Linux'
+    - docker_snap.rc | default(1) != 0
 
 - name: Remind to log out after joining the docker group
   ansible.builtin.debug:
