@@ -40,7 +40,6 @@
   register: ufw_default_iface
   changed_when: false
   failed_when: false
-  when: ufw_ssh_sources | length == 0
 
 - name: Find the LAN network on the default interface
   ansible.builtin.shell: >-
@@ -52,18 +51,18 @@
   register: ufw_lan_cidr
   changed_when: false
   failed_when: false
-  when:
-    - ufw_ssh_sources | length == 0
-    - ufw_default_iface.stdout | default('') | trim | length > 0
+  when: ufw_default_iface.stdout | default('') | trim | length > 0
+
+- name: Remember the LAN network
+  ansible.builtin.set_fact:
+    ufw_lan_network: "{{ (ufw_lan_cidr | default({})).get('stdout', '') | trim }}"
 
 - name: Resolve the SSH sources
   ansible.builtin.set_fact:
     ufw_resolved_ssh_sources: >-
       {{ ufw_ssh_sources
          if ufw_ssh_sources | length > 0
-         else ([ufw_lan_cidr.stdout | trim]
-               if (ufw_lan_cidr | default({})).get('stdout', '') | trim | length > 0
-               else []) }}
+         else ([ufw_lan_network] if ufw_lan_network | length > 0 else []) }}
 
 - name: Remove a world-open SSH rule from an older Chinook
   ansible.builtin.command:
@@ -137,18 +136,50 @@
   changed_when: ufw_allow_port_result.stdout is defined and ufw_allow_port_result.stdout is search('(?i)rule added|rules updated')
 
 # LocalSend needs TCP/UDP 53317 and mDNS for discovery. Only open them when the
-# app is selected; the rules are skipped otherwise.
-- name: Allow LocalSend through UFW
+# app is selected, and only from the LAN.
+- name: Remove world-open LocalSend rules from an older Chinook
   ansible.builtin.command:
     argv:
       - ufw
+      - delete
       - allow
       - "{{ item }}"
   become: true
   loop: "{{ localsend_ports + [localsend_mdns_port] }}"
+  register: ufw_delete_localsend_result
+  changed_when: ufw_delete_localsend_result.stdout is search('(?i)rule deleted|rules updated')
+  failed_when: false
+  when: localsend_enabled | bool
+
+- name: Allow LocalSend through UFW from the LAN
+  ansible.builtin.command:
+    argv:
+      - ufw
+      - allow
+      - from
+      - "{{ ufw_lan_network }}"
+      - to
+      - any
+      - port
+      - "{{ item.split('/')[0] }}"
+      - proto
+      - "{{ item.split('/')[1] }}"
+  become: true
+  loop: "{{ localsend_ports + [localsend_mdns_port] }}"
   register: ufw_allow_localsend_result
   changed_when: ufw_allow_localsend_result.stdout is search('(?i)rule added|rules updated')
-  when: localsend_enabled | bool
+  when:
+    - localsend_enabled | bool
+    - ufw_lan_network | length > 0
+
+- name: Warn when LocalSend is selected but the LAN cannot be detected
+  ansible.builtin.debug:
+    msg: >-
+      LocalSend is selected, but Chinook could not detect the LAN network.
+      Add the LocalSend rules manually, or set ufw_ssh_sources to the LAN CIDR.
+  when:
+    - localsend_enabled | bool
+    - ufw_lan_network | length == 0
 
 - name: Allow traffic on the Tailscale interface
   ansible.builtin.command:

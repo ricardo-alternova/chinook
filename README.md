@@ -166,6 +166,7 @@ Depending on the selected profile and local config, Chinook can:
 - Write SSH client snippets, OneDrive config, and udev rules
 - Set up daily system snapshots (Timeshift on Ubuntu, Snapper on Fedora)
 - Scope SSH in UFW to the LAN the machine is on and to `tailscale0`, instead of opening it to the world
+- Scope LocalSend's ports to the LAN instead of opening them to the world
 - Remove a duplicate snap install of Tailscale or Docker when the apt version is the one running
 - Install desktop launchers and shortcuts
 - On Ubuntu Server: install Tailscale, OpenSSH server, tmux with SSH session resume, UFW, and fail2ban

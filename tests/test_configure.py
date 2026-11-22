@@ -459,6 +459,12 @@ class TestUfw(unittest.TestCase):
         defaults = parse_yaml((ROOT / "ansible/roles/ufw/defaults/main.yml").read_text(encoding="utf-8"))
         self.assertEqual(defaults["ufw_ssh_sources"], [])
 
+    def test_localsend_is_scoped_to_the_lan(self):
+        role = (ROOT / "ansible/roles/ufw/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertIn("ufw_lan_network", role)
+        self.assertIn("Remove world-open LocalSend rules", role)
+        self.assertIn("Allow LocalSend through UFW from the LAN", role)
+
 
 class TestDuplicates(unittest.TestCase):
     def test_role_handles_tailscale_and_docker(self):
