@@ -94,6 +94,12 @@ detect_os() {
 }
 
 choose_ubuntu_profile() {
+  # The health check does not use a profile, so do not make the operator pick one.
+  if [[ "$CHINOOK_MODE" != "install" ]]; then
+    CHINOOK_PROFILE="${CHINOOK_PROFILE:-ubuntu}"
+    return
+  fi
+
   if [[ -n "${CHINOOK_PROFILE:-}" ]]; then
     case "$CHINOOK_PROFILE" in
       ubuntu|ubuntu_server) return ;;
