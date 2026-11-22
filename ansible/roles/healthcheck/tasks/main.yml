@@ -1,0 +1,294 @@
+---
+- name: Explain that the health check is Linux-only
+  ansible.builtin.debug:
+    msg: "The Chinook health check currently audits Linux hosts only."
+  when: ansible_facts['system'] != 'Linux'
+
+- name: Audit the Linux host
+  when: ansible_facts['system'] == 'Linux'
+  block:
+    - name: List failed systemd units
+      ansible.builtin.command:
+        argv: [systemctl, --failed, --no-legend, --plain]
+      register: healthcheck_failed_units
+      changed_when: false
+      failed_when: false
+      when: ansible_facts['service_mgr'] == 'systemd'
+
+    - name: Check whether logrotate is failing
+      ansible.builtin.command:
+        argv: [systemctl, is-failed, logrotate.service]
+      register: healthcheck_logrotate_state
+      changed_when: false
+      failed_when: false
+      when: ansible_facts['service_mgr'] == 'systemd'
+
+    - name: Diagnose logrotate when it is failing
+      ansible.builtin.command:
+        argv: [logrotate, -d, /etc/logrotate.conf]
+      register: healthcheck_logrotate_debug
+      changed_when: false
+      failed_when: false
+      when:
+        - ansible_facts['service_mgr'] == 'systemd'
+        - (healthcheck_logrotate_state | default({})).get('stdout', '') | trim == 'failed'
+
+    - name: Check for a pending reboot
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+      register: healthcheck_reboot_required
+
+    - name: Count pending apt upgrades
+      ansible.builtin.shell: "apt-get -s upgrade | grep -E '^[0-9]+ upgraded' || true"
+      register: healthcheck_upgrades
+      changed_when: false
+      failed_when: false
+      when: ansible_facts['pkg_mgr'] == 'apt'
+
+    - name: Count recent OOM kills
+      ansible.builtin.shell: >-
+        journalctl -k --since '-{{ healthcheck_oom_lookback_days }} days' --no-pager
+        | grep -ci 'killed process' || true
+      register: healthcheck_oom_count
+      changed_when: false
+      failed_when: false
+      when: ansible_facts['service_mgr'] == 'systemd'
+
+    - name: Show the most recent OOM kill
+      ansible.builtin.shell: >-
+        journalctl -k --since '-{{ healthcheck_oom_lookback_days }} days' --no-pager
+        | grep -i 'killed process' | tail -1 || true
+      register: healthcheck_oom_last
+      changed_when: false
+      failed_when: false
+      when: ansible_facts['service_mgr'] == 'systemd'
+
+    - name: Find filesystems above the warning threshold
+      ansible.builtin.shell: >-
+        df -P -x tmpfs -x devtmpfs -x overlay
+        | awk 'NR>1 && $5+0 >= {{ healthcheck_disk_warn_percent }} {print $6" "$5}'
+      register: healthcheck_full_mounts
+      changed_when: false
+      failed_when: false
+
+    - name: Read UFW status
+      ansible.builtin.command:
+        argv: [ufw, status, verbose]
+      register: healthcheck_ufw
+      changed_when: false
+      failed_when: false
+
+    - name: Read the effective SSH daemon configuration
+      ansible.builtin.command:
+        argv: [sshd, -T]
+      register: healthcheck_sshd
+      changed_when: false
+      failed_when: false
+      become: true
+
+    - name: Check for an authorized key for the current user
+      ansible.builtin.command:
+        argv: [test, -s, "{{ workstation_home }}/.ssh/authorized_keys"]
+      register: healthcheck_authorized_keys
+      changed_when: false
+      failed_when: false
+
+    - name: Check for a snap Tailscale
+      ansible.builtin.command:
+        argv: [snap, list, tailscale]
+      register: healthcheck_snap_tailscale
+      changed_when: false
+      failed_when: false
+
+    - name: Check for the apt Tailscale binary
+      ansible.builtin.stat:
+        path: /usr/bin/tailscale
+      register: healthcheck_apt_tailscale
+
+    - name: Find the default route interface
+      ansible.builtin.shell: >-
+        ip -4 route show default
+        | awk '{for(i=1;i<=NF;i++) if($i=="dev") print $(i+1)}' | head -1
+      register: healthcheck_default_iface
+      changed_when: false
+      failed_when: false
+
+    - name: Find the LAN network on the default interface
+      ansible.builtin.shell: >-
+        ip -4 route show dev {{ healthcheck_default_iface.stdout | default('') | trim }} scope link
+        | awk '{print $1}' | head -1
+      register: healthcheck_lan_cidr
+      changed_when: false
+      failed_when: false
+      when: healthcheck_default_iface.stdout | default('') | trim | length > 0
+
+    - name: Work out which SSH rules are open to the world
+      ansible.builtin.set_fact:
+        healthcheck_ufw_open_ssh: >-
+          {{ (healthcheck_ufw | default({})).get('stdout_lines', [])
+             | select('search', '(?i)(22/tcp|OpenSSH).*ALLOW.*Anywhere')
+             | list }}
+        healthcheck_ssh_password_auth: >-
+          {{ 'yes' if ((healthcheck_sshd | default({})).get('stdout', '') is search('(?m)^passwordauthentication yes')) else 'no' }}
+        healthcheck_ssh_root_login: >-
+          {{ ((healthcheck_sshd | default({})).get('stdout', '') | regex_findall('(?m)^permitrootlogin (\S+)') | first) | default('unknown', true) }}
+
+    - name: Collect the findings
+      ansible.builtin.set_fact:
+        healthcheck_findings: >-
+          {{
+            (['logrotate.service is failing'] if ((healthcheck_logrotate_state | default({})).get('stdout', '') | trim == 'failed') else [])
+            + (['a reboot is required'] if healthcheck_reboot_required.stat.exists else [])
+            + (['pending apt upgrades: ' ~ ((healthcheck_upgrades | default({})).get('stdout', '') | trim)] if ((healthcheck_upgrades | default({})).get('stdout', '') | trim | length > 0) else [])
+            + (['recent OOM kills: ' ~ ((healthcheck_oom_count | default({})).get('stdout', '0') | trim)] if (((healthcheck_oom_count | default({})).get('stdout', '0') | trim | int) > 0) else [])
+            + (['filesystems at or above ' ~ healthcheck_disk_warn_percent ~ '%: ' ~ ((healthcheck_full_mounts | default({})).get('stdout', '') | trim)] if ((healthcheck_full_mounts | default({})).get('stdout', '') | trim | length > 0) else [])
+            + (['UFW allows SSH from Anywhere'] if (healthcheck_ufw_open_ssh | default([]) | length > 0) else [])
+            + (['SSH password authentication is enabled'] if (healthcheck_ssh_password_auth | default('no') == 'yes') else [])
+            + (['both snap and apt Tailscale are installed'] if (((healthcheck_snap_tailscale | default({})).get('rc', 1) == 0) and healthcheck_apt_tailscale.stat.exists) else [])
+          }}
+
+    - name: Decide whether the audit found anything
+      ansible.builtin.set_fact:
+        healthcheck_has_issues: "{{ healthcheck_findings | length > 0 }}"
+
+    - name: Ensure the report directory exists
+      ansible.builtin.file:
+        path: "{{ healthcheck_report_path | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: Write the health check report
+      ansible.builtin.template:
+        src: report.txt.j2
+        dest: "{{ healthcheck_report_path }}"
+        mode: "0644"
+
+    - name: Show the health check report
+      ansible.builtin.debug:
+        msg: "{{ lookup('ansible.builtin.file', healthcheck_report_path).splitlines() }}"
+
+    - name: Scope SSH to the LAN and tailscale0
+      when:
+        - healthcheck_fix | bool
+        - healthcheck_scope_ssh | bool
+        - healthcheck_ufw_open_ssh | default([]) | length > 0
+        - (healthcheck_lan_cidr | default({})).get('stdout', '') | trim | length > 0
+      block:
+        - name: Remove the world-open SSH port rule
+          ansible.builtin.command:
+            argv: [ufw, delete, allow, "{{ ufw_ssh_port | default(22) }}/tcp"]
+          become: true
+          register: healthcheck_ufw_delete_port
+          changed_when: healthcheck_ufw_delete_port.rc == 0
+          failed_when: false
+
+        - name: Remove the world-open OpenSSH application rule
+          ansible.builtin.command:
+            argv: [ufw, delete, allow, OpenSSH]
+          become: true
+          register: healthcheck_ufw_delete_app
+          changed_when: healthcheck_ufw_delete_app.rc == 0
+          failed_when: false
+
+        - name: Allow SSH from the LAN
+          ansible.builtin.command:
+            argv:
+              - ufw
+              - allow
+              - from
+              - "{{ healthcheck_lan_cidr.stdout | trim }}"
+              - to
+              - any
+              - port
+              - "{{ ufw_ssh_port | default(22) }}"
+              - proto
+              - tcp
+          become: true
+          register: healthcheck_ufw_allow_lan
+          changed_when: healthcheck_ufw_allow_lan.stdout is search('(?i)rule added|rules updated')
+
+        - name: Allow SSH on the Tailscale interface
+          ansible.builtin.command:
+            argv:
+              - ufw
+              - allow
+              - in
+              - "on"
+              - tailscale0
+              - to
+              - any
+              - port
+              - "{{ ufw_ssh_port | default(22) }}"
+              - proto
+              - tcp
+          become: true
+          register: healthcheck_ufw_allow_tailscale
+          changed_when: healthcheck_ufw_allow_tailscale.stdout is search('(?i)rule added|rules updated')
+          when: "'tailscale0' in ansible_facts['interfaces'] | default([])"
+
+        - name: Reload UFW
+          ansible.builtin.command:
+            argv: [ufw, reload]
+          become: true
+          changed_when: true
+
+    - name: Retry logrotate once
+      when:
+        - healthcheck_fix | bool
+        - (healthcheck_logrotate_state | default({})).get('stdout', '') | trim == 'failed'
+      block:
+        - name: Clear the failed logrotate state
+          ansible.builtin.command:
+            argv: [systemctl, reset-failed, logrotate.service]
+          become: true
+          changed_when: true
+
+        - name: Run logrotate again
+          ansible.builtin.command:
+            argv: [systemctl, start, logrotate.service]
+          become: true
+          register: healthcheck_logrotate_retry
+          changed_when: true
+          failed_when: false
+
+    - name: Remove the duplicate snap Tailscale
+      when:
+        - healthcheck_fix | bool
+        - healthcheck_remove_duplicate_tailscale_snap | bool
+        - (healthcheck_snap_tailscale | default({})).get('rc', 1) == 0
+        - healthcheck_apt_tailscale.stat.exists
+      ansible.builtin.command:
+        argv: [snap, remove, tailscale]
+      become: true
+
+    - name: Disable SSH password authentication
+      when:
+        - healthcheck_fix | bool
+        - healthcheck_disable_ssh_password | bool
+        - healthcheck_ssh_password_auth | default('no') == 'yes'
+        - (healthcheck_authorized_keys | default({})).get('rc', 1) == 0
+      block:
+        - name: Turn off password authentication in sshd_config
+          ansible.builtin.lineinfile:
+            path: /etc/ssh/sshd_config
+            regexp: '^#?\s*PasswordAuthentication\s+'
+            line: "PasswordAuthentication no"
+            validate: /usr/sbin/sshd -t -f %s
+          become: true
+          register: healthcheck_ssh_config
+
+        - name: Reload ssh
+          ansible.builtin.systemd:
+            name: ssh
+            state: reloaded
+          become: true
+          when: healthcheck_ssh_config.changed
+
+    - name: Fail when the audit found issues
+      ansible.builtin.fail:
+        msg: >-
+          The health check found {{ healthcheck_findings | length }} issue(s).
+          See {{ healthcheck_report_path }}.
+      when:
+        - healthcheck_fail_on_issues | bool
+        - healthcheck_has_issues | bool

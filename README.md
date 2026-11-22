@@ -69,6 +69,34 @@ The command at the top of this README is the full install — there is no separa
 
 The installer asks for `sudo` when it needs it. Override the checkout path with `CHINOOK_DIR`, or pin a branch/tag with `CHINOOK_REF`. Force a profile with `CHINOOK_PROFILE=ubuntu` or `ubuntu_server` on Ubuntu, or `fedora_asahi` on Fedora. macOS is detected automatically. On macOS the installer also installs Homebrew if it is missing (it asks for your password and the Command Line Tools), then uses Homebrew to install Ansible.
 
+### Health check
+
+Audit a machine and optionally repair the problems Chinook knows how to fix: failed units, a pending reboot, OOM kills, disk pressure, UFW rules that leave SSH open to the world, and duplicate Tailscale installs.
+
+```bash
+# report only — changes nothing
+curl -fsSL https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash -s -- --check
+
+# report and apply the safe repairs
+curl -fsSL https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash -s -- --fix
+```
+
+From a checkout:
+
+```bash
+./install --check
+./install --fix
+```
+
+Or run the playbook directly:
+
+```bash
+ansible-playbook ansible/playbooks/healthcheck.yml
+ansible-playbook ansible/playbooks/healthcheck.yml -e healthcheck_fix=true
+```
+
+The report is written to `~/.local/state/chinook/healthcheck.txt`. `--fix` scopes SSH to the LAN and `tailscale0` when UFW has it open to `Anywhere`, retries a failed `logrotate`, and leaves anything riskier (reboots, upgrades, removing packages) for you to decide. Set `healthcheck_fail_on_issues: true` to make `--check` exit non-zero when it finds something.
+
 ### Manual install
 
 If you would rather walk the steps yourself:

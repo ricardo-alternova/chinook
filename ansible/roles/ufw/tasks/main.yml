@@ -28,7 +28,7 @@
     - not ufw_allow_openssh | bool
     - ufw_allowed_ports | length == 0
 
-- name: Allow SSH through UFW before changing the default policy
+- name: Allow SSH through UFW from anywhere
   ansible.builtin.command:
     argv:
       - ufw
@@ -37,7 +37,30 @@
   become: true
   register: ufw_allow_openssh_result
   changed_when: ufw_allow_openssh_result.stdout is search('(?i)rule added|rules updated')
-  when: ufw_allow_openssh | bool
+  when:
+    - ufw_allow_openssh | bool
+    - ufw_ssh_sources | length == 0
+
+- name: Allow SSH through UFW from specific sources
+  ansible.builtin.command:
+    argv:
+      - ufw
+      - allow
+      - from
+      - "{{ item }}"
+      - to
+      - any
+      - port
+      - "{{ ufw_ssh_port }}"
+      - proto
+      - tcp
+  become: true
+  loop: "{{ ufw_ssh_sources }}"
+  register: ufw_allow_openssh_sources_result
+  changed_when: ufw_allow_openssh_sources_result.stdout is search('(?i)rule added|rules updated')
+  when:
+    - ufw_allow_openssh | bool
+    - ufw_ssh_sources | length > 0
 
 - name: Allow extra UFW ports
   ansible.builtin.command:
@@ -96,7 +119,7 @@
   when:
     - not ansible_check_mode
     - ufw_allow_openssh | bool
-    - ufw_added_rules.stdout is not search(ufw_ssh_port ~ '/tcp|OpenSSH')
+    - ufw_added_rules.stdout is not search('(?:' ~ ufw_ssh_port ~ '/tcp|OpenSSH|port ' ~ ufw_ssh_port ~ ')')
 
 - name: Read UFW status
   ansible.builtin.command:

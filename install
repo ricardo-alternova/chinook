@@ -27,6 +27,16 @@ die() {
   exit 1
 }
 
+usage() {
+  cat <<'EOF'
+Usage: install [--check | --fix]
+
+  (no flag)  Install or reconfigure this machine.
+  --check    Audit the machine and print a health report. Changes nothing.
+  --fix      Audit the machine and apply the safe repairs.
+EOF
+}
+
 need_tty() {
   [[ -r /dev/tty && -w /dev/tty ]] || die "Chinook needs an interactive terminal (prompts and sudo)."
 }
@@ -236,12 +246,12 @@ bootstrap() {
   local root
   if root="$(in_repo_root)"; then
     echo "Using existing checkout at $root"
-    exec bash "$root/install" --in-repo </dev/tty
+    exec bash "$root/install" --in-repo ${CHINOOK_MODE_FLAG[@]+"${CHINOOK_MODE_FLAG[@]}"} </dev/tty
   fi
 
   ensure_git
   clone_or_update
-  exec bash "$CHINOOK_DIR/install" --in-repo </dev/tty
+  exec bash "$CHINOOK_DIR/install" --in-repo ${CHINOOK_MODE_FLAG[@]+"${CHINOOK_MODE_FLAG[@]}"} </dev/tty
 }
 
 # `~/chinook/install` used to run whatever checkout was on disk, so a re-run
@@ -287,6 +297,15 @@ run_from_repo() {
 
   command -v python3 >/dev/null 2>&1 || die "python3 is required."
   command -v ansible-playbook >/dev/null 2>&1 || die "ansible-playbook is required."
+
+  if [[ "$CHINOOK_MODE" != "install" ]]; then
+    echo
+    echo "Running the health check ..."
+    local healthcheck_args=()
+    [[ "$CHINOOK_MODE" == "fix" ]] && healthcheck_args=(-e healthcheck_fix=true)
+    ansible-playbook "$root/ansible/playbooks/healthcheck.yml" ${healthcheck_args[@]+"${healthcheck_args[@]}"}
+    return
+  fi
 
   local local_vars="$root/ansible/group_vars/local.yml"
   local configure=1
@@ -355,14 +374,28 @@ That is it.
 EOF
 }
 
-if command -v curl >/dev/null 2>&1; then
-  CHINOOK_RETRY="curl -fsSL https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash"
-else
-  CHINOOK_RETRY="wget -qO- https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash"
-fi
-trap 'echo "Chinook installation failed. Retry with: $CHINOOK_RETRY"' ERR
+CHINOOK_MODE=install
+CHINOOK_MODE_FLAG=()
+CHINOOK_MODE_ARG=""
+CHINOOK_IN_REPO=0
+for arg in "$@"; do
+  case "$arg" in
+    --in-repo) CHINOOK_IN_REPO=1 ;;
+    --check) CHINOOK_MODE=check; CHINOOK_MODE_FLAG=(--check); CHINOOK_MODE_ARG=--check ;;
+    --fix) CHINOOK_MODE=fix; CHINOOK_MODE_FLAG=(--fix); CHINOOK_MODE_ARG=--fix ;;
+    -h|--help) usage; exit 0 ;;
+    *) die "Unknown option: $arg (try --help)" ;;
+  esac
+done
 
-if [[ "${1:-}" == "--in-repo" ]]; then
+if command -v curl >/dev/null 2>&1; then
+  CHINOOK_RETRY="curl -fsSL https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash -s -- $CHINOOK_MODE_ARG"
+else
+  CHINOOK_RETRY="wget -qO- https://github.com/ricardo-alternova/chinook/releases/latest/download/install | bash -s -- $CHINOOK_MODE_ARG"
+fi
+trap 'echo "Chinook failed. Retry with: $CHINOOK_RETRY"' ERR
+
+if [[ "$CHINOOK_IN_REPO" -eq 1 ]]; then
   run_from_repo
 else
   bootstrap

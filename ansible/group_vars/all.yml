@@ -54,6 +54,9 @@ ufw_default_incoming: deny
 ufw_default_outgoing: allow
 ufw_default_routed: deny
 ufw_allow_openssh: true
+# Empty allows SSH from anywhere. Set a list of CIDRs (for example
+# ["192.168.0.0/24"]) to scope SSH to those networks instead.
+ufw_ssh_sources: []
 # Use a port rule instead of the OpenSSH app profile: Fedora's ufw package
 # does not ship /etc/ufw/applications.d/openssh.
 ufw_ssh_port: 22

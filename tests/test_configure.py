@@ -445,10 +445,35 @@ class TestUfw(unittest.TestCase):
     def test_ssh_is_allowed_by_port_not_app_profile(self):
         role = (ROOT / "ansible/roles/ufw/tasks/main.yml").read_text(encoding="utf-8")
         self.assertIn('- "{{ ufw_ssh_port }}/tcp"', role)
-        self.assertIn("ufw_ssh_port ~ '/tcp|OpenSSH'", role)
+        self.assertIn("port ' ~ ufw_ssh_port", role)
         self.assertNotIn('- OpenSSH', role)
         all_vars = parse_yaml((ROOT / "ansible/group_vars/all.yml").read_text(encoding="utf-8"))
         self.assertEqual(all_vars["ufw_ssh_port"], 22)
+        self.assertEqual(all_vars["ufw_ssh_sources"], [])
+
+
+class TestHealthcheck(unittest.TestCase):
+    def test_playbook_runs_the_role(self):
+        playbook = (ROOT / "ansible/playbooks/healthcheck.yml").read_text(encoding="utf-8")
+        self.assertIn("role: healthcheck", playbook)
+        self.assertIn("tags: healthcheck", playbook)
+
+    def test_defaults_are_report_only(self):
+        defaults = parse_yaml((ROOT / "ansible/roles/healthcheck/defaults/main.yml").read_text(encoding="utf-8"))
+        self.assertFalse(defaults["healthcheck_fix"])
+        self.assertTrue(defaults["healthcheck_scope_ssh"])
+
+    def test_fix_scopes_ssh_to_lan_and_tailscale(self):
+        tasks = (ROOT / "ansible/roles/healthcheck/tasks/main.yml").read_text(encoding="utf-8")
+        self.assertIn("healthcheck_lan_cidr", tasks)
+        self.assertIn("tailscale0", tasks)
+        self.assertIn("ufw, delete, allow", tasks)
+
+    def test_installer_exposes_check_and_fix(self):
+        installer = (ROOT / "install").read_text(encoding="utf-8")
+        self.assertIn("--check", installer)
+        self.assertIn("--fix", installer)
+        self.assertIn("healthcheck.yml", installer)
 
 
 class TestTimeshift(unittest.TestCase):

@@ -1,0 +1,3 @@
+---
+# Empty allows SSH from anywhere. Set a list of CIDRs to scope SSH instead.
+ufw_ssh_sources: []
