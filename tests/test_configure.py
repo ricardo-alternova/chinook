@@ -446,7 +446,7 @@ class TestUfw(unittest.TestCase):
         role = (ROOT / "ansible/roles/ufw/tasks/main.yml").read_text(encoding="utf-8")
         self.assertIn('- "{{ ufw_ssh_port }}/tcp"', role)
         self.assertIn("port ' ~ ufw_ssh_port", role)
-        self.assertNotIn('- OpenSSH', role)
+        self.assertIn("ufw_delete_open_openssh", role)
         all_vars = parse_yaml((ROOT / "ansible/group_vars/all.yml").read_text(encoding="utf-8"))
         self.assertEqual(all_vars["ufw_ssh_port"], 22)
         self.assertEqual(all_vars["ufw_ssh_sources"], [])

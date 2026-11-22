@@ -78,6 +78,19 @@
   failed_when: false
   when: "'any' not in ufw_resolved_ssh_sources"
 
+- name: Remove a world-open OpenSSH application rule from an older Chinook
+  ansible.builtin.command:
+    argv:
+      - ufw
+      - delete
+      - allow
+      - OpenSSH
+  become: true
+  register: ufw_delete_open_openssh
+  changed_when: ufw_delete_open_openssh.stdout is search('(?i)rule deleted|rules updated')
+  failed_when: false
+  when: "'any' not in ufw_resolved_ssh_sources"
+
 - name: Allow SSH through UFW from the resolved sources
   ansible.builtin.command:
     argv:
